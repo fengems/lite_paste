@@ -4,12 +4,26 @@ import LitePasteCore
 @MainActor
 func runChecks() {
   checkContentHasher()
+  checkAppSettingsBackwardCompatibility()
   checkPrivacyFilter()
   checkHistoryStore()
   checkHistoryQueryEngine()
   checkJSONHistoryRepository()
   checkLocalBlobStorage()
   print("LitePasteCoreChecks passed")
+}
+
+func checkAppSettingsBackwardCompatibility() {
+  let data = Data(#"{"hotkey":"command+shift+v","viewMode":"list"}"#.utf8)
+
+  do {
+    let settings = try JSONDecoder.litePaste.decode(AppSettings.self, from: data)
+    expect(settings.viewMode == ClipboardPanelViewMode.list, "Settings should decode existing view mode string")
+    expect(settings.clearSearchOnOpen, "Settings should default clearSearchOnOpen for old files")
+    expect(settings.maxHistoryCount == 1_000, "Settings should default maxHistoryCount for old files")
+  } catch {
+    fatalError("Settings compatibility check failed: \(error)")
+  }
 }
 
 func expect(_ condition: @autoclosure () -> Bool, _ message: String) {
@@ -85,6 +99,9 @@ func checkHistoryStore() {
     store.filteredRecords(query: "hello", filter: .favorites).count == 1,
     "Favorite filter should include favorited matching records"
   )
+
+  store.updateMaxHistoryCount(1)
+  expect(store.records.count == 1, "HistoryStore should trim when max history count changes")
 }
 
 func checkHistoryQueryEngine() {

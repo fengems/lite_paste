@@ -4,6 +4,7 @@ import SwiftUI
 
 struct ClipboardPanelView: View {
   @ObservedObject var store: HistoryStore
+  @ObservedObject var presentationState: PanelPresentationState
   let copyAction: (ClipboardRecord) -> Void
   let pasteAction: (ClipboardRecord) -> Void
 
@@ -12,7 +13,7 @@ struct ClipboardPanelView: View {
   @State private var query = ""
   @State private var filter: ClipboardFilter = .all
   @State private var sort: ClipboardHistorySort = .pinnedThenRecent
-  @State private var viewMode: PanelViewMode = .card
+  @State private var viewMode: ClipboardPanelViewMode = AppSettingsStore.shared.settings.viewMode
 
   private var records: [ClipboardRecord] {
     store.filteredRecords(
@@ -41,6 +42,9 @@ struct ClipboardPanelView: View {
       .padding(20)
     }
     .frame(minWidth: 720, minHeight: 460)
+    .onChange(of: presentationState.openRevision) {
+      prepareForOpen()
+    }
   }
 
   private var header: some View {
@@ -57,8 +61,8 @@ struct ClipboardPanelView: View {
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
 
       Picker("", selection: $viewMode) {
-        Image(systemName: "rectangle.grid.2x2").tag(PanelViewMode.card)
-        Image(systemName: "list.bullet").tag(PanelViewMode.list)
+        Image(systemName: "rectangle.grid.2x2").tag(ClipboardPanelViewMode.card)
+        Image(systemName: "list.bullet").tag(ClipboardPanelViewMode.list)
       }
       .pickerStyle(.segmented)
       .frame(width: 92)
@@ -190,9 +194,11 @@ struct ClipboardPanelView: View {
       store.clearAll()
     }
   }
-}
 
-private enum PanelViewMode {
-  case card
-  case list
+  private func prepareForOpen() {
+    viewMode = settingsStore.settings.viewMode
+    if settingsStore.settings.clearSearchOnOpen {
+      query = ""
+    }
+  }
 }

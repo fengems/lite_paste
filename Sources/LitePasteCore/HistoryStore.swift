@@ -12,7 +12,7 @@ public final class HistoryStore: ObservableObject {
   private let repository: any ClipboardHistoryRepository
   private let blobStorage: any BlobStorage
   private let queryEngine: ClipboardHistoryQueryEngine
-  private let maxHistoryCount: Int
+  private var maxHistoryCount: Int
 
   public init(
     records: [ClipboardRecord]? = nil,
@@ -109,6 +109,11 @@ public final class HistoryStore: ObservableObject {
   public func clearAll() {
     removeExternalFiles(in: records)
     records.removeAll()
+  }
+
+  public func updateMaxHistoryCount(_ maxHistoryCount: Int) {
+    self.maxHistoryCount = max(maxHistoryCount, 1)
+    trimHistoryIfNeeded()
   }
 
   private func update(_ id: ClipboardRecord.ID, _ mutate: (inout ClipboardRecord) -> Void) {

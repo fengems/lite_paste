@@ -26,7 +26,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         privacyMode: settingsStore.settings.privacyMode,
         ignoredApps: settingsStore.settings.ignoredApps,
         ignoredPasteboardTypes: settingsStore.settings.ignoredPasteboardTypes
-      )
+      ),
+      enabledTypes: settingsStore.settings.enabledTypes
     )
 
     self.writer = writer
@@ -75,6 +76,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ignoredPasteboardTypes: settings.ignoredPasteboardTypes
           )
         )
+        self?.monitor?.updateEnabledTypes(settings.enabledTypes)
+        self?.store.updateMaxHistoryCount(settings.maxHistoryCount)
       }
       .store(in: &cancellables)
   }

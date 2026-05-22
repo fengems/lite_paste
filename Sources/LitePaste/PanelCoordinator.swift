@@ -7,6 +7,7 @@ import SwiftUI
 final class PanelCoordinator {
   private let store: HistoryStore
   private let writer: PasteboardWriter
+  private let presentationState = PanelPresentationState()
   private var panel: NSPanel?
   private var previousApplication: NSRunningApplication?
 
@@ -42,11 +43,12 @@ final class PanelCoordinator {
     }
 
     NSApp.activate(ignoringOtherApps: true)
+    presentationState.markOpened()
     panel.makeKeyAndOrderFront(nil)
   }
 
   private func makePanel() -> NSPanel {
-    let rootView = ClipboardPanelView(store: store) { [weak self] record in
+    let rootView = ClipboardPanelView(store: store, presentationState: presentationState) { [weak self] record in
       self?.writer.copy(record)
     } pasteAction: { [weak self] record in
       self?.paste(record)

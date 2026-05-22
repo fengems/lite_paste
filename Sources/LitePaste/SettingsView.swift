@@ -11,6 +11,13 @@ struct SettingsView: View {
       Section("通用") {
         Toggle("开机启动", isOn: launchAtLogin)
         LabeledContent("打开面板快捷键", value: store.settings.hotkey)
+
+        Picker("默认视图", selection: viewMode) {
+          Text("卡片").tag(ClipboardPanelViewMode.card)
+          Text("列表").tag(ClipboardPanelViewMode.list)
+        }
+
+        Toggle("打开面板时清空搜索", isOn: clearSearchOnOpen)
       }
 
       Section("剪贴板") {
@@ -19,6 +26,17 @@ struct SettingsView: View {
         Picker("默认操作", selection: autoPasteMode) {
           Text("仅复制").tag(AutoPasteMode.copyOnly)
           Text("自动粘贴").tag(AutoPasteMode.paste)
+        }
+
+        Stepper("最大历史数量: \(store.settings.maxHistoryCount)", value: maxHistoryCount, in: 50...10_000, step: 50)
+
+        VStack(alignment: .leading, spacing: 8) {
+          Text("记录类型")
+            .font(.headline)
+
+          ForEach(recordableKinds) { kind in
+            Toggle(kind.displayName, isOn: enabledTypeBinding(kind))
+          }
         }
       }
 
@@ -80,6 +98,30 @@ struct SettingsView: View {
     }
   }
 
+  private var clearSearchOnOpen: Binding<Bool> {
+    Binding {
+      store.settings.clearSearchOnOpen
+    } set: { value in
+      store.update { $0.clearSearchOnOpen = value }
+    }
+  }
+
+  private var viewMode: Binding<ClipboardPanelViewMode> {
+    Binding {
+      store.settings.viewMode
+    } set: { value in
+      store.update { $0.viewMode = value }
+    }
+  }
+
+  private var maxHistoryCount: Binding<Int> {
+    Binding {
+      store.settings.maxHistoryCount
+    } set: { value in
+      store.update { $0.maxHistoryCount = value }
+    }
+  }
+
   private var privacyMode: Binding<Bool> {
     Binding {
       store.settings.privacyMode
@@ -93,6 +135,24 @@ struct SettingsView: View {
       store.settings.autoPasteMode
     } set: { value in
       store.update { $0.autoPasteMode = value }
+    }
+  }
+
+  private var recordableKinds: [ClipboardKind] {
+    [.text, .richText, .html, .image, .files, .url, .email, .color]
+  }
+
+  private func enabledTypeBinding(_ kind: ClipboardKind) -> Binding<Bool> {
+    Binding {
+      store.settings.enabledTypes.contains(kind)
+    } set: { enabled in
+      store.update { settings in
+        if enabled {
+          settings.enabledTypes.insert(kind)
+        } else {
+          settings.enabledTypes.remove(kind)
+        }
+      }
     }
   }
 

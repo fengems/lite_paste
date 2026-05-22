@@ -8,6 +8,7 @@ final class ClipboardMonitor {
   private let store: HistoryStore
   private let blobStorage: any BlobStorage
   private var privacyFilter: PrivacyFilter
+  private var enabledTypes: Set<ClipboardKind>
   private var timer: Timer?
   private var lastChangeCount: Int
 
@@ -15,12 +16,14 @@ final class ClipboardMonitor {
     pasteboard: NSPasteboard = .general,
     store: HistoryStore,
     blobStorage: any BlobStorage = LocalBlobStorage(),
-    privacyFilter: PrivacyFilter = PrivacyFilter()
+    privacyFilter: PrivacyFilter = PrivacyFilter(),
+    enabledTypes: Set<ClipboardKind> = Set(ClipboardKind.allCases)
   ) {
     self.pasteboard = pasteboard
     self.store = store
     self.blobStorage = blobStorage
     self.privacyFilter = privacyFilter
+    self.enabledTypes = enabledTypes
     self.lastChangeCount = pasteboard.changeCount
   }
 
@@ -42,6 +45,10 @@ final class ClipboardMonitor {
     self.privacyFilter = privacyFilter
   }
 
+  func updateEnabledTypes(_ enabledTypes: Set<ClipboardKind>) {
+    self.enabledTypes = enabledTypes
+  }
+
   private func captureIfNeeded() {
     guard pasteboard.changeCount != lastChangeCount else {
       return
@@ -50,6 +57,10 @@ final class ClipboardMonitor {
     lastChangeCount = pasteboard.changeCount
 
     guard let payload = readPayload() else {
+      return
+    }
+
+    guard enabledTypes.contains(payload.kind) else {
       return
     }
 
