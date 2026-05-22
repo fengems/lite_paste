@@ -1,0 +1,265 @@
+import Foundation
+import SQLite3
+
+public struct SQLiteClipboardHistoryRepository: ClipboardHistoryRepository {
+  private let url: URL
+
+  public init(url: URL = AppPaths.applicationSupportDirectory.appending(path: "history.sqlite3")) {
+    self.url = url
+  }
+
+  public func load() throws -> [ClipboardRecord] {
+    let connection = try SQLiteConnection(url: url)
+    try connection.ensureSchema()
+
+    let statement = try connection.prepare("""
+      SELECT id, kind, title, search_text, note, source_app_bundle_id, source_app_name,
+             created_at, last_copied_at, last_used_at, copy_count, is_favorite, is_pinned,
+             pin_shortcut, content_hash, plain_text, contents_json, preview_file_path
+      FROM clipboard_records
+      ORDER BY position ASC
+      """)
+    defer { sqlite3_finalize(statement) }
+
+    var records: [ClipboardRecord] = []
+    var stepResult = sqlite3_step(statement)
+    while stepResult == SQLITE_ROW {
+      records.append(try Self.record(from: statement))
+      stepResult = sqlite3_step(statement)
+    }
+
+    guard stepResult == SQLITE_DONE else {
+      throw SQLiteRepositoryError.operationFailed(connection.errorMessage)
+    }
+
+    return records
+  }
+
+  public func save(_ records: [ClipboardRecord]) throws {
+    try FileManager.default.createDirectory(
+      at: url.deletingLastPathComponent(),
+      withIntermediateDirectories: true
+    )
+
+    let connection = try SQLiteConnection(url: url)
+    try connection.ensureSchema()
+    try connection.execute("BEGIN IMMEDIATE TRANSACTION")
+
+    do {
+      try connection.execute("DELETE FROM clipboard_records")
+      let statement = try connection.prepare("""
+        INSERT INTO clipboard_records (
+          id, kind, title, search_text, note, source_app_bundle_id, source_app_name,
+          created_at, last_copied_at, last_used_at, copy_count, is_favorite, is_pinned,
+          pin_shortcut, content_hash, plain_text, contents_json, preview_file_path, position
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """)
+      defer { sqlite3_finalize(statement) }
+
+      for (position, record) in records.enumerated() {
+        try Self.bind(record, position: position, to: statement)
+        guard sqlite3_step(statement) == SQLITE_DONE else {
+          throw SQLiteRepositoryError.operationFailed(connection.errorMessage)
+        }
+        sqlite3_reset(statement)
+        sqlite3_clear_bindings(statement)
+      }
+
+      try connection.execute("COMMIT")
+    } catch {
+      try? connection.execute("ROLLBACK")
+      throw error
+    }
+  }
+
+  private static func record(from statement: OpaquePointer?) throws -> ClipboardRecord {
+    guard let id = UUID(uuidString: text(at: 0, in: statement) ?? ""),
+          let kind = ClipboardKind(rawValue: text(at: 1, in: statement) ?? "") else {
+      throw SQLiteRepositoryError.invalidRecord
+    }
+
+    let contentsData = data(at: 16, in: statement) ?? Data("[]".utf8)
+    let contents = try JSONDecoder.litePaste.decode([ClipboardContentSnapshot].self, from: contentsData)
+
+    return ClipboardRecord(
+      id: id,
+      kind: kind,
+      title: text(at: 2, in: statement) ?? "",
+      searchText: text(at: 3, in: statement) ?? "",
+      note: text(at: 4, in: statement) ?? "",
+      sourceAppBundleId: text(at: 5, in: statement),
+      sourceAppName: text(at: 6, in: statement),
+      createdAt: Date(timeIntervalSince1970: sqlite3_column_double(statement, 7)),
+      lastCopiedAt: Date(timeIntervalSince1970: sqlite3_column_double(statement, 8)),
+      lastUsedAt: optionalDate(at: 9, in: statement),
+      copyCount: Int(sqlite3_column_int64(statement, 10)),
+      isFavorite: sqlite3_column_int(statement, 11) != 0,
+      isPinned: sqlite3_column_int(statement, 12) != 0,
+      pinShortcut: text(at: 13, in: statement),
+      contentHash: text(at: 14, in: statement) ?? "",
+      plainText: text(at: 15, in: statement),
+      contents: contents,
+      previewFilePath: text(at: 17, in: statement)
+    )
+  }
+
+  private static func bind(_ record: ClipboardRecord, position: Int, to statement: OpaquePointer?) throws {
+    let contentsData = try JSONEncoder.litePaste.encode(record.contents)
+
+    bindText(record.id.uuidString, at: 1, to: statement)
+    bindText(record.kind.rawValue, at: 2, to: statement)
+    bindText(record.title, at: 3, to: statement)
+    bindText(record.searchText, at: 4, to: statement)
+    bindText(record.note, at: 5, to: statement)
+    bindText(record.sourceAppBundleId, at: 6, to: statement)
+    bindText(record.sourceAppName, at: 7, to: statement)
+    sqlite3_bind_double(statement, 8, record.createdAt.timeIntervalSince1970)
+    sqlite3_bind_double(statement, 9, record.lastCopiedAt.timeIntervalSince1970)
+    bindDate(record.lastUsedAt, at: 10, to: statement)
+    sqlite3_bind_int64(statement, 11, Int64(record.copyCount))
+    sqlite3_bind_int(statement, 12, record.isFavorite ? 1 : 0)
+    sqlite3_bind_int(statement, 13, record.isPinned ? 1 : 0)
+    bindText(record.pinShortcut, at: 14, to: statement)
+    bindText(record.contentHash, at: 15, to: statement)
+    bindText(record.plainText, at: 16, to: statement)
+    let bindContentsResult = contentsData.withUnsafeBytes { buffer in
+      sqlite3_bind_blob(statement, 17, buffer.baseAddress, Int32(buffer.count), sqliteTransient)
+    }
+    guard bindContentsResult == SQLITE_OK else {
+      throw SQLiteRepositoryError.operationFailed("Unable to bind clipboard contents")
+    }
+    bindText(record.previewFilePath, at: 18, to: statement)
+    sqlite3_bind_int64(statement, 19, Int64(position))
+  }
+
+  private static func optionalDate(at index: Int32, in statement: OpaquePointer?) -> Date? {
+    guard sqlite3_column_type(statement, index) != SQLITE_NULL else {
+      return nil
+    }
+
+    return Date(timeIntervalSince1970: sqlite3_column_double(statement, index))
+  }
+
+  private static func text(at index: Int32, in statement: OpaquePointer?) -> String? {
+    guard sqlite3_column_type(statement, index) != SQLITE_NULL,
+          let pointer = sqlite3_column_text(statement, index) else {
+      return nil
+    }
+
+    return String(cString: pointer)
+  }
+
+  private static func data(at index: Int32, in statement: OpaquePointer?) -> Data? {
+    guard sqlite3_column_type(statement, index) != SQLITE_NULL else {
+      return nil
+    }
+
+    let byteCount = Int(sqlite3_column_bytes(statement, index))
+    guard byteCount > 0,
+          let bytes = sqlite3_column_blob(statement, index) else {
+      return Data()
+    }
+
+    return Data(bytes: bytes, count: byteCount)
+  }
+
+  private static func bindText(_ value: String?, at index: Int32, to statement: OpaquePointer?) {
+    guard let value else {
+      sqlite3_bind_null(statement, index)
+      return
+    }
+
+    sqlite3_bind_text(statement, index, value, -1, sqliteTransient)
+  }
+
+  private static func bindDate(_ value: Date?, at index: Int32, to statement: OpaquePointer?) {
+    guard let value else {
+      sqlite3_bind_null(statement, index)
+      return
+    }
+
+    sqlite3_bind_double(statement, index, value.timeIntervalSince1970)
+  }
+}
+
+private final class SQLiteConnection {
+  private var database: OpaquePointer?
+
+  var errorMessage: String {
+    guard let database,
+          let message = sqlite3_errmsg(database) else {
+      return "Unknown SQLite error"
+    }
+
+    return String(cString: message)
+  }
+
+  init(url: URL) throws {
+    try FileManager.default.createDirectory(
+      at: url.deletingLastPathComponent(),
+      withIntermediateDirectories: true
+    )
+
+    let flags = SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX
+    guard sqlite3_open_v2(url.path, &database, flags, nil) == SQLITE_OK else {
+      let message = errorMessage
+      sqlite3_close(database)
+      throw SQLiteRepositoryError.openFailed(message)
+    }
+  }
+
+  deinit {
+    sqlite3_close(database)
+  }
+
+  func ensureSchema() throws {
+    try execute("""
+      CREATE TABLE IF NOT EXISTS clipboard_records (
+        id TEXT PRIMARY KEY NOT NULL,
+        kind TEXT NOT NULL,
+        title TEXT NOT NULL,
+        search_text TEXT NOT NULL,
+        note TEXT NOT NULL,
+        source_app_bundle_id TEXT,
+        source_app_name TEXT,
+        created_at REAL NOT NULL,
+        last_copied_at REAL NOT NULL,
+        last_used_at REAL,
+        copy_count INTEGER NOT NULL,
+        is_favorite INTEGER NOT NULL,
+        is_pinned INTEGER NOT NULL,
+        pin_shortcut TEXT,
+        content_hash TEXT NOT NULL,
+        plain_text TEXT,
+        contents_json BLOB NOT NULL,
+        preview_file_path TEXT,
+        position INTEGER NOT NULL
+      )
+      """)
+    try execute("CREATE INDEX IF NOT EXISTS idx_clipboard_records_content_hash ON clipboard_records(content_hash)")
+    try execute("CREATE INDEX IF NOT EXISTS idx_clipboard_records_last_copied_at ON clipboard_records(last_copied_at DESC)")
+  }
+
+  func execute(_ sql: String) throws {
+    guard sqlite3_exec(database, sql, nil, nil, nil) == SQLITE_OK else {
+      throw SQLiteRepositoryError.operationFailed(errorMessage)
+    }
+  }
+
+  func prepare(_ sql: String) throws -> OpaquePointer? {
+    var statement: OpaquePointer?
+    guard sqlite3_prepare_v2(database, sql, -1, &statement, nil) == SQLITE_OK else {
+      throw SQLiteRepositoryError.operationFailed(errorMessage)
+    }
+
+    return statement
+  }
+}
+
+public enum SQLiteRepositoryError: Error, Equatable, Sendable {
+  case openFailed(String)
+  case operationFailed(String)
+  case invalidRecord
+}
+
+private let sqliteTransient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)

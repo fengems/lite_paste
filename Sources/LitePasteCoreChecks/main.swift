@@ -20,6 +20,7 @@ func runChecks() {
   checkClipboardWriteTracker()
   checkPasteboardRestorePlanner()
   checkJSONHistoryRepository()
+  checkSQLiteHistoryRepository()
   checkHistoryPersistenceCleanup()
   checkRuntimeReload()
   checkImportExportValidation()
@@ -1202,6 +1203,71 @@ func checkJSONHistoryRepository() {
     expect(loaded.first?.title == "persisted", "JSON repository should preserve record fields")
   } catch {
     fatalError("JSON repository check failed: \(error)")
+  }
+}
+
+func checkSQLiteHistoryRepository() {
+  let directory = FileManager.default.temporaryDirectory
+    .appending(path: "LitePasteSQLiteChecks-\(UUID().uuidString)", directoryHint: .isDirectory)
+  let url = directory.appending(path: "history.sqlite3")
+
+  do {
+    defer {
+      try? FileManager.default.removeItem(at: directory)
+    }
+
+    let repository = SQLiteClipboardHistoryRepository(url: url)
+    let first = ClipboardRecord(
+      id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
+      kind: .image,
+      title: "first",
+      searchText: "first image",
+      note: "note",
+      sourceAppBundleId: "com.example.Source",
+      sourceAppName: "Source",
+      createdAt: Date(timeIntervalSince1970: 1),
+      lastCopiedAt: Date(timeIntervalSince1970: 2),
+      lastUsedAt: Date(timeIntervalSince1970: 3),
+      copyCount: 4,
+      isFavorite: true,
+      isPinned: true,
+      pinShortcut: "command+option+1",
+      contentHash: "hash-1",
+      plainText: nil,
+      contents: [
+        ClipboardContentSnapshot(
+          pasteboardType: "public.png",
+          storageMode: .external,
+          externalFilePath: "/tmp/image.png",
+          byteSize: 42,
+          displayOrder: 0
+        )
+      ],
+      previewFilePath: "/tmp/preview.png"
+    )
+    let second = ClipboardRecord(
+      id: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
+      kind: .text,
+      title: "second",
+      searchText: "second text",
+      createdAt: Date(timeIntervalSince1970: 4),
+      lastCopiedAt: Date(timeIntervalSince1970: 5),
+      copyCount: 1,
+      contentHash: "hash-2",
+      plainText: "second"
+    )
+
+    try repository.save([first, second])
+    let loaded = try repository.load()
+
+    expect(loaded == [first, second], "SQLite repository should round-trip records in saved order")
+
+    try repository.save([second])
+    let overwritten = try repository.load()
+
+    expect(overwritten == [second], "SQLite repository save should replace previous history snapshot")
+  } catch {
+    fatalError("SQLite repository check failed: \(error)")
   }
 }
 

@@ -22,7 +22,10 @@ let package = Package(
       dependencies: ["LitePasteCore"]
     ),
     .target(
-      name: "LitePasteCore"
+      name: "LitePasteCore",
+      linkerSettings: [
+        .linkedLibrary("sqlite3")
+      ]
     )
   ]
 )
