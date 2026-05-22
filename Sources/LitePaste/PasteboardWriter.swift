@@ -8,34 +8,32 @@ final class PasteboardWriter {
   private let pasteboard: NSPasteboard
   private let store: HistoryStore
   private let writeTracker: ClipboardWriteTracker
+  private let restorePlanner: PasteboardRestorePlanner
 
   init(
     pasteboard: NSPasteboard = .general,
     store: HistoryStore,
-    writeTracker: ClipboardWriteTracker
+    writeTracker: ClipboardWriteTracker,
+    restorePlanner: PasteboardRestorePlanner = PasteboardRestorePlanner()
   ) {
     self.pasteboard = pasteboard
     self.store = store
     self.writeTracker = writeTracker
+    self.restorePlanner = restorePlanner
   }
 
   @discardableResult
   func copy(_ record: ClipboardRecord, asPlainText: Bool = false) -> PasteActionResult {
-    if asPlainText {
-      return copyPlainText(record)
+    guard let plan = restorePlanner.plan(for: record, asPlainText: asPlainText) else {
+      return .missingContent
     }
 
-    if restoreFileURLs(record) {
+    if apply(plan) {
       store.markUsed(record.id)
       return .copied
     }
 
-    if restoreContentSnapshots(record) {
-      store.markUsed(record.id)
-      return .copied
-    }
-
-    return copyPlainText(record)
+    return .missingContent
   }
 
   @discardableResult
@@ -71,18 +69,6 @@ final class PasteboardWriter {
     return .pasted
   }
 
-  private func copyPlainText(_ record: ClipboardRecord) -> PasteActionResult {
-    guard let text = record.plainText else {
-      return .missingContent
-    }
-
-    pasteboard.clearContents()
-    pasteboard.setString(text, forType: .string)
-    markCurrentPasteboardChangeIgnored()
-    store.markUsed(record.id)
-    return .copied
-  }
-
   private func requestAccessibilityPermission() {
     let options = [
       "AXTrustedCheckOptionPrompt": true
@@ -101,48 +87,20 @@ final class PasteboardWriter {
     keyUp?.post(tap: .cghidEventTap)
   }
 
-  private func restoreFileURLs(_ record: ClipboardRecord) -> Bool {
-    guard record.kind == .files,
-          let text = record.plainText else {
-      return false
-    }
-
-    let urls = text
-      .split(separator: "\n")
-      .map { URL(fileURLWithPath: String($0)) }
-
-    guard !urls.isEmpty else {
-      return false
-    }
-
-    pasteboard.clearContents()
-    let restored = pasteboard.writeObjects(urls as [NSURL])
-    if restored {
-      markCurrentPasteboardChangeIgnored()
-    }
-    return restored
-  }
-
-  private func restoreContentSnapshots(_ record: ClipboardRecord) -> Bool {
-    let snapshots = record.contents.sorted { $0.displayOrder < $1.displayOrder }
-    guard !snapshots.isEmpty else {
-      return false
-    }
-
+  private func apply(_ plan: PasteboardRestorePlan) -> Bool {
     pasteboard.clearContents()
 
-    var restored = false
-    for snapshot in snapshots {
-      guard let data = data(for: snapshot) else {
-        continue
+    let restored: Bool
+    switch plan {
+    case let .fileURLs(urls):
+      restored = pasteboard.writeObjects(urls as [NSURL])
+    case let .items(items):
+      for item in items {
+        let type = NSPasteboard.PasteboardType(item.pasteboardType)
+        pasteboard.setData(item.data, forType: type)
       }
-
-      let type = NSPasteboard.PasteboardType(snapshot.pasteboardType)
-      pasteboard.setData(data, forType: type)
       restored = true
-    }
-
-    if let text = record.plainText, !text.isEmpty {
+    case let .plainText(text):
       pasteboard.setString(text, forType: .string)
       restored = true
     }
@@ -160,19 +118,6 @@ final class PasteboardWriter {
   private func restorePreviousClipboard(_ snapshot: PasteboardSnapshot) {
     if snapshot.restore(to: pasteboard) {
       markCurrentPasteboardChangeIgnored()
-    }
-  }
-
-  private func data(for snapshot: ClipboardContentSnapshot) -> Data? {
-    switch snapshot.storageMode {
-    case .inline:
-      return snapshot.inlineData
-    case .external:
-      guard let externalFilePath = snapshot.externalFilePath else {
-        return nil
-      }
-
-      return try? Data(contentsOf: URL(fileURLWithPath: externalFilePath))
     }
   }
 }

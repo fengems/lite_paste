@@ -11,6 +11,7 @@ func runChecks() {
   checkHistoryQueryEngine()
   checkHistoryQueryPerformance()
   checkClipboardWriteTracker()
+  checkPasteboardRestorePlanner()
   checkJSONHistoryRepository()
   checkRuntimeReload()
   checkImportExportValidation()
@@ -135,6 +136,142 @@ func checkClipboardWriteTracker() {
   expect(tracker.shouldIgnore(changeCount: 42), "ClipboardWriteTracker should ignore marked change count")
   expect(!tracker.shouldIgnore(changeCount: 42), "ClipboardWriteTracker should consume ignored change count once")
   expect(!tracker.shouldIgnore(changeCount: 43), "ClipboardWriteTracker should not ignore unmarked change count")
+}
+
+func checkPasteboardRestorePlanner() {
+  let externalData = Data("external image".utf8)
+  let planner = PasteboardRestorePlanner { path in
+    path == "/tmp/image.png" ? externalData : nil
+  }
+
+  let textRecord = ClipboardRecord(
+    kind: .text,
+    title: "hello",
+    searchText: "hello",
+    contentHash: "text",
+    plainText: "hello",
+    contents: [
+      ClipboardContentSnapshot(
+        pasteboardType: PasteboardRestorePlanner.plainTextPasteboardType,
+        storageMode: .inline,
+        inlineData: Data("hello".utf8),
+        byteSize: 5,
+        displayOrder: 0
+      )
+    ]
+  )
+
+  expect(
+    planner.plan(for: textRecord, asPlainText: true) == .plainText("hello"),
+    "Restore planner should force plain text when requested"
+  )
+
+  let fileRecord = ClipboardRecord(
+    kind: .files,
+    title: "files",
+    searchText: "/tmp/a.txt\n/tmp/b.txt",
+    contentHash: "files",
+    plainText: "/tmp/a.txt\n/tmp/b.txt",
+    contents: [
+      ClipboardContentSnapshot(
+        pasteboardType: "public.file-url",
+        storageMode: .inline,
+        inlineData: Data("/tmp/a.txt".utf8),
+        byteSize: 10,
+        displayOrder: 1
+      ),
+      ClipboardContentSnapshot(
+        pasteboardType: "public.file-url",
+        storageMode: .inline,
+        inlineData: Data("/tmp/b.txt".utf8),
+        byteSize: 10,
+        displayOrder: 0
+      )
+    ]
+  )
+
+  if case let .fileURLs(urls)? = planner.plan(for: fileRecord) {
+    expect(urls.map(\.path) == ["/tmp/b.txt", "/tmp/a.txt"], "Restore planner should restore file URLs in display order")
+  } else {
+    fatalError("Restore planner should create a file URL plan")
+  }
+
+  let legacyFileRecord = ClipboardRecord(
+    kind: .files,
+    title: "legacy files",
+    searchText: "/tmp/legacy.txt",
+    contentHash: "legacy-files",
+    plainText: "/tmp/legacy.txt"
+  )
+
+  if case let .fileURLs(urls)? = planner.plan(for: legacyFileRecord) {
+    expect(urls.map(\.path) == ["/tmp/legacy.txt"], "Restore planner should restore legacy file records from plain text")
+  } else {
+    fatalError("Restore planner should create a file URL plan for legacy file records")
+  }
+
+  let imageRecord = ClipboardRecord(
+    kind: .image,
+    title: "image",
+    searchText: "image",
+    contentHash: "image",
+    contents: [
+      ClipboardContentSnapshot(
+        pasteboardType: "public.png",
+        storageMode: .external,
+        externalFilePath: "/tmp/image.png",
+        byteSize: externalData.count,
+        displayOrder: 0
+      )
+    ]
+  )
+
+  if case let .items(items)? = planner.plan(for: imageRecord) {
+    expect(items == [PasteboardRestoreItem(pasteboardType: "public.png", data: externalData)], "Restore planner should read external blob data")
+  } else {
+    fatalError("Restore planner should create an item plan for external data")
+  }
+
+  let richRecord = ClipboardRecord(
+    kind: .html,
+    title: "HTML",
+    searchText: "Hello",
+    contentHash: "html",
+    plainText: "Hello",
+    contents: [
+      ClipboardContentSnapshot(
+        pasteboardType: "public.html",
+        storageMode: .inline,
+        inlineData: Data("<b>Hello</b>".utf8),
+        byteSize: 12,
+        displayOrder: 0
+      )
+    ]
+  )
+
+  if case let .items(items)? = planner.plan(for: richRecord) {
+    expect(items.map(\.pasteboardType) == ["public.html", PasteboardRestorePlanner.plainTextPasteboardType], "Restore planner should append plain text fallback for rich content")
+  } else {
+    fatalError("Restore planner should create an item plan for rich content")
+  }
+
+  let missingRecord = ClipboardRecord(
+    kind: .image,
+    title: "missing",
+    searchText: "missing",
+    contentHash: "missing",
+    contents: [
+      ClipboardContentSnapshot(
+        pasteboardType: "public.png",
+        storageMode: .external,
+        externalFilePath: "/tmp/missing.png",
+        byteSize: 0,
+        displayOrder: 0
+      )
+    ]
+  )
+
+  expect(planner.plan(for: missingRecord) == nil, "Restore planner should fail when no restorable content exists")
 }
 
 @MainActor
