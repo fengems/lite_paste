@@ -11,10 +11,17 @@ struct ClipboardPanelView: View {
   @StateObject private var settingsStore = AppSettingsStore()
   @State private var query = ""
   @State private var filter: ClipboardFilter = .all
+  @State private var sort: ClipboardHistorySort = .pinnedThenRecent
   @State private var viewMode: PanelViewMode = .card
 
   private var records: [ClipboardRecord] {
-    store.filteredRecords(query: query, filter: filter)
+    store.filteredRecords(
+      ClipboardHistoryQuery(
+        text: query,
+        filter: filter,
+        sort: sort
+      )
+    )
   }
 
   var body: some View {
@@ -89,6 +96,14 @@ struct ClipboardPanelView: View {
       }
 
       Spacer()
+
+      Picker("", selection: $sort) {
+        Label("置顶", systemImage: "pin").tag(ClipboardHistorySort.pinnedThenRecent)
+        Label("最近", systemImage: "clock").tag(ClipboardHistorySort.recent)
+        Label("常用", systemImage: "number").tag(ClipboardHistorySort.mostUsed)
+      }
+      .pickerStyle(.segmented)
+      .frame(width: 180)
     }
   }
 
