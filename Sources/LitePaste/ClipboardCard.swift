@@ -18,7 +18,7 @@ struct ClipboardCard: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
       HStack {
-        Label(record.kind.displayName, systemImage: iconName)
+        Label(record.kind.displayName, systemImage: record.kind.previewIconName)
           .font(.system(size: 12, weight: .medium))
           .foregroundStyle(.secondary)
 
@@ -124,34 +124,6 @@ struct ClipboardCard: View {
 
   @ViewBuilder
   private var preview: some View {
-    if record.kind == .image, let path = record.previewFilePath {
-      ClipboardPreviewImage(path: path)
-    } else {
-      Text(record.title)
-        .font(.system(size: 17, weight: .semibold))
-        .lineLimit(5)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    }
-  }
-
-  private var iconName: String {
-    switch record.kind {
-    case .text:
-      "text.alignleft"
-    case .richText, .html:
-      "doc.richtext"
-    case .image:
-      "photo"
-    case .files:
-      "folder"
-    case .url:
-      "link"
-    case .email:
-      "envelope"
-    case .color:
-      "paintpalette"
-    case .unknown:
-      "questionmark.square"
-    }
+    ClipboardContentPreview(record: record, style: .card)
   }
 }

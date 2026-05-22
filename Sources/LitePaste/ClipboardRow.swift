@@ -112,32 +112,6 @@ struct ClipboardRow: View {
 
   @ViewBuilder
   private var thumbnail: some View {
-    if record.kind == .image, let path = record.previewFilePath {
-      ClipboardPreviewImage(path: path)
-    } else {
-      Image(systemName: iconName)
-        .font(.system(size: 16, weight: .semibold))
-    }
-  }
-
-  private var iconName: String {
-    switch record.kind {
-    case .text:
-      "text.alignleft"
-    case .richText, .html:
-      "doc.richtext"
-    case .image:
-      "photo"
-    case .files:
-      "folder"
-    case .url:
-      "link"
-    case .email:
-      "envelope"
-    case .color:
-      "paintpalette"
-    case .unknown:
-      "questionmark.square"
-    }
+    ClipboardContentPreview(record: record, style: .thumbnail)
   }
 }
