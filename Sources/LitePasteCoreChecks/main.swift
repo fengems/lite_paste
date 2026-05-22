@@ -6,6 +6,7 @@ func runChecks() {
   checkContentHasher()
   checkPrivacyFilter()
   checkHistoryStore()
+  checkHistoryQueryEngine()
   checkJSONHistoryRepository()
   checkLocalBlobStorage()
   print("LitePasteCoreChecks passed")
@@ -84,6 +85,60 @@ func checkHistoryStore() {
     store.filteredRecords(query: "hello", filter: .favorites).count == 1,
     "Favorite filter should include favorited matching records"
   )
+}
+
+func checkHistoryQueryEngine() {
+  let engine = ClipboardHistoryQueryEngine()
+  let old = ClipboardRecord(
+    kind: .text,
+    title: "old",
+    searchText: "alpha",
+    note: "memo",
+    sourceAppBundleId: "com.example.Old",
+    sourceAppName: "OldApp",
+    lastCopiedAt: Date(timeIntervalSince1970: 10),
+    copyCount: 1,
+    contentHash: "old"
+  )
+  let pinned = ClipboardRecord(
+    kind: .image,
+    title: "image",
+    searchText: "screenshot",
+    note: "",
+    sourceAppBundleId: "com.example.Image",
+    sourceAppName: "ImageApp",
+    lastCopiedAt: Date(timeIntervalSince1970: 1),
+    copyCount: 2,
+    isPinned: true,
+    contentHash: "image"
+  )
+  let popular = ClipboardRecord(
+    kind: .files,
+    title: "files",
+    searchText: "report.pdf",
+    note: "",
+    sourceAppBundleId: "com.example.Files",
+    sourceAppName: "Finder",
+    lastCopiedAt: Date(timeIntervalSince1970: 20),
+    copyCount: 9,
+    contentHash: "files"
+  )
+  let records = [old, pinned, popular]
+
+  let defaultResults = engine.execute(ClipboardHistoryQuery(), records: records)
+  expect(defaultResults.first?.id == pinned.id, "Pinned records should sort before recent records")
+
+  let noteResults = engine.execute(ClipboardHistoryQuery(text: "memo"), records: records)
+  expect(noteResults.count == 1 && noteResults.first?.id == old.id, "Query should match notes")
+
+  let fileResults = engine.execute(ClipboardHistoryQuery(filter: .files), records: records)
+  expect(fileResults.count == 1 && fileResults.first?.id == popular.id, "Filter should match files")
+
+  let popularResults = engine.execute(
+    ClipboardHistoryQuery(sort: .mostUsed),
+    records: records
+  )
+  expect(popularResults.first?.id == popular.id, "Most-used sort should sort by copy count")
 }
 
 func checkJSONHistoryRepository() {

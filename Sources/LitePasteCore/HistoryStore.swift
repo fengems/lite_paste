@@ -11,16 +11,19 @@ public final class HistoryStore: ObservableObject {
 
   private let repository: any ClipboardHistoryRepository
   private let blobStorage: any BlobStorage
+  private let queryEngine: ClipboardHistoryQueryEngine
   private let maxHistoryCount: Int
 
   public init(
     records: [ClipboardRecord]? = nil,
     repository: any ClipboardHistoryRepository = JSONClipboardHistoryRepository(),
     blobStorage: any BlobStorage = LocalBlobStorage(),
+    queryEngine: ClipboardHistoryQueryEngine = ClipboardHistoryQueryEngine(),
     maxHistoryCount: Int = 1_000
   ) {
     self.repository = repository
     self.blobStorage = blobStorage
+    self.queryEngine = queryEngine
     self.maxHistoryCount = maxHistoryCount
     self.records = records ?? Self.load(from: repository)
   }
@@ -66,29 +69,11 @@ public final class HistoryStore: ObservableObject {
   }
 
   public func filteredRecords(query: String, filter: ClipboardFilter) -> [ClipboardRecord] {
-    let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    filteredRecords(ClipboardHistoryQuery(text: query, filter: filter))
+  }
 
-    return records.filter { record in
-      guard filter.matches(record) else {
-        return false
-      }
-
-      guard !normalizedQuery.isEmpty else {
-        return true
-      }
-
-      let haystack = [
-        record.title,
-        record.searchText,
-        record.note,
-        record.sourceAppName ?? "",
-        record.sourceAppBundleId ?? ""
-      ]
-        .joined(separator: "\n")
-        .lowercased()
-
-      return haystack.contains(normalizedQuery)
-    }
+  public func filteredRecords(_ query: ClipboardHistoryQuery) -> [ClipboardRecord] {
+    queryEngine.execute(query, records: records)
   }
 
   public func toggleFavorite(_ id: ClipboardRecord.ID) {
@@ -145,7 +130,10 @@ public final class HistoryStore: ObservableObject {
     let regular = regularRecords.prefix(regularLimit)
     let trimmed = regularRecords.dropFirst(regularLimit)
     removeExternalFiles(in: Array(trimmed))
-    records = pinned + regular
+    records = queryEngine.execute(
+      ClipboardHistoryQuery(sort: .pinnedThenRecent),
+      records: pinned + regular
+    )
   }
 
   private func persist() {
