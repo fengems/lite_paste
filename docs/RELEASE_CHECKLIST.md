@@ -1,6 +1,6 @@
 # Lite Paste 可使用版本发布检查清单
 
-本文档用于当前 Command Line Tools 环境下的本地试用版发布。正式 Developer ID 签名、公证、DMG 和 Xcode target 发布流程后续再补。
+本文档用于当前 Command Line Tools 环境下的本地试用版发布。正式 Developer ID 签名、公证和 Xcode target 发布流程后续再补。
 
 ## 1. 构建
 
@@ -10,7 +10,7 @@
 Scripts/build_app_bundle.sh
 ```
 
-生成可分享的 zip 包和 SHA-256 校验文件：
+生成可分享的 zip、DMG 和 SHA-256 校验文件：
 
 ```bash
 Scripts/package_release.sh
@@ -21,6 +21,8 @@ Scripts/package_release.sh
 - `Build/LitePaste.app`
 - `Build/LitePaste-0.1.0-1.zip`
 - `Build/LitePaste-0.1.0-1.zip.sha256`
+- `Build/LitePaste-0.1.0-1.dmg`
+- `Build/LitePaste-0.1.0-1.dmg.sha256`
 
 如需覆盖版本号：
 
@@ -38,6 +40,7 @@ swift build
 Scripts/build_app_bundle.sh
 plutil -lint Build/LitePaste.app/Contents/Info.plist
 codesign --verify --deep --strict --verbose=2 Build/LitePaste.app
+Scripts/package_release.sh
 ```
 
 确认 bundle 内容：
@@ -52,6 +55,14 @@ find Build/LitePaste.app/Contents -maxdepth 3 -type f | sort
 - `Contents/Info.plist`
 - `Contents/PkgInfo`
 - `Contents/Resources/AppIcon.icns`
+
+确认发布包：
+
+```bash
+hdiutil verify Build/LitePaste-0.1.0-1.dmg
+shasum -a 256 -c Build/LitePaste-0.1.0-1.zip.sha256
+shasum -a 256 -c Build/LitePaste-0.1.0-1.dmg.sha256
+```
 
 ## 3. 首次运行检查
 
@@ -74,7 +85,7 @@ open Build/LitePaste.app
 
 ## 4. 已知限制
 
-- 当前 zip 为 ad-hoc 签名本地试用包，不是 Developer ID 签名和公证发布包。
+- 当前 zip 和 DMG 为 ad-hoc 签名本地试用包，不是 Developer ID 签名和公证发布包。
 - 首次打开可能需要用户在 macOS 安全设置中确认允许运行。
 - 开机启动能力更适合正式 `.app` bundle 和签名环境验证。
 - 菜单栏使用项目内绘制的 template 图标，完整 Xcode target 阶段可再迁移到 asset catalog。
