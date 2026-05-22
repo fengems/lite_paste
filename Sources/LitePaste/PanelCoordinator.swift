@@ -49,6 +49,12 @@ final class PanelCoordinator {
   }
 
   private func makePanel() -> NSPanel {
+    let panel = NSPanel(
+      contentRect: NSRect(x: 0, y: 0, width: 820, height: 560),
+      styleMask: [.titled, .fullSizeContentView, .nonactivatingPanel],
+      backing: .buffered,
+      defer: false
+    )
     let rootView = ClipboardPanelView(
       store: store,
       presentationState: presentationState,
@@ -63,16 +69,12 @@ final class PanelCoordinator {
       },
       primaryPasteAction: { [weak self] record in
         self?.paste(record, asPlainText: self?.settingsStore.settings.pastePlainByDefault ?? false)
+      },
+      closeAction: { [weak panel] in
+        panel?.orderOut(nil)
       }
     )
-
     let hostingController = NSHostingController(rootView: rootView)
-    let panel = NSPanel(
-      contentRect: NSRect(x: 0, y: 0, width: 820, height: 560),
-      styleMask: [.titled, .fullSizeContentView, .nonactivatingPanel],
-      backing: .buffered,
-      defer: false
-    )
 
     panel.title = "Lite Paste"
     panel.titleVisibility = .hidden

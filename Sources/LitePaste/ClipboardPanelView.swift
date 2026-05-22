@@ -9,6 +9,7 @@ struct ClipboardPanelView: View {
   let pasteAction: (ClipboardRecord) -> Void
   let primaryCopyAction: (ClipboardRecord) -> Void
   let primaryPasteAction: (ClipboardRecord) -> Void
+  let closeAction: () -> Void
 
   @State private var itemActions = ClipboardItemActions()
   @StateObject private var settingsStore = AppSettingsStore()
@@ -245,6 +246,9 @@ struct ClipboardPanelView: View {
     }
 
     switch event.keyCode {
+    case 53:
+      closeAction()
+      return true
     case 36, 76:
       return pasteSelected()
     case 117:
