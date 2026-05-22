@@ -115,4 +115,5 @@ xcodebuild -scheme LitePaste -configuration Debug build
 ```bash
 swift run LitePasteCoreChecks
 swift build
+Scripts/verify_release.sh
 ```

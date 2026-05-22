@@ -62,9 +62,15 @@ swift run LitePasteCoreChecks
 swift build
 ```
 
+本地发布前完整验证：
+
+```bash
+Scripts/verify_release.sh
+```
+
 ## 环境说明
 
-当前开发机只有 Command Line Tools，`xcodebuild` 不可用。仓库内的 `Scripts/build_app_bundle.sh` 会用 SwiftPM release 产物组装本地 `.app` 并进行 ad-hoc 签名，适合本机试用。
+当前开发机只有 Command Line Tools，`xcodebuild` 和 XCTest/Swift Testing 模块不可用。仓库内的 `Scripts/build_app_bundle.sh` 会用 SwiftPM release 产物组装本地 `.app` 并进行 ad-hoc 签名，适合本机试用。
 
 正式 Xcode target、Developer ID 签名、公证和发布打包需要完整 Xcode：
 

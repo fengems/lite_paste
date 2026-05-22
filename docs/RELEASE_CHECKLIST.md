@@ -35,6 +35,12 @@ VERSION=0.1.0 BUILD=1 Scripts/package_release.sh
 每次发布前至少运行：
 
 ```bash
+Scripts/verify_release.sh
+```
+
+该脚本会依次执行核心检查、debug 编译、本地 `.app` 打包、Info.plist 校验、codesign 校验、zip/DMG 打包、DMG 校验和 SHA-256 校验。需要拆开排查时，可单独运行：
+
+```bash
 swift run LitePasteCoreChecks
 swift build
 Scripts/build_app_bundle.sh
