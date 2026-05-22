@@ -126,6 +126,14 @@ public final class HistoryStore: ObservableObject {
     return queryEngine.execute(query, records: records).count
   }
 
+  public func unpinnedRecordCount() -> Int {
+    max(
+      filteredRecordCount(ClipboardHistoryQuery(filter: .all))
+        - filteredRecordCount(ClipboardHistoryQuery(filter: .pinned)),
+      0
+    )
+  }
+
   public func filteredPage(
     _ query: ClipboardHistoryQuery,
     limit: Int,

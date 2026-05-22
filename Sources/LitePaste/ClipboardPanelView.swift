@@ -265,7 +265,7 @@ struct ClipboardPanelView: View {
   }
 
   private func confirmClearUnpinned() {
-    let count = store.records.filter { !$0.isPinned }.count
+    let count = store.unpinnedRecordCount()
     guard count > 0 else {
       return
     }

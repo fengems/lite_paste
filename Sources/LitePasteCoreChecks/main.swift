@@ -1069,6 +1069,18 @@ func checkHistoryStorePartialInitialLoad() {
     clearStore.clearAll()
     let clearedRecords = try clearRepository.load()
     expect(clearedRecords.isEmpty, "HistoryStore should clear full repository after partial initial load")
+
+    var countRecords = records
+    countRecords[0].isPinned = true
+    let countRepository = SQLiteClipboardHistoryRepository(
+      url: directory.appending(path: "unpinned-count-history.sqlite3")
+    )
+    try countRepository.save(countRecords)
+    let countStore = HistoryStore(repository: countRepository, initialLoadLimit: 2)
+    expect(
+      countStore.unpinnedRecordCount() == 4,
+      "HistoryStore should count unpinned records beyond the partial initial page"
+    )
   } catch {
     fatalError("HistoryStore partial initial load check failed: \(error)")
   }
