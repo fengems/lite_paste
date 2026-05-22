@@ -24,6 +24,7 @@ Lite Paste 是一个原生 macOS 剪贴板管理器，目标是提供接近 Past
 - Accessibility 未授权时降级为复制并提示。
 - 文件在 Finder 中显示、URL 打开浏览器、邮箱打开邮件、图片导出。
 - 本地 SQLite 历史持久化，旧 `history.json` 会在首次读取时自动迁移。
+- SQLite 仓库层支持搜索、筛选、排序和 limit 下推，并提供数据库维护入口。
 - 历史去重、持久化加载清理和外部 blob 删除行为有核心检查覆盖。
 - 本地备份导入导出，导入前校验备份完整性，导入后自动刷新历史和设置，外部 blob 路径随备份位置重写。
 - 开机启动设置接入。
@@ -63,7 +64,8 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 
 运行时数据保存在用户 Application Support 目录：
 
-- `~/Library/Application Support/LitePaste/history.json`
+- `~/Library/Application Support/LitePaste/history.sqlite3`
+- `~/Library/Application Support/LitePaste/history.json`（旧版本遗留文件，首次读取后迁移）
 - `~/Library/Application Support/LitePaste/settings.json`
 - `~/Library/Application Support/LitePaste/Blobs/`
 
@@ -71,6 +73,6 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 
 - 创建并验证完整 Xcode `.app` target。
 - 补 AppIcon、菜单栏 template 图标和发布资源。
-- 完善 SQLite 查询下推和数据库维护策略。
+- 将面板历史读取接入 SQLite 分页/增量加载。
 - 完善图片、文件和富文本预览细节。
 - 补充真正的单元测试和 UI 测试。

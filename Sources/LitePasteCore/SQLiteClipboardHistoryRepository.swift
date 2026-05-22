@@ -3,6 +3,11 @@ import SQLite3
 
 public struct SQLiteClipboardHistoryRepository: ClipboardHistoryRepository {
   private let url: URL
+  private static let selectColumns = """
+    id, kind, title, search_text, note, source_app_bundle_id, source_app_name,
+    created_at, last_copied_at, last_used_at, copy_count, is_favorite, is_pinned,
+    pin_shortcut, content_hash, plain_text, contents_json, preview_file_path
+    """
 
   public init(url: URL = AppPaths.applicationSupportDirectory.appending(path: "history.sqlite3")) {
     self.url = url
@@ -12,27 +17,9 @@ public struct SQLiteClipboardHistoryRepository: ClipboardHistoryRepository {
     let connection = try SQLiteConnection(url: url)
     try connection.ensureSchema()
 
-    let statement = try connection.prepare("""
-      SELECT id, kind, title, search_text, note, source_app_bundle_id, source_app_name,
-             created_at, last_copied_at, last_used_at, copy_count, is_favorite, is_pinned,
-             pin_shortcut, content_hash, plain_text, contents_json, preview_file_path
-      FROM clipboard_records
-      ORDER BY position ASC
-      """)
-    defer { sqlite3_finalize(statement) }
-
-    var records: [ClipboardRecord] = []
-    var stepResult = sqlite3_step(statement)
-    while stepResult == SQLITE_ROW {
-      records.append(try Self.record(from: statement))
-      stepResult = sqlite3_step(statement)
-    }
-
-    guard stepResult == SQLITE_DONE else {
-      throw SQLiteRepositoryError.operationFailed(connection.errorMessage)
-    }
-
-    return records
+    return try connection.records(
+      sql: "SELECT \(Self.selectColumns) FROM clipboard_records ORDER BY position ASC"
+    )
   }
 
   public func save(_ records: [ClipboardRecord]) throws {
@@ -72,7 +59,131 @@ public struct SQLiteClipboardHistoryRepository: ClipboardHistoryRepository {
     }
   }
 
-  private static func record(from statement: OpaquePointer?) throws -> ClipboardRecord {
+  public func execute(_ query: ClipboardHistoryQuery, limit: Int? = nil) throws -> [ClipboardRecord] {
+    let connection = try SQLiteConnection(url: url)
+    try connection.ensureSchema()
+
+    let request = Self.sqlRequest(for: query, limit: limit)
+    return try connection.records(sql: request.sql, bindings: request.bindings)
+  }
+
+  public func performMaintenance() throws {
+    let connection = try SQLiteConnection(url: url)
+    try connection.ensureSchema()
+    try connection.execute("ANALYZE")
+    try connection.execute("PRAGMA optimize")
+    try connection.execute("VACUUM")
+  }
+
+  private static func sqlRequest(
+    for query: ClipboardHistoryQuery,
+    limit: Int?
+  ) -> SQLiteQueryRequest {
+    var clauses: [String] = []
+    var bindings: [String] = []
+
+    if let filterRequest = sqlClause(for: query.filter) {
+      clauses.append(filterRequest.sql)
+      bindings.append(contentsOf: filterRequest.bindings)
+    }
+
+    for term in searchTerms(for: query.text) {
+      var termClauses = [
+        "title LIKE ? ESCAPE '\\' COLLATE NOCASE",
+        "search_text LIKE ? ESCAPE '\\' COLLATE NOCASE",
+        "note LIKE ? ESCAPE '\\' COLLATE NOCASE",
+        "source_app_name LIKE ? ESCAPE '\\' COLLATE NOCASE",
+        "source_app_bundle_id LIKE ? ESCAPE '\\' COLLATE NOCASE",
+        "kind LIKE ? ESCAPE '\\' COLLATE NOCASE"
+      ]
+      let pattern = "%\(escapedLikePattern(term))%"
+      bindings.append(contentsOf: Array(repeating: pattern, count: termClauses.count))
+
+      let displayNameKinds = ClipboardKind.allCases
+        .filter { contains(term, in: $0.displayName) }
+        .map(\.rawValue)
+      if !displayNameKinds.isEmpty {
+        termClauses.append("kind IN (\(placeholders(count: displayNameKinds.count)))")
+        bindings.append(contentsOf: displayNameKinds)
+      }
+
+      clauses.append("(\(termClauses.joined(separator: " OR ")))")
+    }
+
+    var sql = "SELECT \(selectColumns) FROM clipboard_records"
+    if !clauses.isEmpty {
+      sql += " WHERE \(clauses.joined(separator: " AND "))"
+    }
+    sql += " ORDER BY \(orderClause(for: query.sort))"
+    if let limit {
+      sql += " LIMIT \(max(limit, 0))"
+    }
+
+    return SQLiteQueryRequest(sql: sql, bindings: bindings)
+  }
+
+  private static func sqlClause(for filter: ClipboardFilter) -> SQLiteQueryRequest? {
+    switch filter {
+    case .all:
+      nil
+    case .text:
+      SQLiteQueryRequest(
+        sql: "kind IN (\(placeholders(count: textKinds.count)))",
+        bindings: textKinds
+      )
+    case .images:
+      SQLiteQueryRequest(sql: "kind = 'image'", bindings: [])
+    case .files:
+      SQLiteQueryRequest(sql: "kind = 'files'", bindings: [])
+    case .favorites:
+      SQLiteQueryRequest(sql: "is_favorite = 1", bindings: [])
+    case .pinned:
+      SQLiteQueryRequest(sql: "is_pinned = 1", bindings: [])
+    }
+  }
+
+  private static func orderClause(for sort: ClipboardHistorySort) -> String {
+    switch sort {
+    case .pinnedThenRecent:
+      "is_pinned DESC, last_copied_at DESC"
+    case .recent:
+      "last_copied_at DESC"
+    case .mostUsed:
+      "copy_count DESC, last_copied_at DESC"
+    }
+  }
+
+  private static func searchTerms(for text: String) -> [String] {
+    text
+      .split(whereSeparator: \.isWhitespace)
+      .map(String.init)
+  }
+
+  private static func escapedLikePattern(_ text: String) -> String {
+    text
+      .replacingOccurrences(of: "\\", with: "\\\\")
+      .replacingOccurrences(of: "%", with: "\\%")
+      .replacingOccurrences(of: "_", with: "\\_")
+  }
+
+  private static func contains(_ term: String, in value: String) -> Bool {
+    value.range(of: term, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+  }
+
+  private static func placeholders(count: Int) -> String {
+    Array(repeating: "?", count: count).joined(separator: ", ")
+  }
+
+  private static let textKinds = [
+    ClipboardKind.text.rawValue,
+    ClipboardKind.richText.rawValue,
+    ClipboardKind.html.rawValue,
+    ClipboardKind.url.rawValue,
+    ClipboardKind.email.rawValue,
+    ClipboardKind.color.rawValue
+  ]
+
+  fileprivate static func record(from statement: OpaquePointer?) throws -> ClipboardRecord {
     guard let id = UUID(uuidString: text(at: 0, in: statement) ?? ""),
           let kind = ClipboardKind(rawValue: text(at: 1, in: statement) ?? "") else {
       throw SQLiteRepositoryError.invalidRecord
@@ -163,7 +274,7 @@ public struct SQLiteClipboardHistoryRepository: ClipboardHistoryRepository {
     return Data(bytes: bytes, count: byteCount)
   }
 
-  private static func bindText(_ value: String?, at index: Int32, to statement: OpaquePointer?) {
+  fileprivate static func bindText(_ value: String?, at index: Int32, to statement: OpaquePointer?) {
     guard let value else {
       sqlite3_bind_null(statement, index)
       return
@@ -238,6 +349,10 @@ private final class SQLiteConnection {
       """)
     try execute("CREATE INDEX IF NOT EXISTS idx_clipboard_records_content_hash ON clipboard_records(content_hash)")
     try execute("CREATE INDEX IF NOT EXISTS idx_clipboard_records_last_copied_at ON clipboard_records(last_copied_at DESC)")
+    try execute("CREATE INDEX IF NOT EXISTS idx_clipboard_records_kind ON clipboard_records(kind)")
+    try execute("CREATE INDEX IF NOT EXISTS idx_clipboard_records_favorite ON clipboard_records(is_favorite, last_copied_at DESC)")
+    try execute("CREATE INDEX IF NOT EXISTS idx_clipboard_records_pinned ON clipboard_records(is_pinned, last_copied_at DESC)")
+    try execute("CREATE INDEX IF NOT EXISTS idx_clipboard_records_copy_count ON clipboard_records(copy_count DESC, last_copied_at DESC)")
   }
 
   func execute(_ sql: String) throws {
@@ -254,6 +369,33 @@ private final class SQLiteConnection {
 
     return statement
   }
+
+  func records(sql: String, bindings: [String] = []) throws -> [ClipboardRecord] {
+    let statement = try prepare(sql)
+    defer { sqlite3_finalize(statement) }
+
+    for (index, binding) in bindings.enumerated() {
+      SQLiteClipboardHistoryRepository.bindText(binding, at: Int32(index + 1), to: statement)
+    }
+
+    var records: [ClipboardRecord] = []
+    var stepResult = sqlite3_step(statement)
+    while stepResult == SQLITE_ROW {
+      records.append(try SQLiteClipboardHistoryRepository.record(from: statement))
+      stepResult = sqlite3_step(statement)
+    }
+
+    guard stepResult == SQLITE_DONE else {
+      throw SQLiteRepositoryError.operationFailed(errorMessage)
+    }
+
+    return records
+  }
+}
+
+private struct SQLiteQueryRequest {
+  var sql: String
+  var bindings: [String]
 }
 
 public enum SQLiteRepositoryError: Error, Equatable, Sendable {

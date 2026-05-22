@@ -21,6 +21,7 @@ func runChecks() {
   checkPasteboardRestorePlanner()
   checkJSONHistoryRepository()
   checkSQLiteHistoryRepository()
+  checkSQLiteHistoryQueryAndMaintenance()
   checkMigratingHistoryRepository()
   checkHistoryPersistenceCleanup()
   checkRuntimeReload()
@@ -1269,6 +1270,101 @@ func checkSQLiteHistoryRepository() {
     expect(overwritten == [second], "SQLite repository save should replace previous history snapshot")
   } catch {
     fatalError("SQLite repository check failed: \(error)")
+  }
+}
+
+func checkSQLiteHistoryQueryAndMaintenance() {
+  let directory = FileManager.default.temporaryDirectory
+    .appending(path: "LitePasteSQLiteQueryChecks-\(UUID().uuidString)", directoryHint: .isDirectory)
+  let url = directory.appending(path: "history.sqlite3")
+
+  do {
+    defer {
+      try? FileManager.default.removeItem(at: directory)
+    }
+
+    let repository = SQLiteClipboardHistoryRepository(url: url)
+    let engine = ClipboardHistoryQueryEngine()
+    let records = [
+      ClipboardRecord(
+        id: UUID(uuidString: "00000000-0000-0000-0000-000000000101")!,
+        kind: .text,
+        title: "old memo",
+        searchText: "alpha body",
+        note: "saved memo",
+        sourceAppBundleId: "com.example.Old",
+        sourceAppName: "OldApp",
+        createdAt: Date(timeIntervalSince1970: 10),
+        lastCopiedAt: Date(timeIntervalSince1970: 10),
+        copyCount: 1,
+        contentHash: "query-old"
+      ),
+      ClipboardRecord(
+        id: UUID(uuidString: "00000000-0000-0000-0000-000000000102")!,
+        kind: .image,
+        title: "screenshot",
+        searchText: "canvas",
+        sourceAppBundleId: "com.example.Image",
+        sourceAppName: "ImageApp",
+        createdAt: Date(timeIntervalSince1970: 11),
+        lastCopiedAt: Date(timeIntervalSince1970: 11),
+        copyCount: 2,
+        isPinned: true,
+        contentHash: "query-image"
+      ),
+      ClipboardRecord(
+        id: UUID(uuidString: "00000000-0000-0000-0000-000000000103")!,
+        kind: .files,
+        title: "report.pdf",
+        searchText: "project source",
+        sourceAppBundleId: "com.example.Files",
+        sourceAppName: "Finder",
+        createdAt: Date(timeIntervalSince1970: 12),
+        lastCopiedAt: Date(timeIntervalSince1970: 12),
+        copyCount: 9,
+        isFavorite: true,
+        contentHash: "query-files"
+      ),
+      ClipboardRecord(
+        id: UUID(uuidString: "00000000-0000-0000-0000-000000000104")!,
+        kind: .url,
+        title: "100%_literal",
+        searchText: "https://example.com",
+        createdAt: Date(timeIntervalSince1970: 13),
+        lastCopiedAt: Date(timeIntervalSince1970: 13),
+        copyCount: 3,
+        contentHash: "query-url",
+        plainText: "https://example.com"
+      )
+    ]
+
+    try repository.save(records)
+
+    let queries = [
+      ClipboardHistoryQuery(),
+      ClipboardHistoryQuery(text: "memo OldApp"),
+      ClipboardHistoryQuery(text: "图片"),
+      ClipboardHistoryQuery(text: "100%_literal"),
+      ClipboardHistoryQuery(filter: .files),
+      ClipboardHistoryQuery(filter: .text),
+      ClipboardHistoryQuery(filter: .favorites, sort: .mostUsed),
+      ClipboardHistoryQuery(sort: .mostUsed)
+    ]
+
+    for query in queries {
+      let expected = engine.execute(query, records: records).map(\.id)
+      let actual = try repository.execute(query).map(\.id)
+      expect(actual == expected, "SQLite query should match in-memory query engine for \(query)")
+    }
+
+    let limited = try repository.execute(ClipboardHistoryQuery(sort: .recent), limit: 2)
+    expect(limited.map(\.id) == [records[3].id, records[2].id], "SQLite query should apply limits after sorting")
+
+    try repository.performMaintenance()
+    let recordsAfterMaintenance = try repository.load()
+    expect(recordsAfterMaintenance == records, "SQLite maintenance should preserve saved history")
+  } catch {
+    fatalError("SQLite query check failed: \(error)")
   }
 }
 
