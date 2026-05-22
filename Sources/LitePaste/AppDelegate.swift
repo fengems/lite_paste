@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   private var statusItem: NSStatusItem?
   private var statusMenu: NSMenu?
+  private var privacyModeMenuItem: NSMenuItem?
   private var monitor: ClipboardMonitor?
   private var writer: PasteboardWriter?
   private var panelCoordinator: PanelCoordinator?
@@ -75,6 +76,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   private func configureStatusMenu() {
     let menu = NSMenu()
+    menu.delegate = self
     menu.addItem(
       NSMenuItem(
         title: "打开 Lite Paste",
@@ -82,6 +84,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         keyEquivalent: ""
       )
     )
+    let privacyModeItem = NSMenuItem(
+      title: "私密模式",
+      action: #selector(togglePrivacyModeFromMenu),
+      keyEquivalent: ""
+    )
+    menu.addItem(privacyModeItem)
+    self.privacyModeMenuItem = privacyModeItem
+
     menu.addItem(
       NSMenuItem(
         title: "设置...",
@@ -201,6 +211,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     panelCoordinator?.show(relativeTo: statusItem?.button)
   }
 
+  @objc private func togglePrivacyModeFromMenu() {
+    settingsStore.update { settings in
+      settings.privacyMode.toggle()
+    }
+    updateStatusMenuState()
+  }
+
   @objc private func openSettings() {
     NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
     NSApp.activate(ignoringOtherApps: true)
@@ -212,6 +229,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   private func togglePanel() {
     panelCoordinator?.toggle(relativeTo: statusItem?.button)
+  }
+
+  private func updateStatusMenuState() {
+    let privacyMode = settingsStore.settings.privacyMode
+    privacyModeMenuItem?.state = privacyMode ? .on : .off
+    statusItem?.button?.toolTip = privacyMode ? "Lite Paste - 私密模式已开启" : "Lite Paste"
   }
 
   private func pastePinnedRecord(_ recordID: ClipboardRecord.ID) {
@@ -252,5 +275,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     alert.addButton(withTitle: "好")
     alert.alertStyle = .informational
     alert.runModal()
+  }
+}
+
+extension AppDelegate: NSMenuDelegate {
+  func menuWillOpen(_ menu: NSMenu) {
+    updateStatusMenuState()
   }
 }
