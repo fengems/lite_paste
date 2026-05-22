@@ -9,7 +9,9 @@ struct ClipboardPanelView: View {
   @ObservedObject var store: HistoryStore
   @ObservedObject var presentationState: PanelPresentationState
   let copyAction: (ClipboardRecord) -> Void
+  let copyPlainTextAction: (ClipboardRecord) -> Void
   let pasteAction: (ClipboardRecord) -> Void
+  let pastePlainTextAction: (ClipboardRecord) -> Void
   let primaryCopyAction: (ClipboardRecord) -> Void
   let primaryPasteAction: (ClipboardRecord) -> Void
   let closeAction: () -> Void
@@ -168,7 +170,9 @@ struct ClipboardPanelView: View {
             isSelected: selectedRecordID == record.id,
             primaryAction: primaryAction,
             copyAction: copyAction,
+            copyPlainTextAction: copyPlainTextAction,
             pasteAction: pasteAction,
+            pastePlainTextAction: pastePlainTextAction,
             externalAction: itemActions.primaryExternalAction(for: record),
             performExternalAction: {
               itemActions.perform($0, for: record)
@@ -206,7 +210,9 @@ struct ClipboardPanelView: View {
             isSelected: selectedRecordID == record.id,
             primaryAction: primaryAction,
             copyAction: copyAction,
+            copyPlainTextAction: copyPlainTextAction,
             pasteAction: pasteAction,
+            pastePlainTextAction: pastePlainTextAction,
             externalAction: itemActions.primaryExternalAction(for: record),
             performExternalAction: {
               itemActions.perform($0, for: record)
@@ -316,8 +322,18 @@ struct ClipboardPanelView: View {
       return copySelected()
     }
 
+    if significantModifiers == [.command, .shift],
+       event.charactersIgnoringModifiers?.lowercased() == "c" {
+      return copySelected(asPlainText: true)
+    }
+
     if commandOnly, event.keyCode == 51 {
       return deleteSelected()
+    }
+
+    if significantModifiers == [.command, .shift],
+       [36, 76].contains(event.keyCode) {
+      return pasteSelected(asPlainText: true)
     }
 
     guard significantModifiers.isEmpty else {
@@ -343,21 +359,29 @@ struct ClipboardPanelView: View {
     }
   }
 
-  private func copySelected() -> Bool {
+  private func copySelected(asPlainText: Bool = false) -> Bool {
     guard let record = selectedRecord else {
       return false
     }
 
-    copyAction(record)
+    if asPlainText {
+      copyPlainTextAction(record)
+    } else {
+      copyAction(record)
+    }
     return true
   }
 
-  private func pasteSelected() -> Bool {
+  private func pasteSelected(asPlainText: Bool = false) -> Bool {
     guard let record = selectedRecord else {
       return false
     }
 
-    primaryAction(record)
+    if asPlainText {
+      pastePlainTextAction(record)
+    } else {
+      primaryAction(record)
+    }
     return true
   }
 

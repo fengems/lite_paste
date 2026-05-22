@@ -6,7 +6,9 @@ struct ClipboardCard: View {
   let isSelected: Bool
   let primaryAction: (ClipboardRecord) -> Void
   let copyAction: (ClipboardRecord) -> Void
+  let copyPlainTextAction: (ClipboardRecord) -> Void
   let pasteAction: (ClipboardRecord) -> Void
+  let pastePlainTextAction: (ClipboardRecord) -> Void
   let externalAction: ClipboardExternalAction?
   let performExternalAction: (ClipboardExternalAction) -> Void
   let editNote: () -> Void
@@ -77,10 +79,24 @@ struct ClipboardCard: View {
         }
       )
       IconButton(
+        systemName: "textformat",
+        accessibilityLabel: "纯文本粘贴",
+        action: {
+          pastePlainTextAction(record)
+        }
+      )
+      IconButton(
         systemName: "doc.on.doc",
         accessibilityLabel: "复制",
         action: {
           copyAction(record)
+        }
+      )
+      IconButton(
+        systemName: "doc.plaintext",
+        accessibilityLabel: "复制纯文本",
+        action: {
+          copyPlainTextAction(record)
         }
       )
       if let externalAction {

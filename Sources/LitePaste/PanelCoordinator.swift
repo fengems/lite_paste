@@ -51,8 +51,14 @@ final class PanelCoordinator {
       copyAction: { [weak self] record in
         self?.writer.copy(record)
       },
+      copyPlainTextAction: { [weak self] record in
+        self?.writer.copy(record, asPlainText: true)
+      },
       pasteAction: { [weak self] record in
         self?.paste(record)
+      },
+      pastePlainTextAction: { [weak self] record in
+        self?.paste(record, asPlainText: true)
       },
       primaryCopyAction: { [weak self] record in
         self?.writer.copy(record, asPlainText: self?.settingsStore.settings.pastePlainByDefault ?? false)
