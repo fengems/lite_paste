@@ -77,7 +77,7 @@ public struct ImportExportService: Sendable {
       at: backupURL.appending(path: "history.json"),
       rewritingExternalBlobPathsTo: paths.blobsDirectory
     )
-    let repository = JSONClipboardHistoryRepository(url: paths.historyURL)
+    let repository = currentHistoryRepository()
     let existingHistory = try repository.load()
     let merged = merge(existing: existingHistory, incoming: incomingHistory)
     try repository.save(merged)
@@ -94,11 +94,11 @@ public struct ImportExportService: Sendable {
   }
 
   private func exportHistoryIfExists(to destination: URL, blobsDirectory: URL) throws {
-    guard FileManager.default.fileExists(atPath: paths.historyURL.path) else {
+    let records = try currentHistoryRepository().load()
+    guard !records.isEmpty else {
       return
     }
 
-    let records = try JSONClipboardHistoryRepository(url: paths.historyURL).load()
     let portableRecords = rewriteExternalBlobPaths(in: records, to: blobsDirectory)
     let data = try JSONEncoder.litePaste.encode(portableRecords)
     try data.write(to: destination, options: .atomic)
@@ -110,7 +110,14 @@ public struct ImportExportService: Sendable {
     }
 
     let records = try loadHistoryIfExists(at: source, rewritingExternalBlobPathsTo: paths.blobsDirectory)
-    try JSONClipboardHistoryRepository(url: paths.historyURL).save(records)
+    try currentHistoryRepository().save(records)
+  }
+
+  private func currentHistoryRepository() -> any ClipboardHistoryRepository {
+    MigratingClipboardHistoryRepository(
+      sqliteURL: paths.sqliteHistoryURL,
+      legacyJSONURL: paths.historyURL
+    )
   }
 
   private func loadHistoryIfExists(

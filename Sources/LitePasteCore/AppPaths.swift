@@ -11,6 +11,10 @@ public struct AppStoragePaths: Sendable {
     applicationSupportDirectory.appending(path: "history.json")
   }
 
+  public var sqliteHistoryURL: URL {
+    applicationSupportDirectory.appending(path: "history.sqlite3")
+  }
+
   public var settingsURL: URL {
     applicationSupportDirectory.appending(path: "settings.json")
   }
@@ -48,6 +52,10 @@ public enum AppPaths {
 
   public static var historyURL: URL {
     applicationSupportDirectory.appending(path: "history.json")
+  }
+
+  public static var sqliteHistoryURL: URL {
+    applicationSupportDirectory.appending(path: "history.sqlite3")
   }
 
   public static var settingsURL: URL {

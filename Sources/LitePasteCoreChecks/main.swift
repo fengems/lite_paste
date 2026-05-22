@@ -21,6 +21,7 @@ func runChecks() {
   checkPasteboardRestorePlanner()
   checkJSONHistoryRepository()
   checkSQLiteHistoryRepository()
+  checkMigratingHistoryRepository()
   checkHistoryPersistenceCleanup()
   checkRuntimeReload()
   checkImportExportValidation()
@@ -1271,6 +1272,68 @@ func checkSQLiteHistoryRepository() {
   }
 }
 
+func checkMigratingHistoryRepository() {
+  let directory = FileManager.default.temporaryDirectory
+    .appending(path: "LitePasteMigrationChecks-\(UUID().uuidString)", directoryHint: .isDirectory)
+  let legacyURL = directory.appending(path: "history.json")
+  let sqliteURL = directory.appending(path: "history.sqlite3")
+
+  do {
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer {
+      try? FileManager.default.removeItem(at: directory)
+    }
+
+    let legacyRecord = ClipboardRecord(
+      id: UUID(uuidString: "00000000-0000-0000-0000-000000000011")!,
+      kind: .text,
+      title: "legacy",
+      searchText: "legacy",
+      createdAt: Date(timeIntervalSince1970: 10),
+      lastCopiedAt: Date(timeIntervalSince1970: 11),
+      contentHash: "legacy-hash",
+      plainText: "legacy"
+    )
+    try JSONClipboardHistoryRepository(url: legacyURL).save([legacyRecord])
+
+    let repository = MigratingClipboardHistoryRepository(sqliteURL: sqliteURL, legacyJSONURL: legacyURL)
+    let migrated = try repository.load()
+    let sqliteRecords = try SQLiteClipboardHistoryRepository(url: sqliteURL).load()
+
+    expect(migrated == [legacyRecord], "Migrating repository should load legacy JSON records")
+    expect(
+      sqliteRecords == [legacyRecord],
+      "Migrating repository should persist legacy records into SQLite"
+    )
+    expect(
+      !FileManager.default.fileExists(atPath: legacyURL.path),
+      "Migrating repository should remove legacy JSON after successful migration"
+    )
+
+    let currentRecord = ClipboardRecord(
+      id: UUID(uuidString: "00000000-0000-0000-0000-000000000012")!,
+      kind: .text,
+      title: "current",
+      searchText: "current",
+      createdAt: Date(timeIntervalSince1970: 20),
+      lastCopiedAt: Date(timeIntervalSince1970: 21),
+      contentHash: "current-hash",
+      plainText: "current"
+    )
+    try repository.save([currentRecord])
+    let currentRecords = try repository.load()
+
+    expect(currentRecords == [currentRecord], "Migrating repository should prefer SQLite after migration")
+
+    try JSONClipboardHistoryRepository(url: legacyURL).save([legacyRecord])
+    try repository.save([])
+    let emptyRecords = try repository.load()
+    expect(emptyRecords.isEmpty, "Migrating repository should not resurrect legacy JSON after empty save")
+  } catch {
+    fatalError("Migrating repository check failed: \(error)")
+  }
+}
+
 @MainActor
 func checkHistoryPersistenceCleanup() {
   let directory = FileManager.default.temporaryDirectory
@@ -1476,7 +1539,11 @@ func checkImportExportRoundTrip() {
   let backupParent = directory.appending(path: "Backups", directoryHint: .isDirectory)
   let paths = AppStoragePaths(applicationSupportDirectory: appDirectory)
   let service = ImportExportService(paths: paths)
-  let repository = JSONClipboardHistoryRepository(url: paths.historyURL)
+  let legacyRepository = JSONClipboardHistoryRepository(url: paths.historyURL)
+  let repository = MigratingClipboardHistoryRepository(
+    sqliteURL: paths.sqliteHistoryURL,
+    legacyJSONURL: paths.historyURL
+  )
 
   do {
     defer {
@@ -1505,7 +1572,7 @@ func checkImportExportRoundTrip() {
       ],
       previewFilePath: sourceBlob.path
     )
-    try repository.save([sourceRecord])
+    try legacyRepository.save([sourceRecord])
     try JSONEncoder.litePaste.encode(AppSettings(hotkey: "command+option+space", viewMode: .list))
       .write(to: paths.settingsURL, options: .atomic)
 

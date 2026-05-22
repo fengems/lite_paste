@@ -18,7 +18,7 @@ public final class HistoryStore: ObservableObject {
 
   public init(
     records: [ClipboardRecord]? = nil,
-    repository: any ClipboardHistoryRepository = JSONClipboardHistoryRepository(),
+    repository: any ClipboardHistoryRepository = MigratingClipboardHistoryRepository(),
     blobStorage: any BlobStorage = LocalBlobStorage(),
     queryEngine: ClipboardHistoryQueryEngine = ClipboardHistoryQueryEngine(),
     maxHistoryCount: Int = 1_000,
