@@ -49,6 +49,12 @@ Scripts/build_app_bundle.sh
 open Build/LitePaste.app
 ```
 
+生成本地试用 zip 包：
+
+```bash
+Scripts/package_release.sh
+```
+
 核心检查和编译：
 
 ```bash
@@ -69,6 +75,7 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 正式 App target 接入说明见：
 
 - `docs/MACOS_APP_TARGET.md`
+- `docs/RELEASE_CHECKLIST.md`
 
 产品需求文档见：
 
@@ -87,6 +94,6 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 
 - 创建并验证完整 Xcode `.app` target。
 - 补菜单栏 template 图标和发布资源。
-- 收敛可使用版本：补发布说明和首次运行检查清单。
+- 收敛可使用版本：补正式签名/公证说明和 DMG 发布流程。
 - 完善图片、文件和富文本预览细节。
 - 补充真正的单元测试和 UI 测试。

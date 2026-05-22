@@ -17,6 +17,12 @@ Scripts/build_app_bundle.sh
 open Build/LitePaste.app
 ```
 
+本地试用 zip 包可通过以下命令生成：
+
+```bash
+Scripts/package_release.sh
+```
+
 该脚本使用 SwiftPM release 产物组装 `Build/LitePaste.app`，复制 `Config/LitePaste/Info.plist`，并执行 ad-hoc 签名。它适合本机试用，不替代正式 Xcode target、Developer ID 签名、公证和发布流程。
 
 当前环境仅安装 Command Line Tools，`xcodebuild` 无法工作。创建、签名、打包正式发布 `.app` 前，需要安装完整 Xcode，并确保：
