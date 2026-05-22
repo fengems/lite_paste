@@ -48,6 +48,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     configureHotkey()
     configurePinnedHotkeys()
     observeSettings()
+    observeBackupImports()
     launchAtLoginController.sync(with: settingsStore.settings.launchAtLogin)
     activeApplicationTracker.start()
     monitor.start()
@@ -141,20 +142,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     settingsStore.settingsPublisher
       .dropFirst()
       .sink { [weak self] settings in
-        self?.monitor?.updatePrivacyFilter(
-          PrivacyFilter(
-            privacyMode: settings.privacyMode,
-            ignoredApps: settings.ignoredApps,
-            ignoredPasteboardTypes: settings.ignoredPasteboardTypes
-          )
-        )
-        self?.monitor?.updateEnabledTypes(settings.enabledTypes)
-        self?.store.updateMaxHistoryCount(settings.maxHistoryCount)
-        self?.store.updateRetentionDays(settings.retentionDays)
-        self?.store.updateMoveDuplicatesToTop(settings.moveDuplicatesToTop)
-        self?.registerPanelHotkey(settings.hotkey)
+        self?.apply(settings)
       }
       .store(in: &cancellables)
+  }
+
+  private func observeBackupImports() {
+    NotificationCenter.default.publisher(for: .litePasteBackupImported)
+      .sink { [weak self] _ in
+        self?.reloadImportedBackup()
+      }
+      .store(in: &cancellables)
+  }
+
+  private func apply(_ settings: AppSettings) {
+    monitor?.updatePrivacyFilter(
+      PrivacyFilter(
+        privacyMode: settings.privacyMode,
+        ignoredApps: settings.ignoredApps,
+        ignoredPasteboardTypes: settings.ignoredPasteboardTypes
+      )
+    )
+    monitor?.updateEnabledTypes(settings.enabledTypes)
+    store.updateMaxHistoryCount(settings.maxHistoryCount)
+    store.updateRetentionDays(settings.retentionDays)
+    store.updateMoveDuplicatesToTop(settings.moveDuplicatesToTop)
+    registerPanelHotkey(settings.hotkey)
+    launchAtLoginController.sync(with: settings.launchAtLogin)
+  }
+
+  private func reloadImportedBackup() {
+    settingsStore.reload()
+    apply(settingsStore.settings)
+
+    do {
+      try store.reload()
+    } catch {
+      showAlert(title: "导入后刷新失败", message: error.localizedDescription)
+    }
   }
 
   @objc private func handleStatusItemClick(_ sender: NSStatusBarButton) {
@@ -206,9 +231,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   private func showAccessibilityPermissionAlert() {
+    showAlert(
+      title: "需要辅助功能权限",
+      message: "Lite Paste 已复制该内容。授予辅助功能权限后，可以使用置顶快捷键自动粘贴。"
+    )
+  }
+
+  private func showAlert(title: String, message: String) {
     let alert = NSAlert()
-    alert.messageText = "需要辅助功能权限"
-    alert.informativeText = "Lite Paste 已复制该内容。授予辅助功能权限后，可以使用置顶快捷键自动粘贴。"
+    alert.messageText = title
+    alert.informativeText = message
     alert.addButton(withTitle: "好")
     alert.alertStyle = .informational
     alert.runModal()

@@ -173,6 +173,11 @@ public final class HistoryStore: ObservableObject {
     self.moveDuplicatesToTop = moveDuplicatesToTop
   }
 
+  public func reload(now: Date = .now) throws {
+    records = try repository.load()
+    trimHistoryIfNeeded(now: now)
+  }
+
   private func update(_ id: ClipboardRecord.ID, _ mutate: (inout ClipboardRecord) -> Void) {
     guard let index = records.firstIndex(where: { $0.id == id }) else {
       return

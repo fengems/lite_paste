@@ -41,7 +41,8 @@ final class BackupCoordinator {
 
     do {
       try service.importBackup(from: backupURL, mode: mode)
-      showAlert(title: "导入完成", message: "备份已导入。重新打开面板后会看到最新历史。")
+      NotificationCenter.default.post(name: .litePasteBackupImported, object: nil)
+      showAlert(title: "导入完成", message: "备份已导入，历史和设置已刷新。")
     } catch {
       showAlert(title: "导入失败", message: error.localizedDescription)
     }
@@ -56,4 +57,3 @@ final class BackupCoordinator {
     alert.runModal()
   }
 }
-

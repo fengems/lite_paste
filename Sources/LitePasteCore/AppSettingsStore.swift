@@ -22,6 +22,10 @@ public final class AppSettingsStore: ObservableObject {
     mutate(&settings)
   }
 
+  public func reload() {
+    settings = Self.load(from: url)
+  }
+
   public var settingsPublisher: Published<AppSettings>.Publisher {
     $settings
   }
