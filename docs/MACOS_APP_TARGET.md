@@ -53,6 +53,16 @@ Lite Paste 的自动粘贴依赖 Accessibility 权限。该权限不通过 Info.
 
 如果后续增加 Apple Events 或自动化控制，再补充对应的 usage description 和 entitlement。
 
+## 开机启动
+
+开机启动使用 `ServiceManagement.SMAppService.mainApp` 注册。该能力需要应用以正常 `.app` bundle 形态运行；在 SwiftPM 直接运行的调试入口中，可能因缺少正式 bundle/signing 环境而无法完成注册。
+
+当前设置页行为：
+
+- 注册成功后保存 `launchAtLogin = true`。
+- 注册失败时弹出系统错误信息，不写入设置。
+- App 启动时会按已保存设置尝试同步登录项状态。
+
 ## 资源要求
 
 正式 target 还需要补齐：
@@ -78,4 +88,3 @@ xcodebuild -scheme LitePaste -configuration Debug build
 swift run LitePasteCoreChecks
 swift build
 ```
-

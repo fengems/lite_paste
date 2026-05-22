@@ -4,6 +4,7 @@ import SwiftUI
 struct SettingsView: View {
   @ObservedObject private var store = AppSettingsStore.shared
   @State private var backupCoordinator = BackupCoordinator()
+  @State private var launchAtLoginController = LaunchAtLoginController()
 
   var body: some View {
     Form {
@@ -62,7 +63,12 @@ struct SettingsView: View {
     Binding {
       store.settings.launchAtLogin
     } set: { value in
-      store.update { $0.launchAtLogin = value }
+      do {
+        try launchAtLoginController.setEnabled(value)
+        store.update { $0.launchAtLogin = value }
+      } catch {
+        showAlert(title: "无法更新开机启动", message: error.localizedDescription)
+      }
     }
   }
 
@@ -88,5 +94,14 @@ struct SettingsView: View {
     } set: { value in
       store.update { $0.autoPasteMode = value }
     }
+  }
+
+  private func showAlert(title: String, message: String) {
+    let alert = NSAlert()
+    alert.messageText = title
+    alert.informativeText = message
+    alert.addButton(withTitle: "好")
+    alert.alertStyle = .warning
+    alert.runModal()
   }
 }

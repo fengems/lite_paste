@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var writer: PasteboardWriter?
   private var panelCoordinator: PanelCoordinator?
   private var hotkeyController: GlobalHotkeyController?
+  private let launchAtLoginController = LaunchAtLoginController()
   private var cancellables = Set<AnyCancellable>()
 
   func applicationDidFinishLaunching(_ notification: Notification) {
@@ -35,6 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     configureStatusItem()
     configureHotkey()
     observeSettings()
+    launchAtLoginController.sync(with: settingsStore.settings.launchAtLogin)
     monitor.start()
   }
 
