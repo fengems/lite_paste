@@ -21,6 +21,7 @@ func checkAppSettingsBackwardCompatibility() {
   do {
     let settings = try JSONDecoder.litePaste.decode(AppSettings.self, from: data)
     expect(settings.viewMode == ClipboardPanelViewMode.list, "Settings should decode existing view mode string")
+    expect(settings.panelPosition == .statusItem, "Settings should default panelPosition for old files")
     expect(PanelHotkeyCatalog.displayName(for: settings.hotkey) == "⌘⇧V", "Panel hotkey should have display name")
     expect(settings.clearSearchOnOpen, "Settings should default clearSearchOnOpen for old files")
     expect(settings.maxHistoryCount == 1_000, "Settings should default maxHistoryCount for old files")
@@ -29,6 +30,7 @@ func checkAppSettingsBackwardCompatibility() {
     expect(settings.focusSearchOnOpen, "Settings should default focusSearchOnOpen for old files")
 
     let custom = AppSettings(
+      panelPosition: .mouseScreenCenter,
       ignoredPasteboardTypes: ["org.example.SecretType"],
       ignoredApps: ["com.example.SecretApp"],
       restoreClipboardAfterPaste: true,
@@ -45,6 +47,10 @@ func checkAppSettingsBackwardCompatibility() {
     expect(
       decoded.ignoredPasteboardTypes.contains("org.example.SecretType"),
       "Settings should preserve ignored pasteboard types"
+    )
+    expect(
+      decoded.panelPosition == PanelPosition.mouseScreenCenter,
+      "Settings should preserve panel position"
     )
     expect(
       decoded.restoreClipboardAfterPaste,

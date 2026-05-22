@@ -23,6 +23,12 @@ struct SettingsView: View {
           Text("列表").tag(ClipboardPanelViewMode.list)
         }
 
+        Picker("面板位置", selection: panelPosition) {
+          ForEach(PanelPosition.allCases) { position in
+            Text(position.displayName).tag(position)
+          }
+        }
+
         Toggle("打开面板时清空搜索", isOn: clearSearchOnOpen)
         Toggle("打开面板时聚焦搜索", isOn: focusSearchOnOpen)
       }
@@ -179,6 +185,14 @@ struct SettingsView: View {
       store.settings.viewMode
     } set: { value in
       store.update { $0.viewMode = value }
+    }
+  }
+
+  private var panelPosition: Binding<PanelPosition> {
+    Binding {
+      store.settings.panelPosition
+    } set: { value in
+      store.update { $0.panelPosition = value }
     }
   }
 

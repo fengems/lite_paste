@@ -3,6 +3,7 @@ import Foundation
 public struct AppSettings: Codable, Equatable, Sendable {
   public var hotkey: String
   public var viewMode: ClipboardPanelViewMode
+  public var panelPosition: PanelPosition
   public var maxHistoryCount: Int
   public var retentionDays: Int
   public var enabledTypes: Set<ClipboardKind>
@@ -20,6 +21,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
   public init(
     hotkey: String = "command+shift+v",
     viewMode: ClipboardPanelViewMode = .card,
+    panelPosition: PanelPosition = .statusItem,
     maxHistoryCount: Int = 1_000,
     retentionDays: Int = 0,
     enabledTypes: Set<ClipboardKind> = Set(ClipboardKind.allCases),
@@ -36,6 +38,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
   ) {
     self.hotkey = hotkey
     self.viewMode = viewMode
+    self.panelPosition = panelPosition
     self.maxHistoryCount = maxHistoryCount
     self.retentionDays = retentionDays
     self.enabledTypes = enabledTypes
@@ -54,6 +57,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
   private enum CodingKeys: String, CodingKey {
     case hotkey
     case viewMode
+    case panelPosition
     case maxHistoryCount
     case retentionDays
     case enabledTypes
@@ -75,6 +79,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
 
     hotkey = try container.decodeIfPresent(String.self, forKey: .hotkey) ?? defaults.hotkey
     viewMode = try container.decodeIfPresent(ClipboardPanelViewMode.self, forKey: .viewMode) ?? defaults.viewMode
+    panelPosition = try container.decodeIfPresent(PanelPosition.self, forKey: .panelPosition) ?? defaults.panelPosition
     maxHistoryCount = try container.decodeIfPresent(Int.self, forKey: .maxHistoryCount) ?? defaults.maxHistoryCount
     retentionDays = try container.decodeIfPresent(Int.self, forKey: .retentionDays) ?? defaults.retentionDays
     enabledTypes = try container.decodeIfPresent(Set<ClipboardKind>.self, forKey: .enabledTypes) ?? defaults.enabledTypes
@@ -94,6 +99,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(hotkey, forKey: .hotkey)
     try container.encode(viewMode, forKey: .viewMode)
+    try container.encode(panelPosition, forKey: .panelPosition)
     try container.encode(maxHistoryCount, forKey: .maxHistoryCount)
     try container.encode(retentionDays, forKey: .retentionDays)
     try container.encode(enabledTypes, forKey: .enabledTypes)
@@ -113,6 +119,24 @@ public struct AppSettings: Codable, Equatable, Sendable {
 public enum ClipboardPanelViewMode: String, Codable, Equatable, Sendable {
   case card
   case list
+}
+
+public enum PanelPosition: String, Codable, Equatable, Sendable, CaseIterable, Identifiable {
+  case statusItem
+  case mouseScreenCenter
+
+  public var id: String {
+    rawValue
+  }
+
+  public var displayName: String {
+    switch self {
+    case .statusItem:
+      "菜单栏下方"
+    case .mouseScreenCenter:
+      "鼠标所在屏幕居中"
+    }
+  }
 }
 
 public enum AutoPasteMode: String, Codable, Equatable, Sendable {

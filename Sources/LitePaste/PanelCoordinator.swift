@@ -31,17 +31,7 @@ final class PanelCoordinator {
     self.panel = panel
     previousApplication = NSWorkspace.shared.frontmostApplication
 
-    if let statusButton, let statusWindow = statusButton.window {
-      let buttonFrame = statusButton.convert(statusButton.bounds, to: nil)
-      let screenFrame = statusWindow.convertToScreen(buttonFrame)
-      let origin = NSPoint(
-        x: screenFrame.midX - panel.frame.width / 2,
-        y: screenFrame.minY - panel.frame.height - 10
-      )
-      panel.setFrameOrigin(origin)
-    } else if let screen = NSScreen.main {
-      panel.center(in: screen.visibleFrame)
-    }
+    position(panel, relativeTo: statusButton)
 
     NSApp.activate(ignoringOtherApps: true)
     presentationState.markOpened()
@@ -91,6 +81,31 @@ final class PanelCoordinator {
     return panel
   }
 
+  private func position(_ panel: NSPanel, relativeTo statusButton: NSStatusBarButton?) {
+    switch settingsStore.settings.panelPosition {
+    case .statusItem:
+      positionBelowStatusItem(panel, relativeTo: statusButton)
+    case .mouseScreenCenter:
+      panel.center(in: Self.screenContainingMouse()?.visibleFrame ?? NSScreen.main?.visibleFrame)
+    }
+  }
+
+  private func positionBelowStatusItem(_ panel: NSPanel, relativeTo statusButton: NSStatusBarButton?) {
+    guard let statusButton, let statusWindow = statusButton.window else {
+      panel.center(in: Self.screenContainingMouse()?.visibleFrame ?? NSScreen.main?.visibleFrame)
+      return
+    }
+
+    let buttonFrame = statusButton.convert(statusButton.bounds, to: nil)
+    let screenFrame = statusWindow.convertToScreen(buttonFrame)
+    let visibleFrame = statusWindow.screen?.visibleFrame ?? Self.screenContainingMouse()?.visibleFrame
+    let origin = NSPoint(
+      x: screenFrame.midX - panel.frame.width / 2,
+      y: screenFrame.minY - panel.frame.height - 10
+    )
+    panel.setFrameOrigin(origin.clamped(panelSize: panel.frame.size, to: visibleFrame))
+  }
+
   private func paste(_ record: ClipboardRecord) {
     paste(record, asPlainText: false)
   }
@@ -120,12 +135,39 @@ final class PanelCoordinator {
 }
 
 private extension NSPanel {
-  func center(in frame: NSRect) {
+  func center(in frame: NSRect?) {
+    guard let frame else {
+      center()
+      return
+    }
+
     setFrameOrigin(
       NSPoint(
         x: frame.midX - self.frame.width / 2,
         y: frame.midY - self.frame.height / 2
-      )
+      ).clamped(panelSize: self.frame.size, to: frame)
+    )
+  }
+}
+
+private extension PanelCoordinator {
+  static func screenContainingMouse() -> NSScreen? {
+    let mouseLocation = NSEvent.mouseLocation
+    return NSScreen.screens.first { $0.frame.contains(mouseLocation) }
+  }
+}
+
+private extension NSPoint {
+  func clamped(panelSize: NSSize, to frame: NSRect?) -> NSPoint {
+    guard let frame else {
+      return self
+    }
+
+    let maxX = max(frame.minX, frame.maxX - panelSize.width)
+    let maxY = max(frame.minY, frame.maxY - panelSize.height)
+    return NSPoint(
+      x: min(max(x, frame.minX), maxX),
+      y: min(max(y, frame.minY), maxY)
     )
   }
 }
