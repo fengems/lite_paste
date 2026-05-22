@@ -73,19 +73,20 @@ public struct ImportExportService: Sendable {
   }
 
   private func mergeBackup(from backupURL: URL) throws {
-    let incomingHistory = try loadHistoryIfExists(
-      at: backupURL.appending(path: "history.json"),
-      rewritingExternalBlobPathsTo: paths.blobsDirectory
-    )
     let repository = currentHistoryRepository()
     let existingHistory = try repository.load()
-    let merged = merge(existing: existingHistory, incoming: incomingHistory)
-    try repository.save(merged)
-
-    try copyDirectoryContentsIfExists(
+    let uniqueIncomingHistory = uniqueRecords(
+      in: try loadHistoryRecordsIfExists(at: backupURL.appending(path: "history.json")),
+      comparedTo: existingHistory
+    )
+    let importedIncomingHistory = try copyExternalBlobsForMerge(
+      in: uniqueIncomingHistory,
       from: backupURL.appending(path: "Blobs", directoryHint: .isDirectory),
       to: paths.blobsDirectory
     )
+
+    let merged = merge(existing: existingHistory, incoming: importedIncomingHistory)
+    try repository.save(merged)
 
     let incomingSettings = backupURL.appending(path: "settings.json")
     if !FileManager.default.fileExists(atPath: paths.settingsURL.path) {
@@ -128,12 +129,31 @@ public struct ImportExportService: Sendable {
     at url: URL,
     rewritingExternalBlobPathsTo blobsDirectory: URL
   ) throws -> [ClipboardRecord] {
+    let records = try loadHistoryRecordsIfExists(at: url)
+    return rewriteExternalBlobPaths(in: records, to: blobsDirectory)
+  }
+
+  private func loadHistoryRecordsIfExists(at url: URL) throws -> [ClipboardRecord] {
     guard FileManager.default.fileExists(atPath: url.path) else {
       return []
     }
 
-    let records = try JSONClipboardHistoryRepository(url: url).load()
-    return rewriteExternalBlobPaths(in: records, to: blobsDirectory)
+    return try JSONClipboardHistoryRepository(url: url).load()
+  }
+
+  private func uniqueRecords(
+    in incoming: [ClipboardRecord],
+    comparedTo existing: [ClipboardRecord]
+  ) -> [ClipboardRecord] {
+    var seen = Set(existing.map(\.contentHash))
+    var unique: [ClipboardRecord] = []
+
+    for record in incoming where !seen.contains(record.contentHash) {
+      unique.append(record)
+      seen.insert(record.contentHash)
+    }
+
+    return unique
   }
 
   private func merge(existing: [ClipboardRecord], incoming: [ClipboardRecord]) -> [ClipboardRecord] {
@@ -151,6 +171,128 @@ public struct ImportExportService: Sendable {
       }
 
       return lhs.lastCopiedAt > rhs.lastCopiedAt
+    }
+  }
+
+  private func copyExternalBlobsForMerge(
+    in records: [ClipboardRecord],
+    from sourceBlobsDirectory: URL,
+    to destinationBlobsDirectory: URL
+  ) throws -> [ClipboardRecord] {
+    var copiedPaths: [String: String] = [:]
+
+    return try records.map { record in
+      var record = record
+      record.contents = try record.contents.map { snapshot in
+        try copyExternalBlobForMerge(
+          in: snapshot,
+          from: sourceBlobsDirectory,
+          to: destinationBlobsDirectory,
+          copiedPaths: &copiedPaths
+        )
+      }
+
+      if let previewFilePath = record.previewFilePath {
+        record.previewFilePath = try copiedBlobPathForMerge(
+          from: previewFilePath,
+          sourceBlobsDirectory: sourceBlobsDirectory,
+          destinationBlobsDirectory: destinationBlobsDirectory,
+          copiedPaths: &copiedPaths
+        )
+      }
+
+      return record
+    }
+  }
+
+  private func copyExternalBlobForMerge(
+    in snapshot: ClipboardContentSnapshot,
+    from sourceBlobsDirectory: URL,
+    to destinationBlobsDirectory: URL,
+    copiedPaths: inout [String: String]
+  ) throws -> ClipboardContentSnapshot {
+    guard snapshot.storageMode == .external,
+          let externalFilePath = snapshot.externalFilePath else {
+      return snapshot
+    }
+
+    var snapshot = snapshot
+    snapshot.externalFilePath = try copiedBlobPathForMerge(
+      from: externalFilePath,
+      sourceBlobsDirectory: sourceBlobsDirectory,
+      destinationBlobsDirectory: destinationBlobsDirectory,
+      copiedPaths: &copiedPaths
+    )
+    return snapshot
+  }
+
+  private func copiedBlobPathForMerge(
+    from path: String,
+    sourceBlobsDirectory: URL,
+    destinationBlobsDirectory: URL,
+    copiedPaths: inout [String: String]
+  ) throws -> String {
+    if let copiedPath = copiedPaths[path] {
+      return copiedPath
+    }
+
+    let filename = URL(fileURLWithPath: path).lastPathComponent
+    let sourceURL = existingBlobSourceURL(
+      originalPath: path,
+      sourceBlobsDirectory: sourceBlobsDirectory
+    )
+    let preferredDestinationURL = destinationBlobsDirectory.appending(path: filename)
+
+    guard let sourceURL else {
+      copiedPaths[path] = preferredDestinationURL.path
+      return preferredDestinationURL.path
+    }
+
+    try FileManager.default.createDirectory(at: destinationBlobsDirectory, withIntermediateDirectories: true)
+    let destinationURL = uniqueDestinationURL(for: sourceURL, preferredDestinationURL: preferredDestinationURL)
+    if !FileManager.default.fileExists(atPath: destinationURL.path) {
+      try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
+    }
+
+    copiedPaths[path] = destinationURL.path
+    return destinationURL.path
+  }
+
+  private func existingBlobSourceURL(originalPath: String, sourceBlobsDirectory: URL) -> URL? {
+    let filename = URL(fileURLWithPath: originalPath).lastPathComponent
+    let backupBlobURL = sourceBlobsDirectory.appending(path: filename)
+    if FileManager.default.fileExists(atPath: backupBlobURL.path) {
+      return backupBlobURL
+    }
+
+    let originalURL = URL(fileURLWithPath: originalPath)
+    if FileManager.default.fileExists(atPath: originalURL.path) {
+      return originalURL
+    }
+
+    return nil
+  }
+
+  private func uniqueDestinationURL(for sourceURL: URL, preferredDestinationURL: URL) -> URL {
+    guard FileManager.default.fileExists(atPath: preferredDestinationURL.path) else {
+      return preferredDestinationURL
+    }
+
+    if FileManager.default.contentsEqual(atPath: sourceURL.path, andPath: preferredDestinationURL.path) {
+      return preferredDestinationURL
+    }
+
+    let directory = preferredDestinationURL.deletingLastPathComponent()
+    let stem = preferredDestinationURL.deletingPathExtension().lastPathComponent
+    let fileExtension = preferredDestinationURL.pathExtension
+
+    while true {
+      let suffix = UUID().uuidString
+      let filename = fileExtension.isEmpty ? "\(stem)-\(suffix)" : "\(stem)-\(suffix).\(fileExtension)"
+      let candidate = directory.appending(path: filename)
+      if !FileManager.default.fileExists(atPath: candidate.path) {
+        return candidate
+      }
     }
   }
 
@@ -272,23 +414,6 @@ public struct ImportExportService: Sendable {
     try FileManager.default.copyItem(at: source, to: destination)
   }
 
-  private func copyDirectoryContentsIfExists(from source: URL, to destination: URL) throws {
-    guard FileManager.default.fileExists(atPath: source.path) else {
-      return
-    }
-
-    try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
-    let contents = try FileManager.default.contentsOfDirectory(at: source, includingPropertiesForKeys: nil)
-
-    for sourceURL in contents {
-      let destinationURL = destination.appending(path: sourceURL.lastPathComponent)
-      if FileManager.default.fileExists(atPath: destinationURL.path) {
-        continue
-      }
-      try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
-    }
-  }
-
   private static let timestampFormatter: DateFormatter = {
     let formatter = DateFormatter()
     formatter.calendar = Calendar(identifier: .gregorian)
@@ -298,9 +423,27 @@ public struct ImportExportService: Sendable {
   }()
 }
 
-public enum BackupError: Error, Equatable {
+public enum BackupError: Error, Equatable, LocalizedError {
   case invalidBackup
   case unsupportedFormatVersion(Int)
+
+  public var errorDescription: String? {
+    switch self {
+    case .invalidBackup:
+      "备份文件无效或已损坏。"
+    case let .unsupportedFormatVersion(version):
+      "不支持的备份格式版本：\(version)。"
+    }
+  }
+
+  public var recoverySuggestion: String? {
+    switch self {
+    case .invalidBackup:
+      "请选择由 Lite Paste 导出的完整 .litepastebackup 备份文件夹。"
+    case .unsupportedFormatVersion:
+      "请升级 Lite Paste 后再导入该备份，或选择较旧版本导出的备份。"
+    }
+  }
 }
 
 private struct BackupManifest: Codable {

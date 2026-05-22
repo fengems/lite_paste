@@ -1959,6 +1959,11 @@ func checkImportExportValidation() {
     } catch BackupError.unsupportedFormatVersion(999) {
       // Expected.
     }
+
+    expect(
+      BackupError.invalidBackup.localizedDescription == "备份文件无效或已损坏。",
+      "Backup errors should have user-facing localized descriptions"
+    )
   } catch {
     fatalError("Import/export validation check failed: \(error)")
   }
@@ -2051,6 +2056,8 @@ func checkImportExportRoundTrip() {
       .write(to: mergeBackup.appending(path: "settings.json"))
 
     let incomingBlob = mergeBlobs.appending(path: "incoming.bin")
+    let collisionBlob = paths.blobsDirectory.appending(path: "incoming.bin")
+    try Data("local-collision".utf8).write(to: collisionBlob, options: .atomic)
     try Data("incoming".utf8).write(to: incomingBlob, options: .atomic)
     let duplicateRecord = ClipboardRecord(
       kind: .text,
@@ -2088,14 +2095,24 @@ func checkImportExportRoundTrip() {
       from: Data(contentsOf: paths.settingsURL)
     )
     let importedBlob = paths.blobsDirectory.appending(path: "incoming.bin")
+    let importedRecord = mergedHistory.first { $0.contentHash == "hash-incoming" }
+    let importedPreviewPath = importedRecord?.previewFilePath ?? ""
 
     expect(mergedHistory.count == 3, "Merge import should keep existing and add unique incoming records")
     expect(hashCounts["hash-a"] == 1, "Merge import should deduplicate by content hash")
     expect(
-      mergedHistory.first(where: { $0.contentHash == "hash-incoming" })?.previewFilePath == importedBlob.path,
-      "Merge import should rewrite incoming preview blob path"
+      importedPreviewPath != importedBlob.path,
+      "Merge import should avoid overwriting existing blob filename collisions"
     )
-    expect(FileManager.default.fileExists(atPath: importedBlob.path), "Merge import should copy incoming blobs")
+    expect(FileManager.default.fileExists(atPath: importedPreviewPath), "Merge import should copy incoming blobs")
+    expect(
+      (try? Data(contentsOf: URL(fileURLWithPath: importedPreviewPath))) == Data("incoming".utf8),
+      "Merge import should keep incoming blob data when resolving collisions"
+    )
+    expect(
+      (try? Data(contentsOf: collisionBlob)) == Data("local-collision".utf8),
+      "Merge import should not overwrite existing colliding blobs"
+    )
     expect(mergedSettings.hotkey == "command+option+space", "Merge import should not overwrite existing settings")
 
     let emptyBackup = directory.appending(path: "Empty.litepastebackup", directoryHint: .isDirectory)
