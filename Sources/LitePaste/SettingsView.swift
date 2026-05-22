@@ -29,6 +29,8 @@ struct SettingsView: View {
           Text("自动粘贴").tag(AutoPasteMode.paste)
         }
 
+        Toggle("重复复制时移到顶部", isOn: moveDuplicatesToTop)
+
         Stepper("最大历史数量: \(store.settings.maxHistoryCount)", value: maxHistoryCount, in: 50...10_000, step: 50)
         Stepper(retentionDaysLabel, value: retentionDays, in: 0...365, step: 1)
 
@@ -130,6 +132,14 @@ struct SettingsView: View {
       store.settings.clearSearchOnOpen
     } set: { value in
       store.update { $0.clearSearchOnOpen = value }
+    }
+  }
+
+  private var moveDuplicatesToTop: Binding<Bool> {
+    Binding {
+      store.settings.moveDuplicatesToTop
+    } set: { value in
+      store.update { $0.moveDuplicatesToTop = value }
     }
   }
 

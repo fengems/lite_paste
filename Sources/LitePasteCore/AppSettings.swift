@@ -10,6 +10,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
   public var ignoredApps: Set<String>
   public var autoPasteMode: AutoPasteMode
   public var pastePlainByDefault: Bool
+  public var moveDuplicatesToTop: Bool
   public var clearSearchOnOpen: Bool
   public var privacyMode: Bool
   public var launchAtLogin: Bool
@@ -24,6 +25,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     ignoredApps: Set<String> = [],
     autoPasteMode: AutoPasteMode = .copyOnly,
     pastePlainByDefault: Bool = false,
+    moveDuplicatesToTop: Bool = true,
     clearSearchOnOpen: Bool = true,
     privacyMode: Bool = false,
     launchAtLogin: Bool = false
@@ -37,6 +39,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     self.ignoredApps = ignoredApps
     self.autoPasteMode = autoPasteMode
     self.pastePlainByDefault = pastePlainByDefault
+    self.moveDuplicatesToTop = moveDuplicatesToTop
     self.clearSearchOnOpen = clearSearchOnOpen
     self.privacyMode = privacyMode
     self.launchAtLogin = launchAtLogin
@@ -52,6 +55,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     case ignoredApps
     case autoPasteMode
     case pastePlainByDefault
+    case moveDuplicatesToTop
     case clearSearchOnOpen
     case privacyMode
     case launchAtLogin
@@ -70,6 +74,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     ignoredApps = try container.decodeIfPresent(Set<String>.self, forKey: .ignoredApps) ?? defaults.ignoredApps
     autoPasteMode = try container.decodeIfPresent(AutoPasteMode.self, forKey: .autoPasteMode) ?? defaults.autoPasteMode
     pastePlainByDefault = try container.decodeIfPresent(Bool.self, forKey: .pastePlainByDefault) ?? defaults.pastePlainByDefault
+    moveDuplicatesToTop = try container.decodeIfPresent(Bool.self, forKey: .moveDuplicatesToTop) ?? defaults.moveDuplicatesToTop
     clearSearchOnOpen = try container.decodeIfPresent(Bool.self, forKey: .clearSearchOnOpen) ?? defaults.clearSearchOnOpen
     privacyMode = try container.decodeIfPresent(Bool.self, forKey: .privacyMode) ?? defaults.privacyMode
     launchAtLogin = try container.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? defaults.launchAtLogin
@@ -86,6 +91,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     try container.encode(ignoredApps, forKey: .ignoredApps)
     try container.encode(autoPasteMode, forKey: .autoPasteMode)
     try container.encode(pastePlainByDefault, forKey: .pastePlainByDefault)
+    try container.encode(moveDuplicatesToTop, forKey: .moveDuplicatesToTop)
     try container.encode(clearSearchOnOpen, forKey: .clearSearchOnOpen)
     try container.encode(privacyMode, forKey: .privacyMode)
     try container.encode(launchAtLogin, forKey: .launchAtLogin)

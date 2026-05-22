@@ -22,10 +22,12 @@ func checkAppSettingsBackwardCompatibility() {
     expect(settings.viewMode == ClipboardPanelViewMode.list, "Settings should decode existing view mode string")
     expect(settings.clearSearchOnOpen, "Settings should default clearSearchOnOpen for old files")
     expect(settings.maxHistoryCount == 1_000, "Settings should default maxHistoryCount for old files")
+    expect(settings.moveDuplicatesToTop, "Settings should default moveDuplicatesToTop for old files")
 
     let custom = AppSettings(
       ignoredPasteboardTypes: ["org.example.SecretType"],
-      ignoredApps: ["com.example.SecretApp"]
+      ignoredApps: ["com.example.SecretApp"],
+      moveDuplicatesToTop: false
     )
     let encoded = try JSONEncoder.litePaste.encode(custom)
     let decoded = try JSONDecoder.litePaste.decode(AppSettings.self, from: encoded)
@@ -37,6 +39,10 @@ func checkAppSettingsBackwardCompatibility() {
     expect(
       decoded.ignoredPasteboardTypes.contains("org.example.SecretType"),
       "Settings should preserve ignored pasteboard types"
+    )
+    expect(
+      !decoded.moveDuplicatesToTop,
+      "Settings should preserve duplicate ordering behavior"
     )
   } catch {
     fatalError("Settings compatibility check failed: \(error)")
@@ -157,6 +163,23 @@ func checkHistoryStore() {
 
   store.updateMaxHistoryCount(1)
   expect(store.records.count == 1, "HistoryStore should trim when max history count changes")
+
+  let stableStore = HistoryStore(
+    records: [],
+    repository: InMemoryClipboardHistoryRepository(),
+    moveDuplicatesToTop: false
+  )
+  let stableFirst = stableStore.ingest(hello, sourceAppBundleId: nil, sourceAppName: nil)
+  _ = stableStore.ingest(world, sourceAppBundleId: nil, sourceAppName: nil)
+  let stableDuplicate = stableStore.ingest(hello, sourceAppBundleId: nil, sourceAppName: nil)
+
+  expect(stableDuplicate.id == stableFirst.id, "Duplicate content should still deduplicate when stable ordering is enabled")
+  expect(stableStore.records.first?.title == "world", "Stable duplicate ordering should not move duplicate content to top")
+  expect(stableStore.records.last?.copyCount == 2, "Stable duplicate ordering should still increment copy count")
+
+  stableStore.updateMoveDuplicatesToTop(true)
+  _ = stableStore.ingest(hello, sourceAppBundleId: nil, sourceAppName: nil)
+  expect(stableStore.records.first?.id == stableFirst.id, "Duplicate ordering update should move duplicates to top")
 }
 
 @MainActor

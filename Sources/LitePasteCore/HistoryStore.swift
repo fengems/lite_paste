@@ -14,6 +14,7 @@ public final class HistoryStore: ObservableObject {
   private let queryEngine: ClipboardHistoryQueryEngine
   private var maxHistoryCount: Int
   private var retentionDays: Int
+  private var moveDuplicatesToTop: Bool
 
   public init(
     records: [ClipboardRecord]? = nil,
@@ -21,13 +22,15 @@ public final class HistoryStore: ObservableObject {
     blobStorage: any BlobStorage = LocalBlobStorage(),
     queryEngine: ClipboardHistoryQueryEngine = ClipboardHistoryQueryEngine(),
     maxHistoryCount: Int = 1_000,
-    retentionDays: Int = 0
+    retentionDays: Int = 0,
+    moveDuplicatesToTop: Bool = true
   ) {
     self.repository = repository
     self.blobStorage = blobStorage
     self.queryEngine = queryEngine
     self.maxHistoryCount = maxHistoryCount
     self.retentionDays = retentionDays
+    self.moveDuplicatesToTop = moveDuplicatesToTop
     self.records = records ?? Self.load(from: repository)
     trimHistoryIfNeeded(now: .now)
   }
@@ -47,8 +50,11 @@ public final class HistoryStore: ObservableObject {
       records[index].lastCopiedAt = now
       records[index].sourceAppBundleId = sourceAppBundleId
       records[index].sourceAppName = sourceAppName
-      let updated = records.remove(at: index)
-      records.insert(updated, at: 0)
+      let updated = records[index]
+      if moveDuplicatesToTop {
+        records.remove(at: index)
+        records.insert(updated, at: 0)
+      }
       removeExternalFiles(in: payload.contents)
       return updated
     }
@@ -161,6 +167,10 @@ public final class HistoryStore: ObservableObject {
   public func updateRetentionDays(_ retentionDays: Int, now: Date = .now) {
     self.retentionDays = max(retentionDays, 0)
     trimHistoryIfNeeded(now: now)
+  }
+
+  public func updateMoveDuplicatesToTop(_ moveDuplicatesToTop: Bool) {
+    self.moveDuplicatesToTop = moveDuplicatesToTop
   }
 
   private func update(_ id: ClipboardRecord.ID, _ mutate: (inout ClipboardRecord) -> Void) {

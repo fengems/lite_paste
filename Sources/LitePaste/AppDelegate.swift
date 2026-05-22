@@ -7,7 +7,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   let settingsStore = AppSettingsStore.shared
   lazy var store = HistoryStore(
     maxHistoryCount: settingsStore.settings.maxHistoryCount,
-    retentionDays: settingsStore.settings.retentionDays
+    retentionDays: settingsStore.settings.retentionDays,
+    moveDuplicatesToTop: settingsStore.settings.moveDuplicatesToTop
   )
 
   private var statusItem: NSStatusItem?
@@ -102,6 +103,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self?.monitor?.updateEnabledTypes(settings.enabledTypes)
         self?.store.updateMaxHistoryCount(settings.maxHistoryCount)
         self?.store.updateRetentionDays(settings.retentionDays)
+        self?.store.updateMoveDuplicatesToTop(settings.moveDuplicatesToTop)
       }
       .store(in: &cancellables)
   }
