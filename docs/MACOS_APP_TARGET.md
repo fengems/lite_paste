@@ -82,11 +82,10 @@ Lite Paste 的自动粘贴依赖 Accessibility 权限。该权限不通过 Info.
 
 正式 target 还需要补齐：
 
-- 菜单栏 template 图标
 - 关于页图标
 - 发布用 DMG 或 zip 打包配置
 
-本地 bundle 脚本会用 `Scripts/generate_app_icon.swift` 生成 `AppIcon.icns`。未来完整 Xcode target 可继续复用该脚本生成的图标，或迁移为 asset catalog 中的 AppIcon `.appiconset`。
+菜单栏当前使用 `StatusItemIcon` 程序化绘制 template 图标，能在 SwiftPM 和本地 `.app` bundle 中保持一致。未来完整 Xcode target 可迁移为 asset catalog 里的模板资源。本地 bundle 脚本会用 `Scripts/generate_app_icon.swift` 生成 `AppIcon.icns`，未来完整 Xcode target 可继续复用该脚本生成的图标，或迁移为 asset catalog 中的 AppIcon `.appiconset`。
 
 ## 本地 Bundle 脚本
 

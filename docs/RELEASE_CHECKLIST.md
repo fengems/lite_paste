@@ -77,7 +77,7 @@ open Build/LitePaste.app
 - 当前 zip 为 ad-hoc 签名本地试用包，不是 Developer ID 签名和公证发布包。
 - 首次打开可能需要用户在 macOS 安全设置中确认允许运行。
 - 开机启动能力更适合正式 `.app` bundle 和签名环境验证。
-- 菜单栏当前仍使用 SF Symbol，后续会补专用 template 图标。
+- 菜单栏使用项目内绘制的 template 图标，完整 Xcode target 阶段可再迁移到 asset catalog。
 
 ## 5. 回滚和清理
 

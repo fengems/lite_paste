@@ -64,10 +64,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   private func configureStatusItem() {
     let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-    statusItem.button?.image = NSImage(
-      systemSymbolName: "doc.on.clipboard",
-      accessibilityDescription: "Lite Paste"
-    )
+    statusItem.button?.image = StatusItemIcon.makeImage()
+    statusItem.button?.toolTip = "Lite Paste"
     statusItem.button?.target = self
     statusItem.button?.action = #selector(handleStatusItemClick(_:))
     statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
