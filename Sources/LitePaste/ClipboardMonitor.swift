@@ -6,7 +6,7 @@ import LitePasteCore
 final class ClipboardMonitor {
   private let pasteboard: NSPasteboard
   private let store: HistoryStore
-  private let blobStore: ClipboardBlobStore
+  private let blobStorage: any BlobStorage
   private var privacyFilter: PrivacyFilter
   private var timer: Timer?
   private var lastChangeCount: Int
@@ -14,12 +14,12 @@ final class ClipboardMonitor {
   init(
     pasteboard: NSPasteboard = .general,
     store: HistoryStore,
-    blobStore: ClipboardBlobStore = ClipboardBlobStore(),
+    blobStorage: any BlobStorage = LocalBlobStorage(),
     privacyFilter: PrivacyFilter = PrivacyFilter()
   ) {
     self.pasteboard = pasteboard
     self.store = store
-    self.blobStore = blobStore
+    self.blobStorage = blobStorage
     self.privacyFilter = privacyFilter
     self.lastChangeCount = pasteboard.changeCount
   }
@@ -162,7 +162,7 @@ final class ClipboardMonitor {
       }
 
       do {
-        let snapshot = try blobStore.snapshot(
+        let snapshot = try blobStorage.snapshot(
           data: data,
           pasteboardType: type.rawValue,
           preferredExtension: fileExtension,
@@ -189,7 +189,7 @@ final class ClipboardMonitor {
     }
 
     do {
-      let snapshot = try blobStore.snapshot(
+      let snapshot = try blobStorage.snapshot(
         data: data,
         pasteboardType: NSPasteboard.PasteboardType.tiff.rawValue,
         preferredExtension: "tiff",
@@ -248,7 +248,7 @@ final class ClipboardMonitor {
     let title = plainText.map(Self.makeTitle(from:)) ?? fallbackTitle
 
     do {
-      let snapshot = try blobStore.snapshot(
+      let snapshot = try blobStorage.snapshot(
         data: data,
         pasteboardType: pasteboardType.rawValue,
         preferredExtension: fileExtension,

@@ -10,14 +10,17 @@ public final class HistoryStore: ObservableObject {
   }
 
   private let repository: any ClipboardHistoryRepository
+  private let blobStorage: any BlobStorage
   private let maxHistoryCount: Int
 
   public init(
     records: [ClipboardRecord]? = nil,
     repository: any ClipboardHistoryRepository = JSONClipboardHistoryRepository(),
+    blobStorage: any BlobStorage = LocalBlobStorage(),
     maxHistoryCount: Int = 1_000
   ) {
     self.repository = repository
+    self.blobStorage = blobStorage
     self.maxHistoryCount = maxHistoryCount
     self.records = records ?? Self.load(from: repository)
   }
@@ -162,19 +165,6 @@ public final class HistoryStore: ObservableObject {
   }
 
   private func removeExternalFiles(in snapshots: [ClipboardContentSnapshot]) {
-    let blobsPath = AppPaths.blobsDirectory.standardizedFileURL.path
-
-    for snapshot in snapshots where snapshot.storageMode == .external {
-      guard let externalFilePath = snapshot.externalFilePath else {
-        continue
-      }
-
-      let url = URL(fileURLWithPath: externalFilePath).standardizedFileURL
-      guard url.path.hasPrefix(blobsPath) else {
-        continue
-      }
-
-      try? FileManager.default.removeItem(at: url)
-    }
+    blobStorage.removeExternalFiles(in: snapshots)
   }
 }
