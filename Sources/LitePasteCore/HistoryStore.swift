@@ -29,7 +29,7 @@ public final class HistoryStore: ObservableObject {
     sourceAppName: String?,
     now: Date = .now
   ) -> ClipboardRecord {
-    let hashBasis = payload.plainText ?? payload.searchText
+    let hashBasis = payload.contentHashBasis
     let contentHash = ContentHasher.hash(kind: payload.kind, text: hashBasis)
 
     if let index = records.firstIndex(where: { $0.contentHash == contentHash }) {
@@ -51,7 +51,9 @@ public final class HistoryStore: ObservableObject {
       createdAt: now,
       lastCopiedAt: now,
       contentHash: contentHash,
-      plainText: payload.plainText
+      plainText: payload.plainText,
+      contents: payload.contents,
+      previewFilePath: payload.previewFilePath
     )
 
     records.insert(record, at: 0)

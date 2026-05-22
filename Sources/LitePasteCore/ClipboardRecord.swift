@@ -17,6 +17,8 @@ public struct ClipboardRecord: Identifiable, Codable, Equatable, Sendable {
   public var pinShortcut: String?
   public var contentHash: String
   public var plainText: String?
+  public var contents: [ClipboardContentSnapshot]
+  public var previewFilePath: String?
 
   public init(
     id: UUID = UUID(),
@@ -34,7 +36,9 @@ public struct ClipboardRecord: Identifiable, Codable, Equatable, Sendable {
     isPinned: Bool = false,
     pinShortcut: String? = nil,
     contentHash: String,
-    plainText: String? = nil
+    plainText: String? = nil,
+    contents: [ClipboardContentSnapshot] = [],
+    previewFilePath: String? = nil
   ) {
     self.id = id
     self.kind = kind
@@ -52,6 +56,7 @@ public struct ClipboardRecord: Identifiable, Codable, Equatable, Sendable {
     self.pinShortcut = pinShortcut
     self.contentHash = contentHash
     self.plainText = plainText
+    self.contents = contents
+    self.previewFilePath = previewFilePath
   }
 }
-

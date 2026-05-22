@@ -22,10 +22,9 @@ struct ClipboardCard: View {
         actionButtons
       }
 
-      Text(record.title)
-        .font(.system(size: 17, weight: .semibold))
-        .lineLimit(5)
-        .frame(maxWidth: .infinity, minHeight: 110, alignment: .topLeading)
+      preview
+        .frame(maxWidth: .infinity, minHeight: 110, maxHeight: 110, alignment: .topLeading)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
 
       HStack {
         if let source = record.sourceAppName {
@@ -82,6 +81,18 @@ struct ClipboardCard: View {
         accessibilityLabel: "删除",
         action: deleteAction
       )
+    }
+  }
+
+  @ViewBuilder
+  private var preview: some View {
+    if record.kind == .image, let path = record.previewFilePath {
+      ClipboardPreviewImage(path: path)
+    } else {
+      Text(record.title)
+        .font(.system(size: 17, weight: .semibold))
+        .lineLimit(5)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
   }
 

@@ -12,10 +12,10 @@ struct ClipboardRow: View {
 
   var body: some View {
     HStack(spacing: 12) {
-      Image(systemName: iconName)
-        .font(.system(size: 16, weight: .semibold))
-        .frame(width: 28, height: 28)
+      thumbnail
+        .frame(width: 34, height: 34)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
 
       VStack(alignment: .leading, spacing: 4) {
         Text(record.title)
@@ -70,6 +70,16 @@ struct ClipboardRow: View {
     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
     .onTapGesture {
       primaryAction(record)
+    }
+  }
+
+  @ViewBuilder
+  private var thumbnail: some View {
+    if record.kind == .image, let path = record.previewFilePath {
+      ClipboardPreviewImage(path: path)
+    } else {
+      Image(systemName: iconName)
+        .font(.system(size: 16, weight: .semibold))
     }
   }
 
