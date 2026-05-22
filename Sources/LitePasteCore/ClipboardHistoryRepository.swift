@@ -12,6 +12,13 @@ public protocol ClipboardHistoryQueryingRepository: ClipboardHistoryRepository {
 
 public protocol ClipboardHistoryLookupRepository: ClipboardHistoryRepository {
   func record(id: ClipboardRecord.ID) throws -> ClipboardRecord?
+  func record(contentHash: String) throws -> ClipboardRecord?
+}
+
+public protocol ClipboardHistoryIncrementalRepository: ClipboardHistoryRepository {
+  func upsert(_ record: ClipboardRecord, position: Int?) throws
+  func delete(id: ClipboardRecord.ID) throws
+  func deleteAll() throws
 }
 
 public struct JSONClipboardHistoryRepository: ClipboardHistoryRepository {

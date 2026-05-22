@@ -1,7 +1,7 @@
 import Foundation
 import SQLite3
 
-public struct SQLiteClipboardHistoryRepository: ClipboardHistoryLookupRepository, ClipboardHistoryQueryingRepository {
+public struct SQLiteClipboardHistoryRepository: ClipboardHistoryIncrementalRepository, ClipboardHistoryLookupRepository, ClipboardHistoryQueryingRepository {
   private let url: URL
   private static let selectColumns = """
     id, kind, title, search_text, note, source_app_bundle_id, source_app_name,
@@ -87,6 +87,70 @@ public struct SQLiteClipboardHistoryRepository: ClipboardHistoryLookupRepository
       sql: "SELECT \(Self.selectColumns) FROM clipboard_records WHERE id = ? LIMIT 1",
       bindings: [id.uuidString]
     ).first
+  }
+
+  public func record(contentHash: String) throws -> ClipboardRecord? {
+    let connection = try SQLiteConnection(url: url)
+    try connection.ensureSchema()
+
+    return try connection.records(
+      sql: "SELECT \(Self.selectColumns) FROM clipboard_records WHERE content_hash = ? LIMIT 1",
+      bindings: [contentHash]
+    ).first
+  }
+
+  public func upsert(_ record: ClipboardRecord, position: Int? = nil) throws {
+    let connection = try SQLiteConnection(url: url)
+    try connection.ensureSchema()
+    let requestedPosition = position
+    let resolvedPosition = try max(requestedPosition ?? nextPosition(for: record.id, in: connection), 0)
+    if let requestedPosition, requestedPosition >= 0 {
+      try shiftPositionsIfNeeded(from: requestedPosition, excluding: record.id, in: connection)
+    }
+    let statement = try connection.prepare("""
+      INSERT INTO clipboard_records (
+        id, kind, title, search_text, note, source_app_bundle_id, source_app_name,
+        created_at, last_copied_at, last_used_at, copy_count, is_favorite, is_pinned,
+        pin_shortcut, content_hash, plain_text, contents_json, preview_file_path, position
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        kind = excluded.kind,
+        title = excluded.title,
+        search_text = excluded.search_text,
+        note = excluded.note,
+        source_app_bundle_id = excluded.source_app_bundle_id,
+        source_app_name = excluded.source_app_name,
+        created_at = excluded.created_at,
+        last_copied_at = excluded.last_copied_at,
+        last_used_at = excluded.last_used_at,
+        copy_count = excluded.copy_count,
+        is_favorite = excluded.is_favorite,
+        is_pinned = excluded.is_pinned,
+        pin_shortcut = excluded.pin_shortcut,
+        content_hash = excluded.content_hash,
+        plain_text = excluded.plain_text,
+        contents_json = excluded.contents_json,
+        preview_file_path = excluded.preview_file_path,
+        position = excluded.position
+      """)
+    defer { sqlite3_finalize(statement) }
+
+    try Self.bind(record, position: resolvedPosition, to: statement)
+    guard sqlite3_step(statement) == SQLITE_DONE else {
+      throw SQLiteRepositoryError.operationFailed(connection.errorMessage)
+    }
+  }
+
+  public func delete(id: ClipboardRecord.ID) throws {
+    let connection = try SQLiteConnection(url: url)
+    try connection.ensureSchema()
+    try connection.run(sql: "DELETE FROM clipboard_records WHERE id = ?", bindings: [id.uuidString])
+  }
+
+  public func deleteAll() throws {
+    let connection = try SQLiteConnection(url: url)
+    try connection.ensureSchema()
+    try connection.execute("DELETE FROM clipboard_records")
   }
 
   public func performMaintenance() throws {
@@ -225,6 +289,28 @@ public struct SQLiteClipboardHistoryRepository: ClipboardHistoryLookupRepository
     ClipboardKind.email.rawValue,
     ClipboardKind.color.rawValue
   ]
+
+  private func nextPosition(for id: ClipboardRecord.ID, in connection: SQLiteConnection) throws -> Int {
+    try connection.int(
+      sql: """
+        SELECT COALESCE(
+          (SELECT position FROM clipboard_records WHERE id = ?),
+          (SELECT COALESCE(MAX(position), -1) + 1 FROM clipboard_records)
+        )
+        """,
+      bindings: [id.uuidString]
+    )
+  }
+
+  private func shiftPositionsIfNeeded(
+    from position: Int,
+    excluding id: ClipboardRecord.ID,
+    in connection: SQLiteConnection
+  ) throws {
+    try connection.execute(
+      "UPDATE clipboard_records SET position = position + 1 WHERE position >= \(position) AND id != '\(id.uuidString)'"
+    )
+  }
 
   fileprivate static func record(from statement: OpaquePointer?) throws -> ClipboardRecord {
     guard let id = UUID(uuidString: text(at: 0, in: statement) ?? ""),
@@ -449,6 +535,19 @@ private final class SQLiteConnection {
     }
 
     return Int(sqlite3_column_int64(statement, 0))
+  }
+
+  func run(sql: String, bindings: [String] = []) throws {
+    let statement = try prepare(sql)
+    defer { sqlite3_finalize(statement) }
+
+    for (index, binding) in bindings.enumerated() {
+      SQLiteClipboardHistoryRepository.bindText(binding, at: Int32(index + 1), to: statement)
+    }
+
+    guard sqlite3_step(statement) == SQLITE_DONE else {
+      throw SQLiteRepositoryError.operationFailed(errorMessage)
+    }
   }
 }
 

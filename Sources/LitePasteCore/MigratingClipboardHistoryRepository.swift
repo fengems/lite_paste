@@ -1,6 +1,6 @@
 import Foundation
 
-public struct MigratingClipboardHistoryRepository: ClipboardHistoryLookupRepository, ClipboardHistoryQueryingRepository {
+public struct MigratingClipboardHistoryRepository: ClipboardHistoryIncrementalRepository, ClipboardHistoryLookupRepository, ClipboardHistoryQueryingRepository {
   private let primary: any ClipboardHistoryRepository
   private let legacy: any ClipboardHistoryRepository
   private let legacyURL: URL
@@ -67,6 +67,58 @@ public struct MigratingClipboardHistoryRepository: ClipboardHistoryLookupReposit
     }
 
     return try load().first { $0.id == id }
+  }
+
+  public func record(contentHash: String) throws -> ClipboardRecord? {
+    try migrateLegacyHistoryIfNeeded()
+
+    if let primary = primary as? any ClipboardHistoryLookupRepository {
+      return try primary.record(contentHash: contentHash)
+    }
+
+    return try load().first { $0.contentHash == contentHash }
+  }
+
+  public func upsert(_ record: ClipboardRecord, position: Int? = nil) throws {
+    try migrateLegacyHistoryIfNeeded()
+
+    if let primary = primary as? any ClipboardHistoryIncrementalRepository {
+      try primary.upsert(record, position: position)
+      try removeLegacyHistoryIfNeeded()
+      return
+    }
+
+    var records = try load()
+    if let index = records.firstIndex(where: { $0.id == record.id }) {
+      records[index] = record
+    } else if let position {
+      records.insert(record, at: min(max(position, 0), records.count))
+    } else {
+      records.append(record)
+    }
+    try save(records)
+  }
+
+  public func delete(id: ClipboardRecord.ID) throws {
+    try migrateLegacyHistoryIfNeeded()
+
+    if let primary = primary as? any ClipboardHistoryIncrementalRepository {
+      try primary.delete(id: id)
+      try removeLegacyHistoryIfNeeded()
+      return
+    }
+
+    try save(try load().filter { $0.id != id })
+  }
+
+  public func deleteAll() throws {
+    if let primary = primary as? any ClipboardHistoryIncrementalRepository {
+      try primary.deleteAll()
+      try removeLegacyHistoryIfNeeded()
+      return
+    }
+
+    try save([])
   }
 
   private func migrateLegacyHistoryIfNeeded() throws {

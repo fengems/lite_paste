@@ -1425,6 +1425,8 @@ func checkSQLiteHistoryQueryAndMaintenance() {
 
     let lookedUp = try repository.record(id: records[2].id)
     expect(lookedUp?.id == records[2].id, "SQLite repository should look up records by id")
+    let hashLookup = try repository.record(contentHash: records[2].contentHash)
+    expect(hashLookup?.id == records[2].id, "SQLite repository should look up records by content hash")
     let missingRecord = try repository.record(id: UUID())
     expect(missingRecord == nil, "SQLite repository should return nil for missing ids")
 
@@ -1433,6 +1435,39 @@ func checkSQLiteHistoryQueryAndMaintenance() {
 
     let favoriteCount = try repository.count(ClipboardHistoryQuery(filter: .favorites))
     expect(favoriteCount == 1, "SQLite query should count filtered records")
+
+    var updated = records[1]
+    updated.note = "incremental note"
+    updated.copyCount = 12
+    try repository.upsert(updated, position: nil)
+    let incrementallyUpdated = try repository.record(id: updated.id)
+    let idsAfterUpdate = try repository.load().map(\.id)
+    expect(incrementallyUpdated == updated, "SQLite repository should update existing records incrementally")
+    expect(idsAfterUpdate == records.map(\.id), "SQLite repository should preserve position when upserting existing records")
+
+    let appended = ClipboardRecord(
+      id: UUID(uuidString: "00000000-0000-0000-0000-000000000105")!,
+      kind: .text,
+      title: "appended",
+      searchText: "appended",
+      createdAt: Date(timeIntervalSince1970: 14),
+      lastCopiedAt: Date(timeIntervalSince1970: 14),
+      contentHash: "query-appended",
+      plainText: "appended"
+    )
+    try repository.upsert(appended, position: nil)
+    let idsAfterAppend = try repository.load().map(\.id)
+    expect(idsAfterAppend.last == appended.id, "SQLite repository should append new upserted records")
+    try repository.delete(id: appended.id)
+    let deletedRecord = try repository.record(id: appended.id)
+    expect(deletedRecord == nil, "SQLite repository should delete records incrementally")
+    try repository.upsert(appended, position: 0)
+    let idsAfterPositionedUpsert = try repository.load().map(\.id)
+    expect(idsAfterPositionedUpsert.first == appended.id, "SQLite repository should honor explicit upsert positions")
+    try repository.deleteAll()
+    let recordsAfterDeleteAll = try repository.load()
+    expect(recordsAfterDeleteAll.isEmpty, "SQLite repository should delete all records incrementally")
+    try repository.save(records)
 
     try repository.performMaintenance()
     let recordsAfterMaintenance = try repository.load()
@@ -1497,6 +1532,33 @@ func checkMigratingHistoryRepository() {
     expect(
       lookupRecord == legacyRecord,
       "Migrating repository should migrate before direct record lookup"
+    )
+    let lookupHashRecord = try lookupRepository.record(contentHash: legacyRecord.contentHash)
+    expect(
+      lookupHashRecord == legacyRecord,
+      "Migrating repository should support content hash lookup after migration"
+    )
+
+    let incrementalLegacyURL = directory.appending(path: "incremental-history.json")
+    let incrementalSQLiteURL = directory.appending(path: "incremental-history.sqlite3")
+    try JSONClipboardHistoryRepository(url: incrementalLegacyURL).save([legacyRecord])
+    let incrementalRepository = MigratingClipboardHistoryRepository(
+      sqliteURL: incrementalSQLiteURL,
+      legacyJSONURL: incrementalLegacyURL
+    )
+    var incrementallyUpdated = legacyRecord
+    incrementallyUpdated.note = "updated through migration"
+    try incrementalRepository.upsert(incrementallyUpdated, position: nil)
+    let migratedIncrementalUpdate = try incrementalRepository.record(id: legacyRecord.id)
+    expect(
+      migratedIncrementalUpdate == incrementallyUpdated,
+      "Migrating repository should upsert after migrating legacy records"
+    )
+    try incrementalRepository.delete(id: legacyRecord.id)
+    let deletedMigratedRecord = try incrementalRepository.record(id: legacyRecord.id)
+    expect(
+      deletedMigratedRecord == nil,
+      "Migrating repository should delete records after migration"
     )
 
     let currentRecord = ClipboardRecord(
