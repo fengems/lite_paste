@@ -8,6 +8,7 @@ final class ClipboardMonitor {
   private let store: HistoryStore
   private let blobStorage: any BlobStorage
   private let writeTracker: ClipboardWriteTracker
+  private let textPayloadBuilder: ClipboardTextPayloadBuilder
   private var privacyFilter: PrivacyFilter
   private var enabledTypes: Set<ClipboardKind>
   private var timer: Timer?
@@ -18,6 +19,7 @@ final class ClipboardMonitor {
     store: HistoryStore,
     blobStorage: any BlobStorage = LocalBlobStorage(),
     writeTracker: ClipboardWriteTracker,
+    textPayloadBuilder: ClipboardTextPayloadBuilder = ClipboardTextPayloadBuilder(),
     privacyFilter: PrivacyFilter = PrivacyFilter(),
     enabledTypes: Set<ClipboardKind> = Set(ClipboardKind.allCases)
   ) {
@@ -25,6 +27,7 @@ final class ClipboardMonitor {
     self.store = store
     self.blobStorage = blobStorage
     self.writeTracker = writeTracker
+    self.textPayloadBuilder = textPayloadBuilder
     self.privacyFilter = privacyFilter
     self.enabledTypes = enabledTypes
     self.lastChangeCount = pasteboard.changeCount
@@ -105,29 +108,7 @@ final class ClipboardMonitor {
     }
 
     if let text = pasteboard.string(forType: .string) {
-      let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-      guard !trimmed.isEmpty else {
-        return nil
-      }
-
-      let kind = classify(text)
-      let title = Self.makeTitle(from: text)
-      return ClipboardPayload(
-        kind: kind,
-        title: title,
-        searchText: text,
-        plainText: text,
-        pasteboardTypes: types,
-        contents: [
-          ClipboardContentSnapshot(
-            pasteboardType: NSPasteboard.PasteboardType.string.rawValue,
-            storageMode: .inline,
-            inlineData: Data(text.utf8),
-            byteSize: text.utf8.count,
-            displayOrder: 0
-          )
-        ]
-      )
+      return textPayloadBuilder.payload(from: text, pasteboardTypes: types)
     }
 
     return nil
@@ -264,7 +245,7 @@ final class ClipboardMonitor {
     types: Set<String>
   ) -> ClipboardPayload? {
     let plainText = pasteboard.string(forType: .string)
-    let title = plainText.map(Self.makeTitle(from:)) ?? fallbackTitle
+    let title = plainText.map(textPayloadBuilder.makeTitle(from:)) ?? fallbackTitle
 
     do {
       let snapshot = try blobStorage.snapshot(
@@ -286,41 +267,5 @@ final class ClipboardMonitor {
       print("Unable to persist rich clipboard data: \(error)")
       return nil
     }
-  }
-
-  private func classify(_ text: String) -> ClipboardKind {
-    if URL(string: text.trimmingCharacters(in: .whitespacesAndNewlines))?.scheme != nil {
-      return .url
-    }
-
-    if text.range(
-      of: #"^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$"#,
-      options: [.regularExpression, .caseInsensitive]
-    ) != nil {
-      return .email
-    }
-
-    if text.range(
-      of: #"^#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"#,
-      options: .regularExpression
-    ) != nil {
-      return .color
-    }
-
-    return .text
-  }
-
-  private static func makeTitle(from text: String) -> String {
-    let compact = text
-      .replacingOccurrences(of: "\n", with: " ")
-      .replacingOccurrences(of: "\t", with: " ")
-      .trimmingCharacters(in: .whitespacesAndNewlines)
-
-    if compact.count <= 140 {
-      return compact
-    }
-
-    let index = compact.index(compact.startIndex, offsetBy: 140)
-    return String(compact[..<index])
   }
 }

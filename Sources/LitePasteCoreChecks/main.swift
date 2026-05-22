@@ -6,6 +6,7 @@ func runChecks() {
   checkContentHasher()
   checkAppSettingsBackwardCompatibility()
   checkPrivacyFilter()
+  checkClipboardTextPayloadBuilder()
   checkHistoryStore()
   checkHistoryRetention()
   checkHistoryQueryEngine()
@@ -125,6 +126,49 @@ func checkPrivacyFilter() {
       pasteboardTypes: ["public.utf8-plain-text"]
     ),
     "Plain text should be recordable"
+  )
+}
+
+func checkClipboardTextPayloadBuilder() {
+  let builder = ClipboardTextPayloadBuilder()
+
+  expect(
+    builder.payload(from: " \n\t ", pasteboardTypes: ["public.utf8-plain-text"]) == nil,
+    "Text payload builder should ignore blank text"
+  )
+  expect(builder.classify("https://example.com/docs") == .url, "Text payload builder should classify HTTPS URLs")
+  expect(builder.classify("file:///tmp/report.pdf") == .url, "Text payload builder should classify file URLs")
+  expect(builder.classify("raycast://extensions") == .url, "Text payload builder should classify custom URL schemes")
+  expect(builder.classify("hello@example.com") == .email, "Text payload builder should classify email addresses")
+  expect(builder.classify("#FF00AA") == .color, "Text payload builder should classify hex colors")
+
+  let longText = String(repeating: "a", count: ClipboardTextPayloadBuilder.maxTitleLength + 20)
+  expect(
+    builder.makeTitle(from: "hello\n\tworld") == "hello  world",
+    "Text payload builder should compact multiline titles"
+  )
+  expect(
+    builder.makeTitle(from: longText).count == ClipboardTextPayloadBuilder.maxTitleLength,
+    "Text payload builder should cap long titles"
+  )
+
+  guard let payload = builder.payload(from: " hello@example.com ", pasteboardTypes: ["public.utf8-plain-text"]) else {
+    fatalError("Text payload builder should create payload for non-empty text")
+  }
+
+  expect(payload.kind == .email, "Text payload should use classified kind")
+  expect(payload.title == "hello@example.com", "Text payload should use compact title")
+  expect(payload.searchText == " hello@example.com ", "Text payload should preserve original search text")
+  expect(payload.plainText == " hello@example.com ", "Text payload should preserve original plain text")
+  expect(payload.contentHashBasis == " hello@example.com ", "Text payload should hash from original text")
+  expect(payload.contents.count == 1, "Text payload should include one inline snapshot")
+  expect(
+    payload.contents.first?.pasteboardType == ClipboardTextPayloadBuilder.plainTextPasteboardType,
+    "Text payload should use the plain text pasteboard type"
+  )
+  expect(
+    payload.contents.first?.inlineData == Data(" hello@example.com ".utf8),
+    "Text payload snapshot should preserve UTF-8 text data"
   )
 }
 
