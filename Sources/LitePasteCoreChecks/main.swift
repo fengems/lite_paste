@@ -2053,7 +2053,9 @@ func checkImportExportRoundTrip() {
     try FileManager.default.createDirectory(at: backupParent, withIntermediateDirectories: true)
 
     let sourceBlob = paths.blobsDirectory.appending(path: "image.bin")
+    let orphanBlob = paths.blobsDirectory.appending(path: "orphan.bin")
     try Data("blob-a".utf8).write(to: sourceBlob, options: .atomic)
+    try Data("orphan".utf8).write(to: orphanBlob, options: .atomic)
     let sourceRecord = ClipboardRecord(
       kind: .image,
       title: "image",
@@ -2078,8 +2080,10 @@ func checkImportExportRoundTrip() {
     let backupURL = try service.exportBackup(to: backupParent, now: Date(timeIntervalSince1970: 100))
     let exportedHistory = try JSONClipboardHistoryRepository(url: backupURL.appending(path: "history.json")).load()
     let exportedBlob = backupURL.appending(path: "Blobs/image.bin")
+    let exportedOrphanBlob = backupURL.appending(path: "Blobs/orphan.bin")
 
     expect(FileManager.default.fileExists(atPath: exportedBlob.path), "Export should copy external blobs")
+    expect(!FileManager.default.fileExists(atPath: exportedOrphanBlob.path), "Export should skip unreferenced orphan blobs")
     expect(
       exportedHistory.first?.previewFilePath == exportedBlob.path,
       "Export should rewrite preview blob paths into backup directory"
