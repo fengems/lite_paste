@@ -42,6 +42,18 @@ struct ClipboardPanelView: View {
     currentPage.records
   }
 
+  private var resultSummary: String {
+    guard currentPage.totalCount > 0 else {
+      return "0 条"
+    }
+
+    if currentPage.hasMore {
+      return "显示 \(records.count) / \(currentPage.totalCount) 条"
+    }
+
+    return "\(currentPage.totalCount) 条"
+  }
+
   var body: some View {
     ZStack {
       VisualEffectBackground(material: .hudWindow, blendingMode: .behindWindow)
@@ -140,6 +152,12 @@ struct ClipboardPanelView: View {
       }
 
       Spacer()
+
+      Text(resultSummary)
+        .font(.system(size: 12))
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+        .fixedSize(horizontal: true, vertical: false)
 
       Picker("", selection: $sort) {
         Label("置顶", systemImage: "pin").tag(ClipboardHistorySort.pinnedThenRecent)
