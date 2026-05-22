@@ -39,8 +39,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
     self.hotkey = hotkey
     self.viewMode = viewMode
     self.panelPosition = panelPosition
-    self.maxHistoryCount = maxHistoryCount
-    self.retentionDays = retentionDays
+    self.maxHistoryCount = Self.normalizedMaxHistoryCount(maxHistoryCount)
+    self.retentionDays = Self.normalizedRetentionDays(retentionDays)
     self.enabledTypes = enabledTypes
     self.ignoredPasteboardTypes = ignoredPasteboardTypes
     self.ignoredApps = ignoredApps
@@ -80,8 +80,12 @@ public struct AppSettings: Codable, Equatable, Sendable {
     hotkey = try container.decodeIfPresent(String.self, forKey: .hotkey) ?? defaults.hotkey
     viewMode = try container.decodeIfPresent(ClipboardPanelViewMode.self, forKey: .viewMode) ?? defaults.viewMode
     panelPosition = try container.decodeIfPresent(PanelPosition.self, forKey: .panelPosition) ?? defaults.panelPosition
-    maxHistoryCount = try container.decodeIfPresent(Int.self, forKey: .maxHistoryCount) ?? defaults.maxHistoryCount
-    retentionDays = try container.decodeIfPresent(Int.self, forKey: .retentionDays) ?? defaults.retentionDays
+    maxHistoryCount = Self.normalizedMaxHistoryCount(
+      try container.decodeIfPresent(Int.self, forKey: .maxHistoryCount) ?? defaults.maxHistoryCount
+    )
+    retentionDays = Self.normalizedRetentionDays(
+      try container.decodeIfPresent(Int.self, forKey: .retentionDays) ?? defaults.retentionDays
+    )
     enabledTypes = try container.decodeIfPresent(Set<ClipboardKind>.self, forKey: .enabledTypes) ?? defaults.enabledTypes
     ignoredPasteboardTypes = try container.decodeIfPresent(Set<String>.self, forKey: .ignoredPasteboardTypes) ?? defaults.ignoredPasteboardTypes
     ignoredApps = try container.decodeIfPresent(Set<String>.self, forKey: .ignoredApps) ?? defaults.ignoredApps
@@ -113,6 +117,14 @@ public struct AppSettings: Codable, Equatable, Sendable {
     try container.encode(focusSearchOnOpen, forKey: .focusSearchOnOpen)
     try container.encode(privacyMode, forKey: .privacyMode)
     try container.encode(launchAtLogin, forKey: .launchAtLogin)
+  }
+
+  private static func normalizedMaxHistoryCount(_ value: Int) -> Int {
+    max(value, 1)
+  }
+
+  private static func normalizedRetentionDays(_ value: Int) -> Int {
+    max(value, 0)
   }
 }
 

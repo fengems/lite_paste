@@ -28,8 +28,8 @@ public final class HistoryStore: ObservableObject {
     self.repository = repository
     self.blobStorage = blobStorage
     self.queryEngine = queryEngine
-    self.maxHistoryCount = maxHistoryCount
-    self.retentionDays = retentionDays
+    self.maxHistoryCount = max(maxHistoryCount, 1)
+    self.retentionDays = max(retentionDays, 0)
     self.moveDuplicatesToTop = moveDuplicatesToTop
     self.records = records ?? Self.load(from: repository)
     trimHistoryIfNeeded(now: .now)

@@ -80,6 +80,15 @@ func checkAppSettingsBackwardCompatibility() {
       !decoded.focusSearchOnOpen,
       "Settings should preserve search focus behavior"
     )
+
+    let invalidData = Data(#"{"maxHistoryCount":0,"retentionDays":-12}"#.utf8)
+    let invalidSettings = try JSONDecoder.litePaste.decode(AppSettings.self, from: invalidData)
+    expect(invalidSettings.maxHistoryCount == 1, "Settings should normalize invalid max history count")
+    expect(invalidSettings.retentionDays == 0, "Settings should normalize invalid retention days")
+
+    let invalidInit = AppSettings(maxHistoryCount: -50, retentionDays: -7)
+    expect(invalidInit.maxHistoryCount == 1, "Settings init should normalize max history count")
+    expect(invalidInit.retentionDays == 0, "Settings init should normalize retention days")
   } catch {
     fatalError("Settings compatibility check failed: \(error)")
   }
@@ -722,6 +731,40 @@ func checkHistoryStore() {
   stableStore.updateMoveDuplicatesToTop(true)
   _ = stableStore.ingest(hello, sourceAppBundleId: nil, sourceAppName: nil)
   expect(stableStore.records.first?.id == stableFirst.id, "Duplicate ordering update should move duplicates to top")
+
+  let normalizedStore = HistoryStore(
+    records: [],
+    repository: InMemoryClipboardHistoryRepository(),
+    maxHistoryCount: 0,
+    retentionDays: -10
+  )
+  _ = normalizedStore.ingest(hello, sourceAppBundleId: nil, sourceAppName: nil)
+  _ = normalizedStore.ingest(world, sourceAppBundleId: nil, sourceAppName: nil)
+  expect(normalizedStore.records.count == 1, "HistoryStore init should normalize max history count")
+
+  let retentionStore = HistoryStore(
+    records: [],
+    repository: InMemoryClipboardHistoryRepository(),
+    retentionDays: -10
+  )
+  let old = ClipboardPayload(
+    kind: .text,
+    title: "very old",
+    searchText: "very old",
+    plainText: "very old",
+    pasteboardTypes: ["public.utf8-plain-text"]
+  )
+  let oldRecord = retentionStore.ingest(
+    old,
+    sourceAppBundleId: nil,
+    sourceAppName: nil,
+    now: Date(timeIntervalSince1970: 1)
+  )
+  retentionStore.updateRetentionDays(-1, now: Date(timeIntervalSince1970: 100 * 86_400))
+  expect(
+    retentionStore.records.contains(where: { $0.id == oldRecord.id }),
+    "HistoryStore update should normalize negative retention days to forever"
+  )
 }
 
 @MainActor
