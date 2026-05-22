@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   )
 
   private var statusItem: NSStatusItem?
+  private var statusMenu: NSMenu?
   private var monitor: ClipboardMonitor?
   private var writer: PasteboardWriter?
   private var panelCoordinator: PanelCoordinator?
@@ -65,8 +66,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       accessibilityDescription: "Lite Paste"
     )
     statusItem.button?.target = self
-    statusItem.button?.action = #selector(togglePanel)
+    statusItem.button?.action = #selector(handleStatusItemClick(_:))
+    statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
     self.statusItem = statusItem
+    configureStatusMenu()
+  }
+
+  private func configureStatusMenu() {
+    let menu = NSMenu()
+    menu.addItem(
+      NSMenuItem(
+        title: "打开 Lite Paste",
+        action: #selector(openPanelFromMenu),
+        keyEquivalent: ""
+      )
+    )
+    menu.addItem(
+      NSMenuItem(
+        title: "设置...",
+        action: #selector(openSettings),
+        keyEquivalent: ","
+      )
+    )
+    menu.addItem(.separator())
+    menu.addItem(
+      NSMenuItem(
+        title: "退出 Lite Paste",
+        action: #selector(quit),
+        keyEquivalent: "q"
+      )
+    )
+
+    for item in menu.items {
+      item.target = self
+    }
+
+    statusMenu = menu
   }
 
   private func configureHotkey() {
@@ -110,7 +145,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       .store(in: &cancellables)
   }
 
-  @objc private func togglePanel() {
+  @objc private func handleStatusItemClick(_ sender: NSStatusBarButton) {
+    guard NSApp.currentEvent?.type == .rightMouseUp,
+          let statusItem,
+          let statusMenu else {
+      togglePanel()
+      return
+    }
+
+    statusItem.menu = statusMenu
+    statusItem.button?.performClick(nil)
+    statusItem.menu = nil
+  }
+
+  @objc private func openPanelFromMenu() {
+    panelCoordinator?.show(relativeTo: statusItem?.button)
+  }
+
+  @objc private func openSettings() {
+    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+    NSApp.activate(ignoringOtherApps: true)
+  }
+
+  @objc private func quit() {
+    NSApp.terminate(nil)
+  }
+
+  private func togglePanel() {
     panelCoordinator?.toggle(relativeTo: statusItem?.button)
   }
 
