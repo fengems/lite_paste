@@ -12,7 +12,7 @@ struct ClipboardPanelView: View {
   let closeAction: () -> Void
 
   @State private var itemActions = ClipboardItemActions()
-  @StateObject private var settingsStore = AppSettingsStore()
+  @ObservedObject private var settingsStore = AppSettingsStore.shared
   @State private var query = ""
   @State private var filter: ClipboardFilter = .all
   @State private var sort: ClipboardHistorySort = .pinnedThenRecent
@@ -84,6 +84,9 @@ struct ClipboardPanelView: View {
       }
       .pickerStyle(.segmented)
       .frame(width: 92)
+      .onChange(of: viewMode) {
+        persistViewMode()
+      }
 
       IconButton(
         systemName: "trash.slash",
@@ -367,5 +370,13 @@ struct ClipboardPanelView: View {
 
   private var selectedRecord: ClipboardRecord? {
     records.first { $0.id == selectedRecordID }
+  }
+
+  private func persistViewMode() {
+    guard settingsStore.settings.viewMode != viewMode else {
+      return
+    }
+
+    settingsStore.update { $0.viewMode = viewMode }
   }
 }
