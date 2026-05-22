@@ -6,6 +6,8 @@ public enum BackupImportMode: Sendable {
 }
 
 public struct ImportExportService: Sendable {
+  private static let supportedFormatVersion = 1
+
   public init() {}
 
   public func exportBackup(to parentDirectory: URL, now: Date = .now) throws -> URL {
@@ -23,7 +25,7 @@ public struct ImportExportService: Sendable {
     try copyIfExists(from: AppPaths.settingsURL, to: backupURL.appending(path: "settings.json"))
     try copyDirectoryIfExists(from: AppPaths.blobsDirectory, to: backupURL.appending(path: "Blobs", directoryHint: .isDirectory))
 
-    let manifest = BackupManifest(createdAt: now, formatVersion: 1)
+    let manifest = BackupManifest(createdAt: now, formatVersion: Self.supportedFormatVersion)
     let manifestData = try JSONEncoder.litePaste.encode(manifest)
     try manifestData.write(to: backupURL.appending(path: "manifest.json"), options: .atomic)
 
@@ -31,10 +33,7 @@ public struct ImportExportService: Sendable {
   }
 
   public func importBackup(from backupURL: URL, mode: BackupImportMode) throws {
-    let manifestURL = backupURL.appending(path: "manifest.json")
-    guard FileManager.default.fileExists(atPath: manifestURL.path) else {
-      throw BackupError.invalidBackup
-    }
+    try validateBackup(at: backupURL)
 
     try AppPaths.ensureApplicationSupportDirectoryExists()
 
@@ -44,6 +43,23 @@ public struct ImportExportService: Sendable {
     case .merge:
       try mergeBackup(from: backupURL)
     }
+  }
+
+  public func validateBackup(at backupURL: URL) throws {
+    var isDirectory: ObjCBool = false
+    guard FileManager.default.fileExists(atPath: backupURL.path, isDirectory: &isDirectory),
+          isDirectory.boolValue else {
+      throw BackupError.invalidBackup
+    }
+
+    let manifest = try loadManifest(from: backupURL)
+    guard manifest.formatVersion == Self.supportedFormatVersion else {
+      throw BackupError.unsupportedFormatVersion(manifest.formatVersion)
+    }
+
+    try validateHistoryIfExists(at: backupURL.appending(path: "history.json"))
+    try validateSettingsIfExists(at: backupURL.appending(path: "settings.json"))
+    try validateBlobsIfExists(at: backupURL.appending(path: "Blobs", directoryHint: .isDirectory))
   }
 
   private func replaceBackup(from backupURL: URL) throws {
@@ -85,6 +101,47 @@ public struct ImportExportService: Sendable {
       }
 
       return lhs.lastCopiedAt > rhs.lastCopiedAt
+    }
+  }
+
+  private func loadManifest(from backupURL: URL) throws -> BackupManifest {
+    let manifestURL = backupURL.appending(path: "manifest.json")
+    guard let data = try? Data(contentsOf: manifestURL),
+          let manifest = try? JSONDecoder.litePaste.decode(BackupManifest.self, from: data) else {
+      throw BackupError.invalidBackup
+    }
+
+    return manifest
+  }
+
+  private func validateHistoryIfExists(at url: URL) throws {
+    guard FileManager.default.fileExists(atPath: url.path) else {
+      return
+    }
+
+    _ = try JSONClipboardHistoryRepository(url: url).load()
+  }
+
+  private func validateSettingsIfExists(at url: URL) throws {
+    guard let data = try? Data(contentsOf: url) else {
+      return
+    }
+
+    do {
+      _ = try JSONDecoder.litePaste.decode(AppSettings.self, from: data)
+    } catch {
+      throw BackupError.invalidBackup
+    }
+  }
+
+  private func validateBlobsIfExists(at url: URL) throws {
+    var isDirectory: ObjCBool = false
+    guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
+      return
+    }
+
+    guard isDirectory.boolValue else {
+      throw BackupError.invalidBackup
     }
   }
 
@@ -156,6 +213,7 @@ public struct ImportExportService: Sendable {
 
 public enum BackupError: Error, Equatable {
   case invalidBackup
+  case unsupportedFormatVersion(Int)
 }
 
 private struct BackupManifest: Codable {

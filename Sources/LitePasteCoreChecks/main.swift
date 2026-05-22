@@ -11,6 +11,7 @@ func runChecks() {
   checkHistoryQueryEngine()
   checkClipboardWriteTracker()
   checkJSONHistoryRepository()
+  checkImportExportValidation()
   checkLocalBlobStorage()
   print("LitePasteCoreChecks passed")
 }
@@ -358,6 +359,55 @@ func checkJSONHistoryRepository() {
     expect(loaded.first?.title == "persisted", "JSON repository should preserve record fields")
   } catch {
     fatalError("JSON repository check failed: \(error)")
+  }
+}
+
+func checkImportExportValidation() {
+  let directory = FileManager.default.temporaryDirectory
+    .appending(path: "LitePasteBackupValidation-\(UUID().uuidString)", directoryHint: .isDirectory)
+  let service = ImportExportService()
+
+  do {
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer {
+      try? FileManager.default.removeItem(at: directory)
+    }
+
+    let validBackup = directory.appending(path: "Valid.litepastebackup", directoryHint: .isDirectory)
+    try FileManager.default.createDirectory(at: validBackup, withIntermediateDirectories: true)
+    try Data(#"{"createdAt":"2026-01-01T00:00:00Z","formatVersion":1}"#.utf8)
+      .write(to: validBackup.appending(path: "manifest.json"))
+    try JSONEncoder.litePaste.encode([ClipboardRecord(kind: .text, title: "backup", searchText: "backup", contentHash: "backup")])
+      .write(to: validBackup.appending(path: "history.json"))
+    try JSONEncoder.litePaste.encode(AppSettings())
+      .write(to: validBackup.appending(path: "settings.json"))
+    try FileManager.default.createDirectory(at: validBackup.appending(path: "Blobs", directoryHint: .isDirectory), withIntermediateDirectories: true)
+    try service.validateBackup(at: validBackup)
+
+    let brokenManifest = directory.appending(path: "Broken.litepastebackup", directoryHint: .isDirectory)
+    try FileManager.default.createDirectory(at: brokenManifest, withIntermediateDirectories: true)
+    try Data("not json".utf8).write(to: brokenManifest.appending(path: "manifest.json"))
+
+    do {
+      try service.validateBackup(at: brokenManifest)
+      fatalError("Broken backup manifest should be rejected")
+    } catch BackupError.invalidBackup {
+      // Expected.
+    }
+
+    let futureBackup = directory.appending(path: "Future.litepastebackup", directoryHint: .isDirectory)
+    try FileManager.default.createDirectory(at: futureBackup, withIntermediateDirectories: true)
+    try Data(#"{"createdAt":"2026-01-01T00:00:00Z","formatVersion":999}"#.utf8)
+      .write(to: futureBackup.appending(path: "manifest.json"))
+
+    do {
+      try service.validateBackup(at: futureBackup)
+      fatalError("Unsupported backup format should be rejected")
+    } catch BackupError.unsupportedFormatVersion(999) {
+      // Expected.
+    }
+  } catch {
+    fatalError("Import/export validation check failed: \(error)")
   }
 }
 
