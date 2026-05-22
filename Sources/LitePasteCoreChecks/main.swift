@@ -9,6 +9,7 @@ func runChecks() {
   checkHistoryStore()
   checkHistoryRetention()
   checkHistoryQueryEngine()
+  checkHistoryQueryPerformance()
   checkClipboardWriteTracker()
   checkJSONHistoryRepository()
   checkRuntimeReload()
@@ -324,6 +325,9 @@ func checkHistoryQueryEngine() {
   let noteResults = engine.execute(ClipboardHistoryQuery(text: "memo"), records: records)
   expect(noteResults.count == 1 && noteResults.first?.id == old.id, "Query should match notes")
 
+  let multiTermResults = engine.execute(ClipboardHistoryQuery(text: "memo OldApp"), records: records)
+  expect(multiTermResults.count == 1 && multiTermResults.first?.id == old.id, "Query should match multiple terms across fields")
+
   let fileResults = engine.execute(ClipboardHistoryQuery(filter: .files), records: records)
   expect(fileResults.count == 1 && fileResults.first?.id == popular.id, "Filter should match files")
 
@@ -332,6 +336,46 @@ func checkHistoryQueryEngine() {
     records: records
   )
   expect(popularResults.first?.id == popular.id, "Most-used sort should sort by copy count")
+}
+
+func checkHistoryQueryPerformance() {
+  let engine = ClipboardHistoryQueryEngine()
+  let records = (0..<5_000).map { index in
+    ClipboardRecord(
+      kind: index.isMultiple(of: 7) ? .files : .text,
+      title: index.isMultiple(of: 250) ? "needle document \(index)" : "document \(index)",
+      searchText: "body \(index) project-\(index % 40)",
+      note: index.isMultiple(of: 333) ? "important needle" : "",
+      sourceAppBundleId: "com.example.App\(index % 12)",
+      sourceAppName: "Source \(index % 12)",
+      lastCopiedAt: Date(timeIntervalSince1970: TimeInterval(index)),
+      copyCount: index % 20,
+      isFavorite: index.isMultiple(of: 20),
+      isPinned: index.isMultiple(of: 400),
+      contentHash: "hash-\(index)"
+    )
+  }
+
+  let start = DispatchTime.now().uptimeNanoseconds
+  let searchResults = engine.execute(
+    ClipboardHistoryQuery(text: "needle source", filter: .all, sort: .pinnedThenRecent),
+    records: records
+  )
+  let favoriteResults = engine.execute(
+    ClipboardHistoryQuery(text: "project-2", filter: .favorites, sort: .mostUsed),
+    records: records
+  )
+  let elapsedMilliseconds = Double(DispatchTime.now().uptimeNanoseconds - start) / 1_000_000
+
+  expect(!searchResults.isEmpty, "Large history search should find matching records")
+  expect(
+    favoriteResults.allSatisfy(\.isFavorite),
+    "Large history filtered search should preserve favorite filter"
+  )
+  expect(
+    elapsedMilliseconds < 1_500,
+    "Large history query should stay responsive for 5,000 records"
+  )
 }
 
 func checkJSONHistoryRepository() {

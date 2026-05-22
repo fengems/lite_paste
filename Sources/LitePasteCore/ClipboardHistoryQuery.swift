@@ -26,36 +26,40 @@ public struct ClipboardHistoryQueryEngine: Sendable {
   public init() {}
 
   public func execute(_ query: ClipboardHistoryQuery, records: [ClipboardRecord]) -> [ClipboardRecord] {
-    let normalizedQuery = query.text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    let searchTerms = query.text
+      .split(whereSeparator: \.isWhitespace)
+      .map(String.init)
 
     return records
       .filter { record in
-        query.filter.matches(record) && matchesText(record, normalizedQuery: normalizedQuery)
+        query.filter.matches(record) && matchesText(record, searchTerms: searchTerms)
       }
       .sorted { lhs, rhs in
         compare(lhs, rhs, sort: query.sort)
       }
   }
 
-  private func matchesText(_ record: ClipboardRecord, normalizedQuery: String) -> Bool {
-    guard !normalizedQuery.isEmpty else {
+  private func matchesText(_ record: ClipboardRecord, searchTerms: [String]) -> Bool {
+    guard !searchTerms.isEmpty else {
       return true
     }
 
-    return searchableText(for: record).contains(normalizedQuery)
+    return searchTerms.allSatisfy { term in
+      contains(term, in: record.title)
+        || contains(term, in: record.searchText)
+        || contains(term, in: record.note)
+        || contains(term, in: record.sourceAppName)
+        || contains(term, in: record.sourceAppBundleId)
+        || contains(term, in: record.kind.displayName)
+    }
   }
 
-  private func searchableText(for record: ClipboardRecord) -> String {
-    [
-      record.title,
-      record.searchText,
-      record.note,
-      record.sourceAppName ?? "",
-      record.sourceAppBundleId ?? "",
-      record.kind.displayName
-    ]
-      .joined(separator: "\n")
-      .lowercased()
+  private func contains(_ term: String, in value: String?) -> Bool {
+    guard let value, !value.isEmpty else {
+      return false
+    }
+
+    return value.range(of: term, options: [.caseInsensitive, .diacriticInsensitive]) != nil
   }
 
   private func compare(_ lhs: ClipboardRecord, _ rhs: ClipboardRecord, sort: ClipboardHistorySort) -> Bool {
@@ -79,4 +83,3 @@ public struct ClipboardHistoryQueryEngine: Sendable {
     }
   }
 }
-

@@ -142,7 +142,7 @@ struct ClipboardPanelView: View {
 
   private var cardContent: some View {
     ScrollView(.horizontal) {
-      HStack(alignment: .top, spacing: 12) {
+      LazyHStack(alignment: .top, spacing: 12) {
         ForEach(records) { record in
           ClipboardCard(
             record: record,
