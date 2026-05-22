@@ -233,7 +233,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     settingsStore.update { settings in
-      settings.ignoredApps.insert(application.bundleIdentifier)
+      if settings.ignoredApps.contains(application.bundleIdentifier) {
+        settings.ignoredApps.remove(application.bundleIdentifier)
+      } else {
+        settings.ignoredApps.insert(application.bundleIdentifier)
+      }
     }
     updateStatusMenuState()
   }
@@ -271,8 +275,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     let isIgnored = settingsStore.settings.ignoredApps.contains(application.bundleIdentifier)
-    item.title = isIgnored ? "已忽略 \(application.name)" : "忽略 \(application.name)"
-    item.isEnabled = !isIgnored
+    item.title = isIgnored ? "取消忽略 \(application.name)" : "忽略 \(application.name)"
+    item.isEnabled = true
     item.state = isIgnored ? .on : .off
   }
 
