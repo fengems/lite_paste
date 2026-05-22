@@ -42,8 +42,10 @@ final class PasteboardWriter {
   func paste(
     _ record: ClipboardRecord,
     targetApplication: NSRunningApplication?,
-    asPlainText: Bool = false
+    asPlainText: Bool = false,
+    restorePreviousClipboard: Bool = false
   ) -> PasteActionResult {
+    let previousClipboard = restorePreviousClipboard ? PasteboardSnapshot(pasteboard: pasteboard) : nil
     let copyResult = copy(record, asPlainText: asPlainText)
     guard copyResult == .copied else {
       return copyResult
@@ -58,6 +60,12 @@ final class PasteboardWriter {
 
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
       Self.sendPasteShortcut()
+
+      if let previousClipboard {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+          self?.restorePreviousClipboard(previousClipboard)
+        }
+      }
     }
 
     return .pasted
@@ -147,6 +155,12 @@ final class PasteboardWriter {
 
   private func markCurrentPasteboardChangeIgnored() {
     writeTracker.markIgnoredChangeCount(pasteboard.changeCount)
+  }
+
+  private func restorePreviousClipboard(_ snapshot: PasteboardSnapshot) {
+    if snapshot.restore(to: pasteboard) {
+      markCurrentPasteboardChangeIgnored()
+    }
   }
 
   private func data(for snapshot: ClipboardContentSnapshot) -> Data? {

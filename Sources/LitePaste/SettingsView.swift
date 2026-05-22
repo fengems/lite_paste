@@ -23,6 +23,7 @@ struct SettingsView: View {
 
       Section("剪贴板") {
         Toggle("默认纯文本粘贴", isOn: pastePlainByDefault)
+        Toggle("自动粘贴后恢复原剪贴板", isOn: restoreClipboardAfterPaste)
 
         Picker("默认操作", selection: autoPasteMode) {
           Text("仅复制").tag(AutoPasteMode.copyOnly)
@@ -124,6 +125,14 @@ struct SettingsView: View {
       store.settings.pastePlainByDefault
     } set: { value in
       store.update { $0.pastePlainByDefault = value }
+    }
+  }
+
+  private var restoreClipboardAfterPaste: Binding<Bool> {
+    Binding {
+      store.settings.restoreClipboardAfterPaste
+    } set: { value in
+      store.update { $0.restoreClipboardAfterPaste = value }
     }
   }
 

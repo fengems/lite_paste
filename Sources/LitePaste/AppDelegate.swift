@@ -123,7 +123,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let result = writer?.paste(
       record,
       targetApplication: targetApplication,
-      asPlainText: settingsStore.settings.pastePlainByDefault
+      asPlainText: settingsStore.settings.pastePlainByDefault,
+      restorePreviousClipboard: settingsStore.settings.restoreClipboardAfterPaste
     )
 
     if result == .accessibilityPermissionRequired {

@@ -100,7 +100,8 @@ final class PanelCoordinator {
     let result = writer.paste(
       record,
       targetApplication: previousApplication,
-      asPlainText: asPlainText
+      asPlainText: asPlainText,
+      restorePreviousClipboard: settingsStore.settings.restoreClipboardAfterPaste
     )
 
     if result == .accessibilityPermissionRequired {

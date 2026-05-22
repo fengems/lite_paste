@@ -23,11 +23,13 @@ func checkAppSettingsBackwardCompatibility() {
     expect(settings.viewMode == ClipboardPanelViewMode.list, "Settings should decode existing view mode string")
     expect(settings.clearSearchOnOpen, "Settings should default clearSearchOnOpen for old files")
     expect(settings.maxHistoryCount == 1_000, "Settings should default maxHistoryCount for old files")
+    expect(!settings.restoreClipboardAfterPaste, "Settings should default restoreClipboardAfterPaste for old files")
     expect(settings.moveDuplicatesToTop, "Settings should default moveDuplicatesToTop for old files")
 
     let custom = AppSettings(
       ignoredPasteboardTypes: ["org.example.SecretType"],
       ignoredApps: ["com.example.SecretApp"],
+      restoreClipboardAfterPaste: true,
       moveDuplicatesToTop: false
     )
     let encoded = try JSONEncoder.litePaste.encode(custom)
@@ -40,6 +42,10 @@ func checkAppSettingsBackwardCompatibility() {
     expect(
       decoded.ignoredPasteboardTypes.contains("org.example.SecretType"),
       "Settings should preserve ignored pasteboard types"
+    )
+    expect(
+      decoded.restoreClipboardAfterPaste,
+      "Settings should preserve clipboard restore behavior"
     )
     expect(
       !decoded.moveDuplicatesToTop,
