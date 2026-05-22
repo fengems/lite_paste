@@ -1,6 +1,6 @@
 import Foundation
 
-public struct MigratingClipboardHistoryRepository: ClipboardHistoryQueryingRepository {
+public struct MigratingClipboardHistoryRepository: ClipboardHistoryLookupRepository, ClipboardHistoryQueryingRepository {
   private let primary: any ClipboardHistoryRepository
   private let legacy: any ClipboardHistoryRepository
   private let legacyURL: URL
@@ -57,6 +57,16 @@ public struct MigratingClipboardHistoryRepository: ClipboardHistoryQueryingRepos
     }
 
     return ClipboardHistoryQueryEngine().execute(query, records: try load()).count
+  }
+
+  public func record(id: ClipboardRecord.ID) throws -> ClipboardRecord? {
+    try migrateLegacyHistoryIfNeeded()
+
+    if let primary = primary as? any ClipboardHistoryLookupRepository {
+      return try primary.record(id: id)
+    }
+
+    return try load().first { $0.id == id }
   }
 
   private func migrateLegacyHistoryIfNeeded() throws {

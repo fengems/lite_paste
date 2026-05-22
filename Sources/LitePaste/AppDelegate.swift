@@ -128,12 +128,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let pinnedHotkeyController = PinnedHotkeyController { [weak self] recordID in
       self?.pastePinnedRecord(recordID)
     }
-    pinnedHotkeyController.update(records: store.records)
+    pinnedHotkeyController.update(records: store.pinnedShortcutRecords())
     self.pinnedHotkeyController = pinnedHotkeyController
 
     store.$records
-      .sink { [weak pinnedHotkeyController] records in
-        pinnedHotkeyController?.update(records: records)
+      .sink { [weak self] _ in
+        guard let self else {
+          return
+        }
+        pinnedHotkeyController.update(records: store.pinnedShortcutRecords())
       }
       .store(in: &cancellables)
   }
@@ -213,7 +216,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   private func pastePinnedRecord(_ recordID: ClipboardRecord.ID) {
-    guard let record = store.records.first(where: { $0.id == recordID }) else {
+    guard let record = store.record(id: recordID) else {
       return
     }
 

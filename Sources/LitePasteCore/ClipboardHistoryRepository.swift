@@ -10,6 +10,10 @@ public protocol ClipboardHistoryQueryingRepository: ClipboardHistoryRepository {
   func count(_ query: ClipboardHistoryQuery) throws -> Int
 }
 
+public protocol ClipboardHistoryLookupRepository: ClipboardHistoryRepository {
+  func record(id: ClipboardRecord.ID) throws -> ClipboardRecord?
+}
+
 public struct JSONClipboardHistoryRepository: ClipboardHistoryRepository {
   private let url: URL
 

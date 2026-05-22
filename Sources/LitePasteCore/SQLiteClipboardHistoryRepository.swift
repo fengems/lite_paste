@@ -1,7 +1,7 @@
 import Foundation
 import SQLite3
 
-public struct SQLiteClipboardHistoryRepository: ClipboardHistoryQueryingRepository {
+public struct SQLiteClipboardHistoryRepository: ClipboardHistoryLookupRepository, ClipboardHistoryQueryingRepository {
   private let url: URL
   private static let selectColumns = """
     id, kind, title, search_text, note, source_app_bundle_id, source_app_name,
@@ -77,6 +77,16 @@ public struct SQLiteClipboardHistoryRepository: ClipboardHistoryQueryingReposito
 
     let request = Self.countRequest(for: query)
     return try connection.int(sql: request.sql, bindings: request.bindings)
+  }
+
+  public func record(id: ClipboardRecord.ID) throws -> ClipboardRecord? {
+    let connection = try SQLiteConnection(url: url)
+    try connection.ensureSchema()
+
+    return try connection.records(
+      sql: "SELECT \(Self.selectColumns) FROM clipboard_records WHERE id = ? LIMIT 1",
+      bindings: [id.uuidString]
+    ).first
   }
 
   public func performMaintenance() throws {

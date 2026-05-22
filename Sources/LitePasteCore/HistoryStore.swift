@@ -123,6 +123,34 @@ public final class HistoryStore: ObservableObject {
     )
   }
 
+  public func record(id: ClipboardRecord.ID) -> ClipboardRecord? {
+    if let record = records.first(where: { $0.id == id }) {
+      return record
+    }
+
+    if let lookupRepository = repository as? any ClipboardHistoryLookupRepository,
+       let record = try? lookupRepository.record(id: id) {
+      return record
+    }
+
+    return nil
+  }
+
+  public func pinnedShortcutRecords() -> [ClipboardRecord] {
+    if let queryRepository = repository as? any ClipboardHistoryQueryingRepository,
+       let records = try? queryRepository.execute(
+         ClipboardHistoryQuery(filter: .pinned, sort: .recent),
+         limit: nil,
+         offset: 0
+       ) {
+      return records.filter { $0.pinShortcut != nil }
+    }
+
+    return records
+      .filter { $0.isPinned && $0.pinShortcut != nil }
+      .sorted { $0.lastCopiedAt > $1.lastCopiedAt }
+  }
+
   public func toggleFavorite(_ id: ClipboardRecord.ID) {
     update(id) { record in
       record.isFavorite.toggle()

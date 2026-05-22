@@ -134,7 +134,7 @@ final class PinnedHotkeyController {
   }
 
   private static func keyCode(for shortcut: String) -> UInt32? {
-    switch shortcut.lowercased() {
+    switch PinShortcutCatalog.normalized(shortcut) {
     case "command+option+1":
       UInt32(kVK_ANSI_1)
     case "command+option+2":
@@ -159,7 +159,8 @@ final class PinnedHotkeyController {
   }
 
   private static func hotKeyID(for shortcut: String) -> EventHotKeyID? {
-    guard let index = PinShortcutCatalog.shortcuts.firstIndex(of: shortcut.lowercased()) else {
+    guard let shortcut = PinShortcutCatalog.normalized(shortcut),
+          let index = PinShortcutCatalog.shortcuts.firstIndex(of: shortcut) else {
       return nil
     }
 

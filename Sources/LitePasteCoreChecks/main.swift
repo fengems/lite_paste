@@ -864,6 +864,23 @@ func checkHistoryStorePagedQueries() {
     expect(firstPage.totalCount == 5, "HistoryStore page should expose total SQLite count")
     expect(firstPage.hasMore, "HistoryStore page should expose hasMore for partial pages")
 
+    let pinnedShortcutRecord = records[2].id
+    var pinnedRecords = records
+    pinnedRecords[2].isPinned = true
+    pinnedRecords[2].pinShortcut = "command+option+2"
+    try repository.save(pinnedRecords)
+    let queryBackedStore = HistoryStore(records: [], repository: repository)
+    expect(
+      queryBackedStore.record(id: pinnedShortcutRecord)?.id == pinnedShortcutRecord,
+      "HistoryStore should look up records from the repository when they are not in memory"
+    )
+    expect(
+      queryBackedStore.pinnedShortcutRecords().map(\.id) == [pinnedShortcutRecord],
+      "HistoryStore should query pinned shortcut records from the repository"
+    )
+
+    try repository.save(records)
+
     let secondPage = store.filteredPage(query, limit: 2, offset: 2)
     expect(secondPage.records.map(\.id) == [records[2].id, records[1].id], "HistoryStore page should apply SQLite offsets")
 
@@ -1406,6 +1423,11 @@ func checkSQLiteHistoryQueryAndMaintenance() {
     let limited = try repository.execute(ClipboardHistoryQuery(sort: .recent), limit: 2)
     expect(limited.map(\.id) == [records[3].id, records[2].id], "SQLite query should apply limits after sorting")
 
+    let lookedUp = try repository.record(id: records[2].id)
+    expect(lookedUp?.id == records[2].id, "SQLite repository should look up records by id")
+    let missingRecord = try repository.record(id: UUID())
+    expect(missingRecord == nil, "SQLite repository should return nil for missing ids")
+
     let offset = try repository.execute(ClipboardHistoryQuery(sort: .recent), limit: 2, offset: 1)
     expect(offset.map(\.id) == [records[2].id, records[1].id], "SQLite query should apply offsets after sorting")
 
@@ -1466,6 +1488,16 @@ func checkMigratingHistoryRepository() {
     let queryCount = try queryRepository.count(ClipboardHistoryQuery())
     expect(queryMigrated == [legacyRecord], "Migrating repository should migrate before direct paged queries")
     expect(queryCount == 1, "Migrating repository should count after direct query migration")
+
+    let lookupLegacyURL = directory.appending(path: "lookup-history.json")
+    let lookupSQLiteURL = directory.appending(path: "lookup-history.sqlite3")
+    try JSONClipboardHistoryRepository(url: lookupLegacyURL).save([legacyRecord])
+    let lookupRepository = MigratingClipboardHistoryRepository(sqliteURL: lookupSQLiteURL, legacyJSONURL: lookupLegacyURL)
+    let lookupRecord = try lookupRepository.record(id: legacyRecord.id)
+    expect(
+      lookupRecord == legacyRecord,
+      "Migrating repository should migrate before direct record lookup"
+    )
 
     let currentRecord = ClipboardRecord(
       id: UUID(uuidString: "00000000-0000-0000-0000-000000000012")!,
