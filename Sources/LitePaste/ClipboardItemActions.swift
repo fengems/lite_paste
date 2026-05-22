@@ -19,53 +19,62 @@ final class ClipboardItemActions {
     }
   }
 
-  func perform(_ action: ClipboardExternalAction, for record: ClipboardRecord) {
+  func perform(_ action: ClipboardExternalAction, for record: ClipboardRecord) -> ClipboardExternalActionResult {
     switch action {
     case .openURL:
-      openURL(record)
+      return openURL(record)
     case .composeEmail:
-      composeEmail(record)
+      return composeEmail(record)
     case .showInFinder:
-      showInFinder(record)
+      return showInFinder(record)
     case .exportImage:
-      exportImage(record)
+      return exportImage(record)
     }
   }
 
-  private func openURL(_ record: ClipboardRecord) {
+  private func openURL(_ record: ClipboardRecord) -> ClipboardExternalActionResult {
     guard let value = record.plainText?.trimmingCharacters(in: .whitespacesAndNewlines),
           let url = URL(string: value) else {
-      return
+      return .failed(title: "无法打开链接", message: "这条历史记录没有可用的 URL。")
     }
 
-    NSWorkspace.shared.open(url)
+    return NSWorkspace.shared.open(url)
+      ? .completed
+      : .failed(title: "无法打开链接", message: "系统无法打开：\(value)")
   }
 
-  private func composeEmail(_ record: ClipboardRecord) {
+  private func composeEmail(_ record: ClipboardRecord) -> ClipboardExternalActionResult {
     guard let value = record.plainText?.trimmingCharacters(in: .whitespacesAndNewlines),
           let url = URL(string: "mailto:\(value)") else {
-      return
+      return .failed(title: "无法发送邮件", message: "这条历史记录没有可用的邮箱地址。")
     }
 
-    NSWorkspace.shared.open(url)
+    return NSWorkspace.shared.open(url)
+      ? .completed
+      : .failed(title: "无法发送邮件", message: "系统无法打开默认邮件客户端。")
   }
 
-  private func showInFinder(_ record: ClipboardRecord) {
-    let urls = fileURLs(from: record)
+  private func showInFinder(_ record: ClipboardRecord) -> ClipboardExternalActionResult {
+    let urls = fileURLs(from: record).filter { FileManager.default.fileExists(atPath: $0.path) }
     guard !urls.isEmpty else {
-      return
+      return .failed(title: "无法在 Finder 中显示", message: "这些文件可能已经被移动或删除。")
     }
 
     NSWorkspace.shared.activateFileViewerSelecting(urls)
+    return .completed
   }
 
-  private func exportImage(_ record: ClipboardRecord) {
+  private func exportImage(_ record: ClipboardRecord) -> ClipboardExternalActionResult {
     guard let snapshot = record.contents.first(where: { $0.storageMode == .external }),
           let sourcePath = snapshot.externalFilePath else {
-      return
+      return .failed(title: "无法导出图片", message: "这条历史记录没有可导出的图片文件。")
     }
 
     let sourceURL = URL(fileURLWithPath: sourcePath)
+    guard FileManager.default.fileExists(atPath: sourceURL.path) else {
+      return .failed(title: "无法导出图片", message: "图片原始数据已经不存在。")
+    }
+
     let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
     let destination = uniqueDestination(
       in: downloads,
@@ -75,8 +84,9 @@ final class ClipboardItemActions {
     do {
       try FileManager.default.copyItem(at: sourceURL, to: destination)
       NSWorkspace.shared.activateFileViewerSelecting([destination])
+      return .exportedImage(destination)
     } catch {
-      print("Unable to export image: \(error)")
+      return .failed(title: "导出图片失败", message: error.localizedDescription)
     }
   }
 
@@ -147,4 +157,10 @@ enum ClipboardExternalAction {
       "导出图片"
     }
   }
+}
+
+enum ClipboardExternalActionResult {
+  case completed
+  case exportedImage(URL)
+  case failed(title: String, message: String)
 }

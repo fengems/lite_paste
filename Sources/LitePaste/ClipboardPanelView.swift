@@ -175,7 +175,7 @@ struct ClipboardPanelView: View {
             pastePlainTextAction: pastePlainTextAction,
             externalAction: itemActions.primaryExternalAction(for: record),
             performExternalAction: {
-              itemActions.perform($0, for: record)
+              handleExternalActionResult(itemActions.perform($0, for: record))
             },
             editNote: {
               editNote(record)
@@ -215,7 +215,7 @@ struct ClipboardPanelView: View {
             pastePlainTextAction: pastePlainTextAction,
             externalAction: itemActions.primaryExternalAction(for: record),
             performExternalAction: {
-              itemActions.perform($0, for: record)
+              handleExternalActionResult(itemActions.perform($0, for: record))
             },
             editNote: {
               editNote(record)
@@ -315,6 +315,21 @@ struct ClipboardPanelView: View {
     }
 
     store.updateNote(record.id, note: note)
+  }
+
+  private func handleExternalActionResult(_ result: ClipboardExternalActionResult) {
+    switch result {
+    case .completed:
+      break
+    case let .exportedImage(url):
+      showAlert(
+        title: "图片已导出",
+        message: "已保存到“\(url.lastPathComponent)”。",
+        style: .informational
+      )
+    case let .failed(title, message):
+      showAlert(title: title, message: message, style: .warning)
+    }
   }
 
   private func editPinShortcut(_ record: ClipboardRecord) {
@@ -471,5 +486,14 @@ struct ClipboardPanelView: View {
     }
 
     settingsStore.update { $0.viewMode = viewMode }
+  }
+
+  private func showAlert(title: String, message: String, style: NSAlert.Style) {
+    let alert = NSAlert()
+    alert.messageText = title
+    alert.informativeText = message
+    alert.addButton(withTitle: "好")
+    alert.alertStyle = style
+    alert.runModal()
   }
 }
