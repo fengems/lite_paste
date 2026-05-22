@@ -5,7 +5,11 @@ import Foundation
 public final class HistoryStore: ObservableObject {
   @Published public private(set) var records: [ClipboardRecord] {
     didSet {
-      persist()
+      guard !isApplyingControlledMutation else {
+        return
+      }
+
+      persistAll()
     }
   }
 
@@ -15,6 +19,7 @@ public final class HistoryStore: ObservableObject {
   private var maxHistoryCount: Int
   private var retentionDays: Int
   private var moveDuplicatesToTop: Bool
+  private var isApplyingControlledMutation = false
 
   public init(
     records: [ClipboardRecord]? = nil,
@@ -45,16 +50,22 @@ public final class HistoryStore: ObservableObject {
     let hashBasis = payload.contentHashBasis
     let contentHash = ContentHasher.hash(kind: payload.kind, text: hashBasis)
 
-    if let index = records.firstIndex(where: { $0.contentHash == contentHash }) {
-      records[index].copyCount += 1
-      records[index].lastCopiedAt = now
-      records[index].sourceAppBundleId = sourceAppBundleId
-      records[index].sourceAppName = sourceAppName
-      let updated = records[index]
-      if moveDuplicatesToTop {
-        records.remove(at: index)
-        records.insert(updated, at: 0)
+    if let duplicate = duplicateRecord(contentHash: contentHash) {
+      var updated = duplicate
+      updated.copyCount += 1
+      updated.lastCopiedAt = now
+      updated.sourceAppBundleId = sourceAppBundleId
+      updated.sourceAppName = sourceAppName
+
+      applyControlledMutation {
+        if moveDuplicatesToTop {
+          records.removeAll { $0.id == updated.id }
+          records.insert(updated, at: 0)
+        } else if let index = records.firstIndex(where: { $0.id == updated.id }) {
+          records[index] = updated
+        }
       }
+      persistUpsert(updated, position: moveDuplicatesToTop ? 0 : nil)
       removeExternalFiles(in: payload.contents)
       return updated
     }
@@ -73,7 +84,10 @@ public final class HistoryStore: ObservableObject {
       previewFilePath: payload.previewFilePath
     )
 
-    records.insert(record, at: 0)
+    applyControlledMutation {
+      records.insert(record, at: 0)
+    }
+    persistUpsert(record, position: 0)
     trimHistoryIfNeeded(now: now)
     return record
   }
@@ -172,15 +186,21 @@ public final class HistoryStore: ObservableObject {
     }
 
     let normalizedShortcut = shortcut.flatMap(PinShortcutCatalog.normalized)
-    records[targetIndex].isPinned = true
-    records[targetIndex].pinShortcut = normalizedShortcut
+    applyControlledMutation {
+      records[targetIndex].isPinned = true
+      records[targetIndex].pinShortcut = normalizedShortcut
+    }
+    persistUpsert(records[targetIndex], position: nil)
 
     guard let normalizedShortcut else {
       return
     }
 
     for index in records.indices where records[index].id != id && records[index].pinShortcut == normalizedShortcut {
-      records[index].pinShortcut = nil
+      applyControlledMutation {
+        records[index].pinShortcut = nil
+      }
+      persistUpsert(records[index], position: nil)
     }
   }
 
@@ -209,19 +229,28 @@ public final class HistoryStore: ObservableObject {
 
   public func delete(_ id: ClipboardRecord.ID) {
     let deleted = records.filter { $0.id == id }
-    records.removeAll { $0.id == id }
+    applyControlledMutation {
+      records.removeAll { $0.id == id }
+    }
+    persistDelete(id: id)
     removeExternalFiles(in: deleted)
   }
 
   public func clearUnpinned() {
     let deleted = records.filter { !$0.isPinned }
-    records.removeAll { !$0.isPinned }
+    applyControlledMutation {
+      records.removeAll { !$0.isPinned }
+    }
+    persistAll()
     removeExternalFiles(in: deleted)
   }
 
   public func clearAll() {
     removeExternalFiles(in: records)
-    records.removeAll()
+    applyControlledMutation {
+      records.removeAll()
+    }
+    persistDeleteAll()
   }
 
   public func updateMaxHistoryCount(_ maxHistoryCount: Int) {
@@ -244,11 +273,20 @@ public final class HistoryStore: ObservableObject {
   }
 
   private func update(_ id: ClipboardRecord.ID, _ mutate: (inout ClipboardRecord) -> Void) {
-    guard let index = records.firstIndex(where: { $0.id == id }) else {
+    if let index = records.firstIndex(where: { $0.id == id }) {
+      applyControlledMutation {
+        mutate(&records[index])
+      }
+      persistUpsert(records[index], position: nil)
       return
     }
 
-    mutate(&records[index])
+    guard var record = record(id: id) else {
+      return
+    }
+
+    mutate(&record)
+    persistUpsert(record, position: nil)
   }
 
   private func trimHistoryIfNeeded(now: Date = .now) {
@@ -270,10 +308,13 @@ public final class HistoryStore: ObservableObject {
     let regular = regularRecords.prefix(regularLimit)
     let trimmed = regularRecords.dropFirst(regularLimit)
     removeExternalFiles(in: Array(trimmed))
-    records = queryEngine.execute(
-      ClipboardHistoryQuery(sort: .pinnedThenRecent),
-      records: pinned + regular
-    )
+    applyControlledMutation {
+      records = queryEngine.execute(
+        ClipboardHistoryQuery(sort: .pinnedThenRecent),
+        records: pinned + regular
+      )
+    }
+    persistAll()
   }
 
   private func trimExpiredHistory(now: Date) {
@@ -291,11 +332,72 @@ public final class HistoryStore: ObservableObject {
     }
 
     let expiredIds = Set(expired.map(\.id))
-    records.removeAll { expiredIds.contains($0.id) }
+    applyControlledMutation {
+      records.removeAll { expiredIds.contains($0.id) }
+    }
+    persistAll()
     removeExternalFiles(in: expired)
   }
 
-  private func persist() {
+  private func duplicateRecord(contentHash: String) -> ClipboardRecord? {
+    if let record = records.first(where: { $0.contentHash == contentHash }) {
+      return record
+    }
+
+    if let lookupRepository = repository as? any ClipboardHistoryLookupRepository,
+       let record = try? lookupRepository.record(contentHash: contentHash) {
+      return record
+    }
+
+    return nil
+  }
+
+  private func applyControlledMutation(_ mutate: () -> Void) {
+    isApplyingControlledMutation = true
+    mutate()
+    isApplyingControlledMutation = false
+  }
+
+  private func persistUpsert(_ record: ClipboardRecord, position: Int?) {
+    guard let repository = repository as? any ClipboardHistoryIncrementalRepository else {
+      persistAll()
+      return
+    }
+
+    do {
+      try repository.upsert(record, position: position)
+    } catch {
+      assertionFailure("Unable to upsert clipboard history: \(error)")
+    }
+  }
+
+  private func persistDelete(id: ClipboardRecord.ID) {
+    guard let repository = repository as? any ClipboardHistoryIncrementalRepository else {
+      persistAll()
+      return
+    }
+
+    do {
+      try repository.delete(id: id)
+    } catch {
+      assertionFailure("Unable to delete clipboard history: \(error)")
+    }
+  }
+
+  private func persistDeleteAll() {
+    guard let repository = repository as? any ClipboardHistoryIncrementalRepository else {
+      persistAll()
+      return
+    }
+
+    do {
+      try repository.deleteAll()
+    } catch {
+      assertionFailure("Unable to clear clipboard history: \(error)")
+    }
+  }
+
+  private func persistAll() {
     do {
       try repository.save(records)
     } catch {
