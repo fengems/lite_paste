@@ -1,7 +1,7 @@
 import Foundation
 import SQLite3
 
-public struct SQLiteClipboardHistoryRepository: ClipboardHistoryRepository {
+public struct SQLiteClipboardHistoryRepository: ClipboardHistoryQueryingRepository {
   private let url: URL
   private static let selectColumns = """
     id, kind, title, search_text, note, source_app_bundle_id, source_app_name,
@@ -59,12 +59,24 @@ public struct SQLiteClipboardHistoryRepository: ClipboardHistoryRepository {
     }
   }
 
-  public func execute(_ query: ClipboardHistoryQuery, limit: Int? = nil) throws -> [ClipboardRecord] {
+  public func execute(
+    _ query: ClipboardHistoryQuery,
+    limit: Int? = nil,
+    offset: Int = 0
+  ) throws -> [ClipboardRecord] {
     let connection = try SQLiteConnection(url: url)
     try connection.ensureSchema()
 
-    let request = Self.sqlRequest(for: query, limit: limit)
+    let request = Self.sqlRequest(for: query, limit: limit, offset: offset)
     return try connection.records(sql: request.sql, bindings: request.bindings)
+  }
+
+  public func count(_ query: ClipboardHistoryQuery) throws -> Int {
+    let connection = try SQLiteConnection(url: url)
+    try connection.ensureSchema()
+
+    let request = Self.countRequest(for: query)
+    return try connection.int(sql: request.sql, bindings: request.bindings)
   }
 
   public func performMaintenance() throws {
@@ -77,8 +89,33 @@ public struct SQLiteClipboardHistoryRepository: ClipboardHistoryRepository {
 
   private static func sqlRequest(
     for query: ClipboardHistoryQuery,
-    limit: Int?
+    limit: Int?,
+    offset: Int
   ) -> SQLiteQueryRequest {
+    let predicate = predicateRequest(for: query)
+    var sql = "SELECT \(selectColumns) FROM clipboard_records"
+    sql += predicate.sql
+    sql += " ORDER BY \(orderClause(for: query.sort))"
+
+    if let limit {
+      sql += " LIMIT \(max(limit, 0))"
+    } else if offset > 0 {
+      sql += " LIMIT -1"
+    }
+
+    if offset > 0 {
+      sql += " OFFSET \(offset)"
+    }
+
+    return SQLiteQueryRequest(sql: sql, bindings: predicate.bindings)
+  }
+
+  private static func countRequest(for query: ClipboardHistoryQuery) -> SQLiteQueryRequest {
+    let predicate = predicateRequest(for: query)
+    return SQLiteQueryRequest(sql: "SELECT COUNT(*) FROM clipboard_records\(predicate.sql)", bindings: predicate.bindings)
+  }
+
+  private static func predicateRequest(for query: ClipboardHistoryQuery) -> SQLiteQueryRequest {
     var clauses: [String] = []
     var bindings: [String] = []
 
@@ -110,13 +147,9 @@ public struct SQLiteClipboardHistoryRepository: ClipboardHistoryRepository {
       clauses.append("(\(termClauses.joined(separator: " OR ")))")
     }
 
-    var sql = "SELECT \(selectColumns) FROM clipboard_records"
+    var sql = ""
     if !clauses.isEmpty {
-      sql += " WHERE \(clauses.joined(separator: " AND "))"
-    }
-    sql += " ORDER BY \(orderClause(for: query.sort))"
-    if let limit {
-      sql += " LIMIT \(max(limit, 0))"
+      sql = " WHERE \(clauses.joined(separator: " AND "))"
     }
 
     return SQLiteQueryRequest(sql: sql, bindings: bindings)
@@ -390,6 +423,22 @@ private final class SQLiteConnection {
     }
 
     return records
+  }
+
+  func int(sql: String, bindings: [String] = []) throws -> Int {
+    let statement = try prepare(sql)
+    defer { sqlite3_finalize(statement) }
+
+    for (index, binding) in bindings.enumerated() {
+      SQLiteClipboardHistoryRepository.bindText(binding, at: Int32(index + 1), to: statement)
+    }
+
+    let stepResult = sqlite3_step(statement)
+    guard stepResult == SQLITE_ROW else {
+      throw SQLiteRepositoryError.operationFailed(errorMessage)
+    }
+
+    return Int(sqlite3_column_int64(statement, 0))
   }
 }
 

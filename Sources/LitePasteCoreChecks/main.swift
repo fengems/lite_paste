@@ -13,6 +13,7 @@ func runChecks() {
   checkClipboardPayloadResolver()
   checkClipboardCaptureGate()
   checkHistoryStore()
+  checkHistoryStorePagedQueries()
   checkHistoryRetention()
   checkHistoryBlobCleanup()
   checkHistoryQueryEngine()
@@ -831,6 +832,51 @@ func checkHistoryStore() {
 }
 
 @MainActor
+func checkHistoryStorePagedQueries() {
+  let directory = FileManager.default.temporaryDirectory
+    .appending(path: "LitePasteHistoryStorePageChecks-\(UUID().uuidString)", directoryHint: .isDirectory)
+  let url = directory.appending(path: "history.sqlite3")
+
+  do {
+    defer {
+      try? FileManager.default.removeItem(at: directory)
+    }
+
+    let records = (0..<5).map { index in
+      ClipboardRecord(
+        id: UUID(uuidString: "00000000-0000-0000-0000-00000000020\(index)")!,
+        kind: index == 4 ? .image : .text,
+        title: "record \(index)",
+        searchText: "page \(index)",
+        createdAt: Date(timeIntervalSince1970: TimeInterval(index)),
+        lastCopiedAt: Date(timeIntervalSince1970: TimeInterval(index)),
+        copyCount: index + 1,
+        contentHash: "page-\(index)"
+      )
+    }
+    let repository = SQLiteClipboardHistoryRepository(url: url)
+    try repository.save(records)
+    let store = HistoryStore(repository: repository)
+    let query = ClipboardHistoryQuery(sort: .recent)
+
+    let firstPage = store.filteredPage(query, limit: 2)
+    expect(firstPage.records.map(\.id) == [records[4].id, records[3].id], "HistoryStore page should load first SQLite page")
+    expect(firstPage.totalCount == 5, "HistoryStore page should expose total SQLite count")
+    expect(firstPage.hasMore, "HistoryStore page should expose hasMore for partial pages")
+
+    let secondPage = store.filteredPage(query, limit: 2, offset: 2)
+    expect(secondPage.records.map(\.id) == [records[2].id, records[1].id], "HistoryStore page should apply SQLite offsets")
+
+    let fallbackStore = HistoryStore(records: records, repository: InMemoryClipboardHistoryRepository())
+    let fallbackPage = fallbackStore.filteredPage(query, limit: 2, offset: 3)
+    expect(fallbackPage.records.map(\.id) == [records[1].id, records[0].id], "HistoryStore page should fall back to in-memory paging")
+    expect(fallbackPage.totalCount == 5, "HistoryStore fallback page should expose total count")
+  } catch {
+    fatalError("HistoryStore paged query check failed: \(error)")
+  }
+}
+
+@MainActor
 func checkHistoryRetention() {
   let now = Date(timeIntervalSince1970: 10 * 86_400)
   let old = ClipboardPayload(
@@ -1360,6 +1406,12 @@ func checkSQLiteHistoryQueryAndMaintenance() {
     let limited = try repository.execute(ClipboardHistoryQuery(sort: .recent), limit: 2)
     expect(limited.map(\.id) == [records[3].id, records[2].id], "SQLite query should apply limits after sorting")
 
+    let offset = try repository.execute(ClipboardHistoryQuery(sort: .recent), limit: 2, offset: 1)
+    expect(offset.map(\.id) == [records[2].id, records[1].id], "SQLite query should apply offsets after sorting")
+
+    let favoriteCount = try repository.count(ClipboardHistoryQuery(filter: .favorites))
+    expect(favoriteCount == 1, "SQLite query should count filtered records")
+
     try repository.performMaintenance()
     let recordsAfterMaintenance = try repository.load()
     expect(recordsAfterMaintenance == records, "SQLite maintenance should preserve saved history")
@@ -1405,6 +1457,15 @@ func checkMigratingHistoryRepository() {
       !FileManager.default.fileExists(atPath: legacyURL.path),
       "Migrating repository should remove legacy JSON after successful migration"
     )
+
+    let queryLegacyURL = directory.appending(path: "query-history.json")
+    let querySQLiteURL = directory.appending(path: "query-history.sqlite3")
+    try JSONClipboardHistoryRepository(url: queryLegacyURL).save([legacyRecord])
+    let queryRepository = MigratingClipboardHistoryRepository(sqliteURL: querySQLiteURL, legacyJSONURL: queryLegacyURL)
+    let queryMigrated = try queryRepository.execute(ClipboardHistoryQuery(text: "legacy"), limit: 1, offset: 0)
+    let queryCount = try queryRepository.count(ClipboardHistoryQuery())
+    expect(queryMigrated == [legacyRecord], "Migrating repository should migrate before direct paged queries")
+    expect(queryCount == 1, "Migrating repository should count after direct query migration")
 
     let currentRecord = ClipboardRecord(
       id: UUID(uuidString: "00000000-0000-0000-0000-000000000012")!,

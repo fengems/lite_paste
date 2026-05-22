@@ -16,6 +16,24 @@ public struct ClipboardHistoryQuery: Equatable, Sendable {
   }
 }
 
+public struct ClipboardHistoryPage: Equatable, Sendable {
+  public var records: [ClipboardRecord]
+  public var totalCount: Int
+  public var limit: Int
+  public var offset: Int
+
+  public init(records: [ClipboardRecord], totalCount: Int, limit: Int, offset: Int = 0) {
+    self.records = records
+    self.totalCount = totalCount
+    self.limit = max(limit, 0)
+    self.offset = max(offset, 0)
+  }
+
+  public var hasMore: Bool {
+    offset + records.count < totalCount
+  }
+}
+
 public enum ClipboardHistorySort: Equatable, Sendable {
   case pinnedThenRecent
   case recent

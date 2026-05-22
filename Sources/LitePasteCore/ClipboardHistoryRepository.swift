@@ -5,6 +5,11 @@ public protocol ClipboardHistoryRepository: Sendable {
   func save(_ records: [ClipboardRecord]) throws
 }
 
+public protocol ClipboardHistoryQueryingRepository: ClipboardHistoryRepository {
+  func execute(_ query: ClipboardHistoryQuery, limit: Int?, offset: Int) throws -> [ClipboardRecord]
+  func count(_ query: ClipboardHistoryQuery) throws -> Int
+}
+
 public struct JSONClipboardHistoryRepository: ClipboardHistoryRepository {
   private let url: URL
 

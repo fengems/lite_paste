@@ -3,6 +3,9 @@ import LitePasteCore
 import SwiftUI
 
 struct ClipboardPanelView: View {
+  private static let initialVisibleRecordLimit = 80
+  private static let recordPageSize = 80
+
   @ObservedObject var store: HistoryStore
   @ObservedObject var presentationState: PanelPresentationState
   let copyAction: (ClipboardRecord) -> Void
@@ -18,16 +21,23 @@ struct ClipboardPanelView: View {
   @State private var sort: ClipboardHistorySort = .pinnedThenRecent
   @State private var viewMode: ClipboardPanelViewMode = AppSettingsStore.shared.settings.viewMode
   @State private var selectedRecordID: ClipboardRecord.ID?
+  @State private var visibleRecordLimit = Self.initialVisibleRecordLimit
   @FocusState private var searchFieldFocused: Bool
 
-  private var records: [ClipboardRecord] {
-    store.filteredRecords(
-      ClipboardHistoryQuery(
-        text: query,
-        filter: filter,
-        sort: sort
-      )
+  private var queryRequest: ClipboardHistoryQuery {
+    ClipboardHistoryQuery(
+      text: query,
+      filter: filter,
+      sort: sort
     )
+  }
+
+  private var currentPage: ClipboardHistoryPage {
+    store.filteredPage(queryRequest, limit: visibleRecordLimit)
+  }
+
+  private var records: [ClipboardRecord] {
+    currentPage.records
   }
 
   var body: some View {
@@ -58,6 +68,15 @@ struct ClipboardPanelView: View {
     }
     .onChange(of: presentationState.openRevision) {
       prepareForOpen()
+    }
+    .onChange(of: query) {
+      resetVisibleRecords()
+    }
+    .onChange(of: filter) {
+      resetVisibleRecords()
+    }
+    .onChange(of: sort) {
+      resetVisibleRecords()
     }
     .onChange(of: records.map(\.id)) {
       normalizeSelection()
@@ -168,6 +187,11 @@ struct ClipboardPanelView: View {
             store.delete(record.id)
           }
         }
+
+        if currentPage.hasMore {
+          loadMoreButton
+            .frame(width: 180, height: 220)
+        }
       }
       .padding(.vertical, 4)
     }
@@ -201,9 +225,26 @@ struct ClipboardPanelView: View {
             store.delete(record.id)
           }
         }
+
+        if currentPage.hasMore {
+          loadMoreButton
+        }
       }
       .padding(.vertical, 4)
     }
+  }
+
+  private var loadMoreButton: some View {
+    Button {
+      loadMoreRecords()
+    } label: {
+      Label("加载更多", systemImage: "chevron.down")
+        .font(.system(size: 13, weight: .semibold))
+        .frame(maxWidth: .infinity, minHeight: 44)
+    }
+    .buttonStyle(.plain)
+    .padding(.horizontal, 12)
+    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
   }
 
   private func primaryAction(_ record: ClipboardRecord) {
@@ -337,8 +378,13 @@ struct ClipboardPanelView: View {
     }
 
     let currentIndex = records.firstIndex { $0.id == selectedRecordID } ?? 0
-    let nextIndex = min(max(currentIndex + offset, 0), records.count - 1)
-    selectedRecordID = records[nextIndex].id
+    if offset > 0, currentIndex == records.count - 1, currentPage.hasMore {
+      loadMoreRecords()
+    }
+
+    let expandedRecords = records
+    let nextIndex = min(max(currentIndex + offset, 0), expandedRecords.count - 1)
+    selectedRecordID = expandedRecords[nextIndex].id
   }
 
   private func normalizeSelection() {
@@ -356,6 +402,7 @@ struct ClipboardPanelView: View {
 
   private func prepareForOpen() {
     viewMode = settingsStore.settings.viewMode
+    visibleRecordLimit = Self.initialVisibleRecordLimit
     if settingsStore.settings.clearSearchOnOpen {
       query = ""
     }
@@ -370,6 +417,15 @@ struct ClipboardPanelView: View {
 
   private var selectedRecord: ClipboardRecord? {
     records.first { $0.id == selectedRecordID }
+  }
+
+  private func resetVisibleRecords() {
+    visibleRecordLimit = Self.initialVisibleRecordLimit
+    normalizeSelection()
+  }
+
+  private func loadMoreRecords() {
+    visibleRecordLimit += Self.recordPageSize
   }
 
   private func persistViewMode() {

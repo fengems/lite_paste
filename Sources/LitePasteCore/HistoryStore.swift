@@ -83,7 +83,44 @@ public final class HistoryStore: ObservableObject {
   }
 
   public func filteredRecords(_ query: ClipboardHistoryQuery) -> [ClipboardRecord] {
-    queryEngine.execute(query, records: records)
+    filteredRecords(query, limit: nil)
+  }
+
+  public func filteredRecords(
+    _ query: ClipboardHistoryQuery,
+    limit: Int?,
+    offset: Int = 0
+  ) -> [ClipboardRecord] {
+    if let queryRepository = repository as? any ClipboardHistoryQueryingRepository,
+       let records = try? queryRepository.execute(query, limit: limit, offset: offset) {
+      return records
+    }
+
+    return slice(queryEngine.execute(query, records: records), limit: limit, offset: offset)
+  }
+
+  public func filteredRecordCount(_ query: ClipboardHistoryQuery) -> Int {
+    if let queryRepository = repository as? any ClipboardHistoryQueryingRepository,
+       let count = try? queryRepository.count(query) {
+      return count
+    }
+
+    return queryEngine.execute(query, records: records).count
+  }
+
+  public func filteredPage(
+    _ query: ClipboardHistoryQuery,
+    limit: Int,
+    offset: Int = 0
+  ) -> ClipboardHistoryPage {
+    let limit = max(limit, 0)
+    let offset = max(offset, 0)
+    return ClipboardHistoryPage(
+      records: filteredRecords(query, limit: limit, offset: offset),
+      totalCount: filteredRecordCount(query),
+      limit: limit,
+      offset: offset
+    )
   }
 
   public func toggleFavorite(_ id: ClipboardRecord.ID) {
@@ -240,6 +277,16 @@ public final class HistoryStore: ObservableObject {
 
   private static func load(from repository: any ClipboardHistoryRepository) -> [ClipboardRecord] {
     (try? repository.load()) ?? []
+  }
+
+  private func slice(_ records: [ClipboardRecord], limit: Int?, offset: Int) -> [ClipboardRecord] {
+    let offset = min(max(offset, 0), records.count)
+    let records = records.dropFirst(offset)
+    guard let limit else {
+      return Array(records)
+    }
+
+    return Array(records.prefix(max(limit, 0)))
   }
 
   private func removeExternalFiles(in records: [ClipboardRecord]) {
