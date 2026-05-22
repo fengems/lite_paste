@@ -6,6 +6,7 @@ func runChecks() {
   checkContentHasher()
   checkPrivacyFilter()
   checkHistoryStore()
+  checkJSONHistoryRepository()
   print("LitePasteCoreChecks passed")
 }
 
@@ -52,7 +53,7 @@ func checkPrivacyFilter() {
 
 @MainActor
 func checkHistoryStore() {
-  let store = HistoryStore(records: [], persistenceURL: nil)
+  let store = HistoryStore(records: [], repository: InMemoryClipboardHistoryRepository())
   let hello = ClipboardPayload(
     kind: .text,
     title: "hello",
@@ -82,6 +83,36 @@ func checkHistoryStore() {
     store.filteredRecords(query: "hello", filter: .favorites).count == 1,
     "Favorite filter should include favorited matching records"
   )
+}
+
+func checkJSONHistoryRepository() {
+  let directory = FileManager.default.temporaryDirectory
+    .appending(path: "LitePasteCoreChecks-\(UUID().uuidString)", directoryHint: .isDirectory)
+  let url = directory.appending(path: "history.json")
+
+  do {
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer {
+      try? FileManager.default.removeItem(at: directory)
+    }
+
+    let repository = JSONClipboardHistoryRepository(url: url)
+    let record = ClipboardRecord(
+      kind: .text,
+      title: "persisted",
+      searchText: "persisted",
+      contentHash: "hash",
+      plainText: "persisted"
+    )
+
+    try repository.save([record])
+    let loaded = try repository.load()
+
+    expect(loaded.count == 1, "JSON repository should load saved records")
+    expect(loaded.first?.title == "persisted", "JSON repository should preserve record fields")
+  } catch {
+    fatalError("JSON repository check failed: \(error)")
+  }
 }
 
 Task { @MainActor in

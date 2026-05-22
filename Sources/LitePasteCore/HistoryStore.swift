@@ -9,17 +9,17 @@ public final class HistoryStore: ObservableObject {
     }
   }
 
-  private let persistenceURL: URL?
+  private let repository: any ClipboardHistoryRepository
   private let maxHistoryCount: Int
 
   public init(
     records: [ClipboardRecord]? = nil,
-    persistenceURL: URL? = AppPaths.historyURL,
+    repository: any ClipboardHistoryRepository = JSONClipboardHistoryRepository(),
     maxHistoryCount: Int = 1_000
   ) {
-    self.persistenceURL = persistenceURL
+    self.repository = repository
     self.maxHistoryCount = maxHistoryCount
-    self.records = records ?? Self.load(from: persistenceURL)
+    self.records = records ?? Self.load(from: repository)
   }
 
   @discardableResult
@@ -146,27 +146,15 @@ public final class HistoryStore: ObservableObject {
   }
 
   private func persist() {
-    guard let persistenceURL else {
-      return
-    }
-
     do {
-      try AppPaths.ensureApplicationSupportDirectoryExists()
-      let data = try JSONEncoder.litePaste.encode(records)
-      try data.write(to: persistenceURL, options: .atomic)
+      try repository.save(records)
     } catch {
       assertionFailure("Unable to save clipboard history: \(error)")
     }
   }
 
-  private static func load(from url: URL?) -> [ClipboardRecord] {
-    guard let url,
-          let data = try? Data(contentsOf: url),
-          let records = try? JSONDecoder.litePaste.decode([ClipboardRecord].self, from: data) else {
-      return []
-    }
-
-    return records
+  private static func load(from repository: any ClipboardHistoryRepository) -> [ClipboardRecord] {
+    (try? repository.load()) ?? []
   }
 
   private func removeExternalFiles(in records: [ClipboardRecord]) {

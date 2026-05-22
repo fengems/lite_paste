@@ -53,11 +53,11 @@ public struct ImportExportService: Sendable {
   }
 
   private func mergeBackup(from backupURL: URL) throws {
-    let incomingHistory = try loadHistory(from: backupURL.appending(path: "history.json"))
-    let existingHistory = try loadHistory(from: AppPaths.historyURL)
+    let incomingHistory = try JSONClipboardHistoryRepository(url: backupURL.appending(path: "history.json")).load()
+    let repository = JSONClipboardHistoryRepository()
+    let existingHistory = try repository.load()
     let merged = merge(existing: existingHistory, incoming: incomingHistory)
-    let data = try JSONEncoder.litePaste.encode(merged)
-    try data.write(to: AppPaths.historyURL, options: .atomic)
+    try repository.save(merged)
 
     try copyDirectoryContentsIfExists(
       from: backupURL.appending(path: "Blobs", directoryHint: .isDirectory),
@@ -86,15 +86,6 @@ public struct ImportExportService: Sendable {
 
       return lhs.lastCopiedAt > rhs.lastCopiedAt
     }
-  }
-
-  private func loadHistory(from url: URL) throws -> [ClipboardRecord] {
-    guard FileManager.default.fileExists(atPath: url.path) else {
-      return []
-    }
-
-    let data = try Data(contentsOf: url)
-    return try JSONDecoder.litePaste.decode([ClipboardRecord].self, from: data)
   }
 
   private func copyIfExists(from source: URL, to destination: URL) throws {
@@ -171,4 +162,3 @@ private struct BackupManifest: Codable {
   var createdAt: Date
   var formatVersion: Int
 }
-
