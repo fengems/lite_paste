@@ -10,6 +10,7 @@ struct ClipboardCard: View {
   let externalAction: ClipboardExternalAction?
   let performExternalAction: (ClipboardExternalAction) -> Void
   let editNote: () -> Void
+  let editPinShortcut: () -> Void
   let toggleFavorite: () -> Void
   let togglePinned: () -> Void
   let deleteAction: () -> Void
@@ -37,6 +38,10 @@ struct ClipboardCard: View {
 
         if !record.note.isEmpty {
           Label("备注", systemImage: "note.text")
+        }
+
+        if let pinShortcut = record.pinShortcut {
+          Label(PinShortcutCatalog.displayName(for: pinShortcut), systemImage: "keyboard")
         }
 
         Spacer()
@@ -97,6 +102,13 @@ struct ClipboardCard: View {
         accessibilityLabel: "置顶",
         action: togglePinned
       )
+      if record.isPinned {
+        IconButton(
+          systemName: "keyboard",
+          accessibilityLabel: "设置快捷键",
+          action: editPinShortcut
+        )
+      }
       IconButton(
         systemName: record.isFavorite ? "star.fill" : "star",
         accessibilityLabel: "收藏",

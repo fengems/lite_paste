@@ -113,6 +113,7 @@ func checkHistoryStore() {
 
   store.toggleFavorite(first.id)
   store.updateNote(first.id, note: "  saved memo  ")
+  store.updatePinShortcut(first.id, shortcut: "command+option+1")
   expect(
     store.filteredRecords(query: "hello", filter: .favorites).count == 1,
     "Favorite filter should include favorited matching records"
@@ -120,6 +121,38 @@ func checkHistoryStore() {
   expect(
     store.filteredRecords(query: "saved memo", filter: .all).count == 1,
     "Notes should be searchable after update"
+  )
+  expect(
+    store.records.first?.isPinned == true && store.records.first?.pinShortcut == "command+option+1",
+    "Pin shortcut update should pin record and persist shortcut"
+  )
+
+  let secondShortcut = store.ingest(
+    ClipboardPayload(
+      kind: .text,
+      title: "shortcut",
+      searchText: "shortcut",
+      plainText: "shortcut",
+      pasteboardTypes: ["public.utf8-plain-text"]
+    ),
+    sourceAppBundleId: nil,
+    sourceAppName: nil
+  )
+  store.updatePinShortcut(secondShortcut.id, shortcut: "command+option+1")
+  expect(
+    store.records.filter { $0.pinShortcut == "command+option+1" }.count == 1,
+    "Pin shortcuts should be unique"
+  )
+  store.updatePinShortcut(UUID(), shortcut: "command+option+2")
+  expect(
+    store.records.allSatisfy { $0.pinShortcut != "command+option+2" },
+    "Pin shortcut update should ignore missing records"
+  )
+  store.togglePinned(first.id)
+  store.togglePinned(secondShortcut.id)
+  expect(
+    store.records.allSatisfy { !$0.isPinned && $0.pinShortcut == nil },
+    "Unpinning records should clear pin shortcuts"
   )
 
   store.updateMaxHistoryCount(1)

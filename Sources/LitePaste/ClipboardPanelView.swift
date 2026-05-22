@@ -153,6 +153,9 @@ struct ClipboardPanelView: View {
             },
             editNote: {
               editNote(record)
+            },
+            editPinShortcut: {
+              editPinShortcut(record)
             }
           ) {
             store.toggleFavorite(record.id)
@@ -183,6 +186,9 @@ struct ClipboardPanelView: View {
             },
             editNote: {
               editNote(record)
+            },
+            editPinShortcut: {
+              editPinShortcut(record)
             }
           ) {
             store.toggleFavorite(record.id)
@@ -227,6 +233,17 @@ struct ClipboardPanelView: View {
     }
 
     store.updateNote(record.id, note: note)
+  }
+
+  private func editPinShortcut(_ record: ClipboardRecord) {
+    let result = PinShortcutEditor.edit(
+      record: record,
+      usedShortcuts: store.usedPinShortcuts(excluding: record.id)
+    )
+
+    if case let .save(shortcut) = result {
+      store.updatePinShortcut(record.id, shortcut: shortcut)
+    }
   }
 
   private func handleKeyDown(_ event: NSEvent) -> Bool {

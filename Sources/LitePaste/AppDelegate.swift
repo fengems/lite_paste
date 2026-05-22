@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var writer: PasteboardWriter?
   private var panelCoordinator: PanelCoordinator?
   private var hotkeyController: GlobalHotkeyController?
+  private var pinnedHotkeyController: PinnedHotkeyController?
   private let launchAtLoginController = LaunchAtLoginController()
   private let activeApplicationTracker = ActiveApplicationTracker.shared
   private var cancellables = Set<AnyCancellable>()
@@ -40,6 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     configureStatusItem()
     configureHotkey()
+    configurePinnedHotkeys()
     observeSettings()
     launchAtLoginController.sync(with: settingsStore.settings.launchAtLogin)
     activeApplicationTracker.start()
@@ -50,6 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     monitor?.stop()
     activeApplicationTracker.stop()
     hotkeyController?.unregister()
+    pinnedHotkeyController?.unregister()
   }
 
   private func configureStatusItem() {
@@ -69,6 +72,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     hotkeyController.registerDefaultHotkey()
     self.hotkeyController = hotkeyController
+  }
+
+  private func configurePinnedHotkeys() {
+    let pinnedHotkeyController = PinnedHotkeyController { [weak self] recordID in
+      self?.pastePinnedRecord(recordID)
+    }
+    pinnedHotkeyController.update(records: store.records)
+    self.pinnedHotkeyController = pinnedHotkeyController
+
+    store.$records
+      .sink { [weak pinnedHotkeyController] records in
+        pinnedHotkeyController?.update(records: records)
+      }
+      .store(in: &cancellables)
   }
 
   private func observeSettings() {
@@ -91,5 +108,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   @objc private func togglePanel() {
     panelCoordinator?.toggle(relativeTo: statusItem?.button)
+  }
+
+  private func pastePinnedRecord(_ recordID: ClipboardRecord.ID) {
+    guard let record = store.records.first(where: { $0.id == recordID }) else {
+      return
+    }
+
+    let targetApplication = NSWorkspace.shared.frontmostApplication
+    let result = writer?.paste(
+      record,
+      targetApplication: targetApplication,
+      asPlainText: settingsStore.settings.pastePlainByDefault
+    )
+
+    if result == .accessibilityPermissionRequired {
+      showAccessibilityPermissionAlert()
+    }
+  }
+
+  private func showAccessibilityPermissionAlert() {
+    let alert = NSAlert()
+    alert.messageText = "需要辅助功能权限"
+    alert.informativeText = "Lite Paste 已复制该内容。授予辅助功能权限后，可以使用置顶快捷键自动粘贴。"
+    alert.addButton(withTitle: "好")
+    alert.alertStyle = .informational
+    alert.runModal()
   }
 }

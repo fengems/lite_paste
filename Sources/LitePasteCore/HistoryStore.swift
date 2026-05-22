@@ -89,7 +89,39 @@ public final class HistoryStore: ObservableObject {
   public func togglePinned(_ id: ClipboardRecord.ID) {
     update(id) { record in
       record.isPinned.toggle()
+      if !record.isPinned {
+        record.pinShortcut = nil
+      }
     }
+  }
+
+  public func updatePinShortcut(_ id: ClipboardRecord.ID, shortcut: String?) {
+    guard let targetIndex = records.firstIndex(where: { $0.id == id }) else {
+      return
+    }
+
+    let normalizedShortcut = shortcut?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    records[targetIndex].isPinned = true
+    records[targetIndex].pinShortcut = normalizedShortcut?.isEmpty == true ? nil : normalizedShortcut
+
+    guard let normalizedShortcut, !normalizedShortcut.isEmpty else {
+      return
+    }
+
+    for index in records.indices where records[index].id != id && records[index].pinShortcut == normalizedShortcut {
+      records[index].pinShortcut = nil
+    }
+  }
+
+  public func usedPinShortcuts(excluding id: ClipboardRecord.ID? = nil) -> Set<String> {
+    Set(
+      records.compactMap { record in
+        guard record.id != id else {
+          return nil
+        }
+        return record.pinShortcut
+      }
+    )
   }
 
   public func markUsed(_ id: ClipboardRecord.ID, now: Date = .now) {
