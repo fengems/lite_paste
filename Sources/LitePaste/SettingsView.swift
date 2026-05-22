@@ -1,3 +1,4 @@
+import AppKit
 import LitePasteCore
 import SwiftUI
 
@@ -7,6 +8,9 @@ struct SettingsView: View {
   @State private var backupCoordinator = BackupCoordinator()
   @State private var launchAtLoginController = LaunchAtLoginController()
   @State private var accessibilityTrusted = AccessibilityPermissionController.isTrusted
+  @State private var historyCount: Int?
+  @State private var storageSizeText = "正在读取"
+  @State private var statusErrorMessage: String?
 
   var body: some View {
     Form {
@@ -32,6 +36,33 @@ struct SettingsView: View {
 
         Toggle("打开面板时清空搜索", isOn: clearSearchOnOpen)
         Toggle("打开面板时聚焦搜索", isOn: focusSearchOnOpen)
+      }
+
+      Section("状态") {
+        LabeledContent("剪贴板记录", value: recordingStatusTitle)
+        LabeledContent("自动粘贴", value: accessibilityTrusted ? "可用" : "需要辅助功能权限")
+        LabeledContent("最近应用", value: currentApplicationTitle)
+        LabeledContent("历史数量", value: historyCount.map { "\($0) 条" } ?? "正在读取")
+        LabeledContent("数据占用", value: storageSizeText)
+
+        if let statusErrorMessage {
+          Label(statusErrorMessage, systemImage: "exclamationmark.triangle.fill")
+            .foregroundStyle(.orange)
+        }
+
+        HStack {
+          Button {
+            refreshStatus()
+          } label: {
+            Label("刷新状态", systemImage: "arrow.clockwise")
+          }
+
+          Button {
+            revealDataDirectory()
+          } label: {
+            Label("显示数据目录", systemImage: "folder")
+          }
+        }
       }
 
       Section("权限") {
@@ -155,7 +186,7 @@ struct SettingsView: View {
     .padding(24)
     .frame(width: 520)
     .onAppear {
-      refreshAccessibilityStatus()
+      refreshStatus()
     }
   }
 
@@ -296,6 +327,27 @@ struct SettingsView: View {
     accessibilityTrusted ? "辅助功能权限已授权" : "自动粘贴需要辅助功能权限"
   }
 
+  private var recordingStatusTitle: String {
+    if store.settings.privacyMode {
+      return "私密模式已开启"
+    }
+
+    if let application = activeApplicationTracker.lastExternalApplication,
+       store.settings.ignoredApps.contains(application.bundleIdentifier) {
+      return "\(application.name) 已被忽略"
+    }
+
+    return "正在记录"
+  }
+
+  private var currentApplicationTitle: String {
+    guard let application = activeApplicationTracker.lastExternalApplication else {
+      return "暂无"
+    }
+
+    return "\(application.name) (\(application.bundleIdentifier))"
+  }
+
   private var recordableKinds: [ClipboardKind] {
     [.text, .richText, .html, .image, .files, .url, .email, .color]
   }
@@ -342,6 +394,69 @@ struct SettingsView: View {
     accessibilityTrusted = AccessibilityPermissionController.isTrusted
   }
 
+  private func refreshStatus() {
+    refreshAccessibilityStatus()
+    refreshHistoryStatus()
+  }
+
+  private func refreshHistoryStatus() {
+    statusErrorMessage = nil
+
+    do {
+      historyCount = try SQLiteClipboardHistoryRepository().count(ClipboardHistoryQuery())
+    } catch {
+      historyCount = nil
+      statusErrorMessage = "无法读取历史数量：\(error.localizedDescription)"
+    }
+
+    do {
+      storageSizeText = Self.byteCountFormatter.string(
+        fromByteCount: Int64(try totalSizeOfDataDirectory())
+      )
+    } catch {
+      storageSizeText = "读取失败"
+      statusErrorMessage = "无法读取数据目录：\(error.localizedDescription)"
+    }
+  }
+
+  private func revealDataDirectory() {
+    do {
+      try AppPaths.ensureApplicationSupportDirectoryExists()
+      NSWorkspace.shared.activateFileViewerSelecting([AppPaths.applicationSupportDirectory])
+    } catch {
+      showAlert(title: "无法打开数据目录", message: error.localizedDescription)
+    }
+  }
+
+  private func totalSizeOfDataDirectory() throws -> UInt64 {
+    let directory = AppPaths.applicationSupportDirectory
+    guard FileManager.default.fileExists(atPath: directory.path) else {
+      return 0
+    }
+
+    let resourceKeys: Set<URLResourceKey> = [.isRegularFileKey, .fileAllocatedSizeKey, .totalFileAllocatedSizeKey]
+    guard let enumerator = FileManager.default.enumerator(
+      at: directory,
+      includingPropertiesForKeys: Array(resourceKeys),
+      options: [.skipsHiddenFiles]
+    ) else {
+      return 0
+    }
+
+    return try enumerator.reduce(UInt64(0)) { total, item in
+      guard let url = item as? URL else {
+        return total
+      }
+
+      let values = try url.resourceValues(forKeys: resourceKeys)
+      guard values.isRegularFile == true else {
+        return total
+      }
+
+      return total + UInt64(values.totalFileAllocatedSize ?? values.fileAllocatedSize ?? 0)
+    }
+  }
+
   private func showAlert(title: String, message: String) {
     let alert = NSAlert()
     alert.messageText = title
@@ -350,4 +465,11 @@ struct SettingsView: View {
     alert.alertStyle = .warning
     alert.runModal()
   }
+
+  private static let byteCountFormatter: ByteCountFormatter = {
+    let formatter = ByteCountFormatter()
+    formatter.allowedUnits = [.useKB, .useMB, .useGB]
+    formatter.countStyle = .file
+    return formatter
+  }()
 }
