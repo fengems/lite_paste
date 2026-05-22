@@ -86,9 +86,7 @@ struct ClipboardPanelView: View {
       IconButton(
         systemName: "trash.slash",
         accessibilityLabel: "清空未置顶",
-        action: {
-          store.clearUnpinned()
-        }
+        action: confirmClearUnpinned
       )
 
       IconButton(
@@ -211,6 +209,24 @@ struct ClipboardPanelView: View {
       primaryCopyAction(record)
     case .paste:
       primaryPasteAction(record)
+    }
+  }
+
+  private func confirmClearUnpinned() {
+    let count = store.records.filter { !$0.isPinned }.count
+    guard count > 0 else {
+      return
+    }
+
+    let alert = NSAlert()
+    alert.messageText = "清空未置顶历史？"
+    alert.informativeText = "将删除 \(count) 条未置顶记录，置顶记录会保留。此操作无法撤销。"
+    alert.addButton(withTitle: "清空")
+    alert.addButton(withTitle: "取消")
+    alert.alertStyle = .warning
+
+    if alert.runModal() == .alertFirstButtonReturn {
+      store.clearUnpinned()
     }
   }
 
