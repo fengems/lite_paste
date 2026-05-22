@@ -39,21 +39,54 @@ final class BackupCoordinator {
       return
     }
 
+    guard mode != .replace || confirmReplaceImport(from: backupURL) else {
+      return
+    }
+
     do {
       try service.importBackup(from: backupURL, mode: mode)
       NotificationCenter.default.post(name: .litePasteBackupImported, object: nil)
-      showAlert(title: "导入完成", message: "备份已导入，历史和设置已刷新。")
+      showAlert(title: "导入完成", message: successMessage(for: mode))
     } catch {
-      showAlert(title: "导入失败", message: error.localizedDescription)
+      showAlert(title: "导入失败", message: errorMessage(for: error), style: .warning)
     }
   }
 
-  private func showAlert(title: String, message: String) {
+  private func confirmReplaceImport(from backupURL: URL) -> Bool {
+    let alert = NSAlert()
+    alert.messageText = "覆盖导入备份？"
+    alert.informativeText = "将用“\(backupURL.lastPathComponent)”替换当前历史、设置和媒体文件。当前未导出的历史会被覆盖，此操作无法撤销。"
+    alert.alertStyle = .warning
+    alert.addButton(withTitle: "覆盖导入")
+    alert.addButton(withTitle: "取消")
+    return alert.runModal() == .alertFirstButtonReturn
+  }
+
+  private func successMessage(for mode: BackupImportMode) -> String {
+    switch mode {
+    case .merge:
+      "备份已合并导入，历史和设置已刷新。"
+    case .replace:
+      "备份已覆盖导入，历史和设置已刷新。"
+    }
+  }
+
+  private func errorMessage(for error: Error) -> String {
+    let nsError = error as NSError
+    guard let recoverySuggestion = nsError.localizedRecoverySuggestion,
+          !recoverySuggestion.isEmpty else {
+      return nsError.localizedDescription
+    }
+
+    return "\(nsError.localizedDescription)\n\n\(recoverySuggestion)"
+  }
+
+  private func showAlert(title: String, message: String, style: NSAlert.Style = .informational) {
     let alert = NSAlert()
     alert.messageText = title
     alert.informativeText = message
     alert.addButton(withTitle: "好")
-    alert.alertStyle = .informational
+    alert.alertStyle = style
     alert.runModal()
   }
 }
