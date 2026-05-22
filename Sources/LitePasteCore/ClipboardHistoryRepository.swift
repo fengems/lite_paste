@@ -22,7 +22,10 @@ public struct JSONClipboardHistoryRepository: ClipboardHistoryRepository {
   }
 
   public func save(_ records: [ClipboardRecord]) throws {
-    try AppPaths.ensureApplicationSupportDirectoryExists()
+    try FileManager.default.createDirectory(
+      at: url.deletingLastPathComponent(),
+      withIntermediateDirectories: true
+    )
     let data = try JSONEncoder.litePaste.encode(records)
     try data.write(to: url, options: .atomic)
   }
@@ -37,4 +40,3 @@ public struct InMemoryClipboardHistoryRepository: ClipboardHistoryRepository {
 
   public func save(_ records: [ClipboardRecord]) throws {}
 }
-

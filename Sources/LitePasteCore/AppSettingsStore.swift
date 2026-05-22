@@ -32,7 +32,10 @@ public final class AppSettingsStore: ObservableObject {
 
   private func save() {
     do {
-      try AppPaths.ensureApplicationSupportDirectoryExists()
+      try FileManager.default.createDirectory(
+        at: url.deletingLastPathComponent(),
+        withIntermediateDirectories: true
+      )
       let data = try JSONEncoder.litePaste.encode(settings)
       try data.write(to: url, options: .atomic)
     } catch {

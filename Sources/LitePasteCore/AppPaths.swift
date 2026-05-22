@@ -1,6 +1,45 @@
 import Foundation
 
+public struct AppStoragePaths: Sendable {
+  public var applicationSupportDirectory: URL
+
+  public init(applicationSupportDirectory: URL = AppPaths.applicationSupportDirectory) {
+    self.applicationSupportDirectory = applicationSupportDirectory
+  }
+
+  public var historyURL: URL {
+    applicationSupportDirectory.appending(path: "history.json")
+  }
+
+  public var settingsURL: URL {
+    applicationSupportDirectory.appending(path: "settings.json")
+  }
+
+  public var blobsDirectory: URL {
+    applicationSupportDirectory.appending(path: "Blobs", directoryHint: .isDirectory)
+  }
+
+  public func ensureApplicationSupportDirectoryExists() throws {
+    try FileManager.default.createDirectory(
+      at: applicationSupportDirectory,
+      withIntermediateDirectories: true
+    )
+  }
+
+  public func ensureBlobsDirectoryExists() throws {
+    try ensureApplicationSupportDirectoryExists()
+    try FileManager.default.createDirectory(
+      at: blobsDirectory,
+      withIntermediateDirectories: true
+    )
+  }
+}
+
 public enum AppPaths {
+  public static var storagePaths: AppStoragePaths {
+    AppStoragePaths(applicationSupportDirectory: applicationSupportDirectory)
+  }
+
   public static var applicationSupportDirectory: URL {
     FileManager.default
       .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -20,17 +59,10 @@ public enum AppPaths {
   }
 
   public static func ensureApplicationSupportDirectoryExists() throws {
-    try FileManager.default.createDirectory(
-      at: applicationSupportDirectory,
-      withIntermediateDirectories: true
-    )
+    try storagePaths.ensureApplicationSupportDirectoryExists()
   }
 
   public static func ensureBlobsDirectoryExists() throws {
-    try ensureApplicationSupportDirectoryExists()
-    try FileManager.default.createDirectory(
-      at: blobsDirectory,
-      withIntermediateDirectories: true
-    )
+    try storagePaths.ensureBlobsDirectoryExists()
   }
 }

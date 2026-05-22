@@ -7,11 +7,14 @@ public enum BackupImportMode: Sendable {
 
 public struct ImportExportService: Sendable {
   private static let supportedFormatVersion = 1
+  private let paths: AppStoragePaths
 
-  public init() {}
+  public init(paths: AppStoragePaths = AppStoragePaths()) {
+    self.paths = paths
+  }
 
   public func exportBackup(to parentDirectory: URL, now: Date = .now) throws -> URL {
-    try AppPaths.ensureApplicationSupportDirectoryExists()
+    try paths.ensureApplicationSupportDirectoryExists()
 
     let backupURL = parentDirectory
       .appending(path: "LitePaste-\(Self.timestampFormatter.string(from: now)).litepastebackup", directoryHint: .isDirectory)
@@ -21,9 +24,10 @@ public struct ImportExportService: Sendable {
     }
 
     try FileManager.default.createDirectory(at: backupURL, withIntermediateDirectories: true)
-    try copyIfExists(from: AppPaths.historyURL, to: backupURL.appending(path: "history.json"))
-    try copyIfExists(from: AppPaths.settingsURL, to: backupURL.appending(path: "settings.json"))
-    try copyDirectoryIfExists(from: AppPaths.blobsDirectory, to: backupURL.appending(path: "Blobs", directoryHint: .isDirectory))
+    let backupBlobsDirectory = backupURL.appending(path: "Blobs", directoryHint: .isDirectory)
+    try copyDirectoryIfExists(from: paths.blobsDirectory, to: backupBlobsDirectory)
+    try exportHistoryIfExists(to: backupURL.appending(path: "history.json"), blobsDirectory: backupBlobsDirectory)
+    try copyIfExists(from: paths.settingsURL, to: backupURL.appending(path: "settings.json"))
 
     let manifest = BackupManifest(createdAt: now, formatVersion: Self.supportedFormatVersion)
     let manifestData = try JSONEncoder.litePaste.encode(manifest)
@@ -35,7 +39,7 @@ public struct ImportExportService: Sendable {
   public func importBackup(from backupURL: URL, mode: BackupImportMode) throws {
     try validateBackup(at: backupURL)
 
-    try AppPaths.ensureApplicationSupportDirectoryExists()
+    try paths.ensureApplicationSupportDirectoryExists()
 
     switch mode {
     case .replace:
@@ -63,27 +67,62 @@ public struct ImportExportService: Sendable {
   }
 
   private func replaceBackup(from backupURL: URL) throws {
-    try replaceIfExists(from: backupURL.appending(path: "history.json"), to: AppPaths.historyURL)
-    try replaceIfExists(from: backupURL.appending(path: "settings.json"), to: AppPaths.settingsURL)
-    try replaceDirectoryIfExists(from: backupURL.appending(path: "Blobs", directoryHint: .isDirectory), to: AppPaths.blobsDirectory)
+    try replaceDirectoryIfExists(from: backupURL.appending(path: "Blobs", directoryHint: .isDirectory), to: paths.blobsDirectory)
+    try replaceHistoryIfExists(from: backupURL.appending(path: "history.json"))
+    try replaceIfExists(from: backupURL.appending(path: "settings.json"), to: paths.settingsURL)
   }
 
   private func mergeBackup(from backupURL: URL) throws {
-    let incomingHistory = try JSONClipboardHistoryRepository(url: backupURL.appending(path: "history.json")).load()
-    let repository = JSONClipboardHistoryRepository()
+    let incomingHistory = try loadHistoryIfExists(
+      at: backupURL.appending(path: "history.json"),
+      rewritingExternalBlobPathsTo: paths.blobsDirectory
+    )
+    let repository = JSONClipboardHistoryRepository(url: paths.historyURL)
     let existingHistory = try repository.load()
     let merged = merge(existing: existingHistory, incoming: incomingHistory)
     try repository.save(merged)
 
     try copyDirectoryContentsIfExists(
       from: backupURL.appending(path: "Blobs", directoryHint: .isDirectory),
-      to: AppPaths.blobsDirectory
+      to: paths.blobsDirectory
     )
 
     let incomingSettings = backupURL.appending(path: "settings.json")
-    if !FileManager.default.fileExists(atPath: AppPaths.settingsURL.path) {
-      try copyIfExists(from: incomingSettings, to: AppPaths.settingsURL)
+    if !FileManager.default.fileExists(atPath: paths.settingsURL.path) {
+      try copyIfExists(from: incomingSettings, to: paths.settingsURL)
     }
+  }
+
+  private func exportHistoryIfExists(to destination: URL, blobsDirectory: URL) throws {
+    guard FileManager.default.fileExists(atPath: paths.historyURL.path) else {
+      return
+    }
+
+    let records = try JSONClipboardHistoryRepository(url: paths.historyURL).load()
+    let portableRecords = rewriteExternalBlobPaths(in: records, to: blobsDirectory)
+    let data = try JSONEncoder.litePaste.encode(portableRecords)
+    try data.write(to: destination, options: .atomic)
+  }
+
+  private func replaceHistoryIfExists(from source: URL) throws {
+    guard FileManager.default.fileExists(atPath: source.path) else {
+      return
+    }
+
+    let records = try loadHistoryIfExists(at: source, rewritingExternalBlobPathsTo: paths.blobsDirectory)
+    try JSONClipboardHistoryRepository(url: paths.historyURL).save(records)
+  }
+
+  private func loadHistoryIfExists(
+    at url: URL,
+    rewritingExternalBlobPathsTo blobsDirectory: URL
+  ) throws -> [ClipboardRecord] {
+    guard FileManager.default.fileExists(atPath: url.path) else {
+      return []
+    }
+
+    let records = try JSONClipboardHistoryRepository(url: url).load()
+    return rewriteExternalBlobPaths(in: records, to: blobsDirectory)
   }
 
   private func merge(existing: [ClipboardRecord], incoming: [ClipboardRecord]) -> [ClipboardRecord] {
@@ -102,6 +141,43 @@ public struct ImportExportService: Sendable {
 
       return lhs.lastCopiedAt > rhs.lastCopiedAt
     }
+  }
+
+  private func rewriteExternalBlobPaths(
+    in records: [ClipboardRecord],
+    to blobsDirectory: URL
+  ) -> [ClipboardRecord] {
+    records.map { record in
+      var record = record
+      record.contents = record.contents.map { snapshot in
+        rewriteExternalBlobPath(in: snapshot, to: blobsDirectory)
+      }
+
+      if let previewFilePath = record.previewFilePath {
+        record.previewFilePath = rewrittenBlobPath(from: previewFilePath, to: blobsDirectory)
+      }
+
+      return record
+    }
+  }
+
+  private func rewriteExternalBlobPath(
+    in snapshot: ClipboardContentSnapshot,
+    to blobsDirectory: URL
+  ) -> ClipboardContentSnapshot {
+    guard snapshot.storageMode == .external,
+          let externalFilePath = snapshot.externalFilePath else {
+      return snapshot
+    }
+
+    var snapshot = snapshot
+    snapshot.externalFilePath = rewrittenBlobPath(from: externalFilePath, to: blobsDirectory)
+    return snapshot
+  }
+
+  private func rewrittenBlobPath(from path: String, to blobsDirectory: URL) -> String {
+    let filename = URL(fileURLWithPath: path).lastPathComponent
+    return blobsDirectory.appending(path: filename).path
   }
 
   private func loadManifest(from backupURL: URL) throws -> BackupManifest {

@@ -13,6 +13,7 @@ func runChecks() {
   checkJSONHistoryRepository()
   checkRuntimeReload()
   checkImportExportValidation()
+  checkImportExportRoundTrip()
   checkLocalBlobStorage()
   print("LitePasteCoreChecks passed")
 }
@@ -452,6 +453,140 @@ func checkImportExportValidation() {
     }
   } catch {
     fatalError("Import/export validation check failed: \(error)")
+  }
+}
+
+func checkImportExportRoundTrip() {
+  let directory = FileManager.default.temporaryDirectory
+    .appending(path: "LitePasteBackupRoundTrip-\(UUID().uuidString)", directoryHint: .isDirectory)
+  let appDirectory = directory.appending(path: "AppData", directoryHint: .isDirectory)
+  let backupParent = directory.appending(path: "Backups", directoryHint: .isDirectory)
+  let paths = AppStoragePaths(applicationSupportDirectory: appDirectory)
+  let service = ImportExportService(paths: paths)
+  let repository = JSONClipboardHistoryRepository(url: paths.historyURL)
+
+  do {
+    defer {
+      try? FileManager.default.removeItem(at: directory)
+    }
+
+    try paths.ensureBlobsDirectoryExists()
+    try FileManager.default.createDirectory(at: backupParent, withIntermediateDirectories: true)
+
+    let sourceBlob = paths.blobsDirectory.appending(path: "image.bin")
+    try Data("blob-a".utf8).write(to: sourceBlob, options: .atomic)
+    let sourceRecord = ClipboardRecord(
+      kind: .image,
+      title: "image",
+      searchText: "image",
+      lastCopiedAt: Date(timeIntervalSince1970: 30),
+      contentHash: "hash-a",
+      contents: [
+        ClipboardContentSnapshot(
+          pasteboardType: "public.data",
+          storageMode: .external,
+          externalFilePath: sourceBlob.path,
+          byteSize: 6,
+          displayOrder: 0
+        )
+      ],
+      previewFilePath: sourceBlob.path
+    )
+    try repository.save([sourceRecord])
+    try JSONEncoder.litePaste.encode(AppSettings(hotkey: "control+space", viewMode: .list))
+      .write(to: paths.settingsURL, options: .atomic)
+
+    let backupURL = try service.exportBackup(to: backupParent, now: Date(timeIntervalSince1970: 100))
+    let exportedHistory = try JSONClipboardHistoryRepository(url: backupURL.appending(path: "history.json")).load()
+    let exportedBlob = backupURL.appending(path: "Blobs/image.bin")
+
+    expect(FileManager.default.fileExists(atPath: exportedBlob.path), "Export should copy external blobs")
+    expect(
+      exportedHistory.first?.previewFilePath == exportedBlob.path,
+      "Export should rewrite preview blob paths into backup directory"
+    )
+
+    try FileManager.default.removeItem(at: appDirectory)
+    try service.importBackup(from: backupURL, mode: .replace)
+
+    let restoredHistory = try repository.load()
+    let restoredBlob = paths.blobsDirectory.appending(path: "image.bin")
+    let restoredSettings = try JSONDecoder.litePaste.decode(
+      AppSettings.self,
+      from: Data(contentsOf: paths.settingsURL)
+    )
+
+    expect(restoredHistory.count == 1, "Replace import should restore exported history")
+    expect(restoredHistory.first?.previewFilePath == restoredBlob.path, "Replace import should rewrite preview path")
+    expect(FileManager.default.fileExists(atPath: restoredBlob.path), "Replace import should restore blob files")
+    expect(restoredSettings.hotkey == "control+space", "Replace import should restore settings")
+
+    let localRecord = ClipboardRecord(
+      kind: .text,
+      title: "local",
+      searchText: "local",
+      lastCopiedAt: Date(timeIntervalSince1970: 50),
+      contentHash: "hash-local"
+    )
+    try repository.save([localRecord, sourceRecord])
+
+    let mergeBackup = directory.appending(path: "Merge.litepastebackup", directoryHint: .isDirectory)
+    let mergeBlobs = mergeBackup.appending(path: "Blobs", directoryHint: .isDirectory)
+    try FileManager.default.createDirectory(at: mergeBlobs, withIntermediateDirectories: true)
+    try Data(#"{"createdAt":"2026-01-01T00:00:00Z","formatVersion":1}"#.utf8)
+      .write(to: mergeBackup.appending(path: "manifest.json"))
+    try JSONEncoder.litePaste.encode(AppSettings(hotkey: "command+option+v", viewMode: .card))
+      .write(to: mergeBackup.appending(path: "settings.json"))
+
+    let incomingBlob = mergeBlobs.appending(path: "incoming.bin")
+    try Data("incoming".utf8).write(to: incomingBlob, options: .atomic)
+    let duplicateRecord = ClipboardRecord(
+      kind: .text,
+      title: "duplicate",
+      searchText: "duplicate",
+      lastCopiedAt: Date(timeIntervalSince1970: 40),
+      contentHash: "hash-a"
+    )
+    let incomingRecord = ClipboardRecord(
+      kind: .image,
+      title: "incoming",
+      searchText: "incoming",
+      lastCopiedAt: Date(timeIntervalSince1970: 60),
+      contentHash: "hash-incoming",
+      contents: [
+        ClipboardContentSnapshot(
+          pasteboardType: "public.data",
+          storageMode: .external,
+          externalFilePath: incomingBlob.path,
+          byteSize: 8,
+          displayOrder: 0
+        )
+      ],
+      previewFilePath: incomingBlob.path
+    )
+    try JSONEncoder.litePaste.encode([duplicateRecord, incomingRecord])
+      .write(to: mergeBackup.appending(path: "history.json"), options: .atomic)
+
+    try service.importBackup(from: mergeBackup, mode: .merge)
+
+    let mergedHistory = try repository.load()
+    let hashCounts = Dictionary(grouping: mergedHistory, by: \.contentHash).mapValues(\.count)
+    let mergedSettings = try JSONDecoder.litePaste.decode(
+      AppSettings.self,
+      from: Data(contentsOf: paths.settingsURL)
+    )
+    let importedBlob = paths.blobsDirectory.appending(path: "incoming.bin")
+
+    expect(mergedHistory.count == 3, "Merge import should keep existing and add unique incoming records")
+    expect(hashCounts["hash-a"] == 1, "Merge import should deduplicate by content hash")
+    expect(
+      mergedHistory.first(where: { $0.contentHash == "hash-incoming" })?.previewFilePath == importedBlob.path,
+      "Merge import should rewrite incoming preview blob path"
+    )
+    expect(FileManager.default.fileExists(atPath: importedBlob.path), "Merge import should copy incoming blobs")
+    expect(mergedSettings.hotkey == "control+space", "Merge import should not overwrite existing settings")
+  } catch {
+    fatalError("Import/export round-trip check failed: \(error)")
   }
 }
 
