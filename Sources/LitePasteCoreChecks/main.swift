@@ -28,6 +28,10 @@ func checkAppSettingsBackwardCompatibility() {
     expect(!settings.restoreClipboardAfterPaste, "Settings should default restoreClipboardAfterPaste for old files")
     expect(settings.moveDuplicatesToTop, "Settings should default moveDuplicatesToTop for old files")
     expect(settings.focusSearchOnOpen, "Settings should default focusSearchOnOpen for old files")
+    expect(
+      settings.ignoredApps.contains("com.1password.1password"),
+      "Settings should default ignoredApps for old files"
+    )
 
     let custom = AppSettings(
       panelPosition: .mouseScreenCenter,
@@ -98,6 +102,15 @@ func checkPrivacyFilter() {
       pasteboardTypes: ["public.utf8-plain-text"]
     ),
     "Ignored apps should stop recording"
+  )
+
+  let defaultIgnoredAppFilter = PrivacyFilter()
+  expect(
+    !defaultIgnoredAppFilter.shouldRecord(
+      sourceAppBundleId: "com.1password.1password",
+      pasteboardTypes: ["public.utf8-plain-text"]
+    ),
+    "Default ignored password managers should stop recording"
   )
 
   let normalFilter = PrivacyFilter()

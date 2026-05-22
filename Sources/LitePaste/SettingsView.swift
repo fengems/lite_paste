@@ -73,6 +73,12 @@ struct SettingsView: View {
           values: ignoredApps
         )
 
+        Button {
+          resetIgnoredApps()
+        } label: {
+          Label("恢复默认忽略应用", systemImage: "arrow.counterclockwise")
+        }
+
         EditableStringList(
           title: "忽略剪贴板类型",
           placeholder: "org.nspasteboard.TransientType",
@@ -272,6 +278,10 @@ struct SettingsView: View {
 
   private func resetIgnoredPasteboardTypes() {
     store.update { $0.ignoredPasteboardTypes = PrivacyFilter.defaultIgnoredPasteboardTypes }
+  }
+
+  private func resetIgnoredApps() {
+    store.update { $0.ignoredApps = PrivacyFilter.defaultIgnoredApps }
   }
 
   private var addCurrentApplicationLabel: String {

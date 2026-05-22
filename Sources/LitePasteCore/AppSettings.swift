@@ -26,7 +26,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     retentionDays: Int = 0,
     enabledTypes: Set<ClipboardKind> = Set(ClipboardKind.allCases),
     ignoredPasteboardTypes: Set<String> = PrivacyFilter.defaultIgnoredPasteboardTypes,
-    ignoredApps: Set<String> = [],
+    ignoredApps: Set<String> = PrivacyFilter.defaultIgnoredApps,
     autoPasteMode: AutoPasteMode = .copyOnly,
     pastePlainByDefault: Bool = false,
     restoreClipboardAfterPaste: Bool = false,
