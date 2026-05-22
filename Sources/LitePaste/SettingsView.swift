@@ -3,6 +3,7 @@ import SwiftUI
 
 struct SettingsView: View {
   @StateObject private var store = AppSettingsStore()
+  @State private var backupCoordinator = BackupCoordinator()
 
   var body: some View {
     Form {
@@ -23,9 +24,31 @@ struct SettingsView: View {
       Section("隐私") {
         Toggle("私密模式", isOn: privacyMode)
       }
+
+      Section("备份") {
+        HStack {
+          Button {
+            backupCoordinator.exportBackup()
+          } label: {
+            Label("导出", systemImage: "square.and.arrow.up")
+          }
+
+          Button {
+            backupCoordinator.importBackup(mode: .merge)
+          } label: {
+            Label("合并导入", systemImage: "arrow.triangle.merge")
+          }
+
+          Button {
+            backupCoordinator.importBackup(mode: .replace)
+          } label: {
+            Label("覆盖导入", systemImage: "arrow.down.doc")
+          }
+        }
+      }
     }
     .padding(24)
-    .frame(width: 420)
+    .frame(width: 520)
   }
 
   private var launchAtLogin: Binding<Bool> {
