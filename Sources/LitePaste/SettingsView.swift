@@ -3,6 +3,7 @@ import SwiftUI
 
 struct SettingsView: View {
   @ObservedObject private var store = AppSettingsStore.shared
+  @ObservedObject private var activeApplicationTracker = ActiveApplicationTracker.shared
   @State private var backupCoordinator = BackupCoordinator()
   @State private var launchAtLoginController = LaunchAtLoginController()
 
@@ -43,6 +44,13 @@ struct SettingsView: View {
 
       Section("隐私") {
         Toggle("私密模式", isOn: privacyMode)
+
+        Button {
+          addLastExternalApplicationToIgnoredApps()
+        } label: {
+          Label(addCurrentApplicationLabel, systemImage: "app.badge")
+        }
+        .disabled(activeApplicationTracker.lastExternalApplication == nil)
 
         EditableStringList(
           title: "忽略应用 Bundle ID",
@@ -209,6 +217,22 @@ struct SettingsView: View {
 
   private func resetIgnoredPasteboardTypes() {
     store.update { $0.ignoredPasteboardTypes = PrivacyFilter.defaultIgnoredPasteboardTypes }
+  }
+
+  private var addCurrentApplicationLabel: String {
+    guard let application = activeApplicationTracker.lastExternalApplication else {
+      return "添加最近使用的应用"
+    }
+
+    return "忽略 \(application.name)"
+  }
+
+  private func addLastExternalApplicationToIgnoredApps() {
+    guard let application = activeApplicationTracker.lastExternalApplication else {
+      return
+    }
+
+    store.update { $0.ignoredApps.insert(application.bundleIdentifier) }
   }
 
   private func showAlert(title: String, message: String) {

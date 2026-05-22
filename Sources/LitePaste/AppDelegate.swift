@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var panelCoordinator: PanelCoordinator?
   private var hotkeyController: GlobalHotkeyController?
   private let launchAtLoginController = LaunchAtLoginController()
+  private let activeApplicationTracker = ActiveApplicationTracker.shared
   private var cancellables = Set<AnyCancellable>()
 
   func applicationDidFinishLaunching(_ notification: Notification) {
@@ -41,11 +42,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     configureHotkey()
     observeSettings()
     launchAtLoginController.sync(with: settingsStore.settings.launchAtLogin)
+    activeApplicationTracker.start()
     monitor.start()
   }
 
   func applicationWillTerminate(_ notification: Notification) {
     monitor?.stop()
+    activeApplicationTracker.stop()
     hotkeyController?.unregister()
   }
 
