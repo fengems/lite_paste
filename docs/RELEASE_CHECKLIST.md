@@ -24,7 +24,7 @@ Scripts/package_release.sh
 - `Build/LitePaste-0.1.0-1.dmg`
 - `Build/LitePaste-0.1.0-1.dmg.sha256`
 
-如需覆盖版本号：
+发布包文件名默认读取 `Config/LitePaste/Info.plist` 中的版本号和 build 号。如需覆盖版本号，覆盖值必须和 `Info.plist` / `AppMetadata.swift` 一致：
 
 ```bash
 VERSION=0.1.0 BUILD=1 Scripts/package_release.sh

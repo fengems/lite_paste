@@ -17,7 +17,7 @@ Scripts/build_app_bundle.sh
 open Build/LitePaste.app
 ```
 
-本地试用 zip 包和 DMG 包可通过以下命令生成：
+本地试用 zip 包和 DMG 包可通过以下命令生成，文件名版本号默认读取 `Config/LitePaste/Info.plist`：
 
 ```bash
 Scripts/package_release.sh

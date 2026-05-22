@@ -2,8 +2,12 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VERSION="${VERSION:-0.1.0}"
-BUILD="${BUILD:-1}"
+INFO_PLIST="${ROOT_DIR}/Config/LitePaste/Info.plist"
+plist_value() {
+  /usr/libexec/PlistBuddy -c "Print :$1" "${INFO_PLIST}"
+}
+VERSION="${VERSION:-$(plist_value CFBundleShortVersionString)}"
+BUILD="${BUILD:-$(plist_value CFBundleVersion)}"
 OUTPUT_DIR="${ROOT_DIR}/Build"
 APP_PATH="${OUTPUT_DIR}/LitePaste.app"
 ZIP_PATH="${OUTPUT_DIR}/LitePaste-${VERSION}-${BUILD}.zip"
@@ -29,8 +33,8 @@ Alternative notarization credentials:
   Scripts/sign_notarize_release.sh
 
 Environment:
-  VERSION=0.1.0
-  BUILD=1
+  VERSION defaults to Config/LitePaste/Info.plist CFBundleShortVersionString.
+  BUILD defaults to Config/LitePaste/Info.plist CFBundleVersion.
   NOTARIZE=0  Skip notarytool submit/staple and only create a Developer ID signed package.
 EOF
 }

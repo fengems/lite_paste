@@ -49,7 +49,7 @@ Scripts/build_app_bundle.sh
 open Build/LitePaste.app
 ```
 
-生成本地试用 zip 和 DMG 包：
+生成本地试用 zip 和 DMG 包，版本号默认读取 `Config/LitePaste/Info.plist`：
 
 ```bash
 Scripts/package_release.sh
