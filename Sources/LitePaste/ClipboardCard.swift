@@ -1,0 +1,108 @@
+import LitePasteCore
+import SwiftUI
+
+struct ClipboardCard: View {
+  let record: ClipboardRecord
+  let primaryAction: (ClipboardRecord) -> Void
+  let copyAction: (ClipboardRecord) -> Void
+  let pasteAction: (ClipboardRecord) -> Void
+  let toggleFavorite: () -> Void
+  let togglePinned: () -> Void
+  let deleteAction: () -> Void
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      HStack {
+        Label(record.kind.displayName, systemImage: iconName)
+          .font(.system(size: 12, weight: .medium))
+          .foregroundStyle(.secondary)
+
+        Spacer()
+
+        actionButtons
+      }
+
+      Text(record.title)
+        .font(.system(size: 17, weight: .semibold))
+        .lineLimit(5)
+        .frame(maxWidth: .infinity, minHeight: 110, alignment: .topLeading)
+
+      HStack {
+        if let source = record.sourceAppName {
+          Text(source)
+        }
+
+        Spacer()
+
+        Text(record.lastCopiedAt, style: .relative)
+      }
+      .font(.system(size: 12))
+      .foregroundStyle(.secondary)
+    }
+    .padding(14)
+    .frame(width: 240, height: 210)
+    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+    .overlay(
+      RoundedRectangle(cornerRadius: 8)
+        .stroke(.white.opacity(0.12), lineWidth: 1)
+    )
+    .onTapGesture {
+      primaryAction(record)
+    }
+  }
+
+  private var actionButtons: some View {
+    HStack(spacing: 6) {
+      IconButton(
+        systemName: "arrow.turn.down.left",
+        accessibilityLabel: "粘贴",
+        action: {
+          pasteAction(record)
+        }
+      )
+      IconButton(
+        systemName: "doc.on.doc",
+        accessibilityLabel: "复制",
+        action: {
+          copyAction(record)
+        }
+      )
+      IconButton(
+        systemName: record.isPinned ? "pin.fill" : "pin",
+        accessibilityLabel: "置顶",
+        action: togglePinned
+      )
+      IconButton(
+        systemName: record.isFavorite ? "star.fill" : "star",
+        accessibilityLabel: "收藏",
+        action: toggleFavorite
+      )
+      IconButton(
+        systemName: "trash",
+        accessibilityLabel: "删除",
+        action: deleteAction
+      )
+    }
+  }
+
+  private var iconName: String {
+    switch record.kind {
+    case .text:
+      "text.alignleft"
+    case .richText, .html:
+      "doc.richtext"
+    case .image:
+      "photo"
+    case .files:
+      "folder"
+    case .url:
+      "link"
+    case .email:
+      "envelope"
+    case .color:
+      "paintpalette"
+    case .unknown:
+      "questionmark.square"
+    }
+  }
+}

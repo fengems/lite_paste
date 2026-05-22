@@ -468,3 +468,24 @@ v1 完成时应满足：
 - 项目不直接复制 Maccy 或 EcoPaste 源码。
 - 后续构建和签名需要完整 Xcode 环境。
 
+## 15. 开发基线
+
+首个开发切片以“可运行的原生菜单栏剪贴板工具”为目标，先建立稳定工程结构和核心数据流，再逐步补齐 Paste 级体验。
+
+工程默认值：
+
+- App 名称：Lite Paste。
+- Bundle Identifier：`com.fengems.LitePaste`。
+- 本地开发入口：Swift Package，可通过 `swift run LitePaste` 启动基础原生应用。
+- 后续正式分发入口：完整 Xcode app target，用于签名、打包和权限声明。
+- 当前 Command Line Tools 环境下先使用持久化中立的核心模型；接入完整 Xcode app target 后再启用 SwiftData 持久化模型。
+
+首个切片包含：
+
+- 菜单栏入口。
+- 浮动剪贴板面板。
+- 卡片模式和列表模式的基础 UI。
+- 文本剪贴板监听、去重、搜索、收藏、置顶、删除。
+- 基础隐私过滤。
+- SwiftData 模型和核心服务雏形。
+- 单元测试覆盖去重、过滤和搜索等核心逻辑。
