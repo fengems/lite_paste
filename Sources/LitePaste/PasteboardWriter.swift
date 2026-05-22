@@ -7,10 +7,16 @@ import LitePasteCore
 final class PasteboardWriter {
   private let pasteboard: NSPasteboard
   private let store: HistoryStore
+  private let writeTracker: ClipboardWriteTracker
 
-  init(pasteboard: NSPasteboard = .general, store: HistoryStore) {
+  init(
+    pasteboard: NSPasteboard = .general,
+    store: HistoryStore,
+    writeTracker: ClipboardWriteTracker
+  ) {
     self.pasteboard = pasteboard
     self.store = store
+    self.writeTracker = writeTracker
   }
 
   @discardableResult
@@ -64,6 +70,7 @@ final class PasteboardWriter {
 
     pasteboard.clearContents()
     pasteboard.setString(text, forType: .string)
+    markCurrentPasteboardChangeIgnored()
     store.markUsed(record.id)
     return .copied
   }
@@ -101,7 +108,11 @@ final class PasteboardWriter {
     }
 
     pasteboard.clearContents()
-    return pasteboard.writeObjects(urls as [NSURL])
+    let restored = pasteboard.writeObjects(urls as [NSURL])
+    if restored {
+      markCurrentPasteboardChangeIgnored()
+    }
+    return restored
   }
 
   private func restoreContentSnapshots(_ record: ClipboardRecord) -> Bool {
@@ -128,7 +139,14 @@ final class PasteboardWriter {
       restored = true
     }
 
+    if restored {
+      markCurrentPasteboardChangeIgnored()
+    }
     return restored
+  }
+
+  private func markCurrentPasteboardChangeIgnored() {
+    writeTracker.markIgnoredChangeCount(pasteboard.changeCount)
   }
 
   private func data(for snapshot: ClipboardContentSnapshot) -> Data? {

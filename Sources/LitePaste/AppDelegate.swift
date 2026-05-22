@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var panelCoordinator: PanelCoordinator?
   private var hotkeyController: GlobalHotkeyController?
   private var pinnedHotkeyController: PinnedHotkeyController?
+  private let clipboardWriteTracker = ClipboardWriteTracker()
   private let launchAtLoginController = LaunchAtLoginController()
   private let activeApplicationTracker = ActiveApplicationTracker.shared
   private var cancellables = Set<AnyCancellable>()
@@ -24,10 +25,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.accessory)
 
-    let writer = PasteboardWriter(store: store)
+    let writer = PasteboardWriter(store: store, writeTracker: clipboardWriteTracker)
     let panelCoordinator = PanelCoordinator(store: store, writer: writer)
     let monitor = ClipboardMonitor(
       store: store,
+      writeTracker: clipboardWriteTracker,
       privacyFilter: PrivacyFilter(
         privacyMode: settingsStore.settings.privacyMode,
         ignoredApps: settingsStore.settings.ignoredApps,
