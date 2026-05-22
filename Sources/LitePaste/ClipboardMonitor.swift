@@ -9,6 +9,7 @@ final class ClipboardMonitor {
   private let blobStorage: any BlobStorage
   private let writeTracker: ClipboardWriteTracker
   private let textPayloadBuilder: ClipboardTextPayloadBuilder
+  private let filePayloadBuilder: ClipboardFilePayloadBuilder
   private var privacyFilter: PrivacyFilter
   private var enabledTypes: Set<ClipboardKind>
   private var timer: Timer?
@@ -20,6 +21,7 @@ final class ClipboardMonitor {
     blobStorage: any BlobStorage = LocalBlobStorage(),
     writeTracker: ClipboardWriteTracker,
     textPayloadBuilder: ClipboardTextPayloadBuilder = ClipboardTextPayloadBuilder(),
+    filePayloadBuilder: ClipboardFilePayloadBuilder = ClipboardFilePayloadBuilder(),
     privacyFilter: PrivacyFilter = PrivacyFilter(),
     enabledTypes: Set<ClipboardKind> = Set(ClipboardKind.allCases)
   ) {
@@ -28,6 +30,7 @@ final class ClipboardMonitor {
     self.blobStorage = blobStorage
     self.writeTracker = writeTracker
     self.textPayloadBuilder = textPayloadBuilder
+    self.filePayloadBuilder = filePayloadBuilder
     self.privacyFilter = privacyFilter
     self.enabledTypes = enabledTypes
     self.lastChangeCount = pasteboard.changeCount
@@ -126,28 +129,7 @@ final class ClipboardMonitor {
       return nil
     }
 
-    let paths = fileURLs.map(\.path)
-    let names = fileURLs.map(\.lastPathComponent)
-    let title = fileURLs.count == 1 ? names[0] : "\(fileURLs.count) 个文件: \(names.prefix(3).joined(separator: ", "))"
-    let text = paths.joined(separator: "\n")
-
-    return ClipboardPayload(
-      kind: .files,
-      title: title,
-      searchText: text,
-      plainText: text,
-      contentHashBasis: text,
-      pasteboardTypes: types,
-      contents: paths.enumerated().map { index, path in
-        ClipboardContentSnapshot(
-          pasteboardType: NSPasteboard.PasteboardType.fileURL.rawValue,
-          storageMode: .inline,
-          inlineData: Data(path.utf8),
-          byteSize: path.utf8.count,
-          displayOrder: index
-        )
-      }
-    )
+    return filePayloadBuilder.payload(from: fileURLs, pasteboardTypes: types)
   }
 
   private func readImagePayload(types: Set<String>) -> ClipboardPayload? {

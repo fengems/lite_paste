@@ -7,6 +7,7 @@ func runChecks() {
   checkAppSettingsBackwardCompatibility()
   checkPrivacyFilter()
   checkClipboardTextPayloadBuilder()
+  checkClipboardFilePayloadBuilder()
   checkHistoryStore()
   checkHistoryRetention()
   checkHistoryQueryEngine()
@@ -169,6 +170,66 @@ func checkClipboardTextPayloadBuilder() {
   expect(
     payload.contents.first?.inlineData == Data(" hello@example.com ".utf8),
     "Text payload snapshot should preserve UTF-8 text data"
+  )
+}
+
+func checkClipboardFilePayloadBuilder() {
+  let builder = ClipboardFilePayloadBuilder()
+
+  expect(
+    builder.payload(from: [], pasteboardTypes: ["public.file-url"]) == nil,
+    "File payload builder should ignore empty file lists"
+  )
+  expect(
+    builder.payload(from: [URL(string: "https://example.com/file.txt")!], pasteboardTypes: ["public.url"]) == nil,
+    "File payload builder should ignore non-file URLs"
+  )
+
+  let singleURL = URL(fileURLWithPath: "/Users/example/Desktop/report.pdf")
+  guard let singlePayload = builder.payload(from: [singleURL], pasteboardTypes: ["public.file-url"]) else {
+    fatalError("File payload builder should create a single-file payload")
+  }
+
+  expect(singlePayload.kind == .files, "File payload should use files kind")
+  expect(singlePayload.title == "report.pdf", "File payload should use single file name as title")
+  expect(singlePayload.searchText == singleURL.path, "File payload should search by full file path")
+  expect(singlePayload.plainText == singleURL.path, "File payload should preserve paths as plain text")
+  expect(singlePayload.contentHashBasis == singleURL.path, "File payload should hash from ordered paths")
+  expect(singlePayload.contents.count == 1, "Single-file payload should include one snapshot")
+  expect(
+    singlePayload.contents.first?.pasteboardType == ClipboardFilePayloadBuilder.fileURLPasteboardType,
+    "File payload should use the file URL pasteboard type"
+  )
+  expect(
+    singlePayload.contents.first?.inlineData == Data(singleURL.path.utf8),
+    "File payload snapshot should store the file path"
+  )
+
+  let fileURLs = [
+    URL(fileURLWithPath: "/tmp/a.txt"),
+    URL(fileURLWithPath: "/tmp/b.txt"),
+    URL(fileURLWithPath: "/tmp/c.txt"),
+    URL(fileURLWithPath: "/tmp/d.txt")
+  ]
+  guard let multiPayload = builder.payload(from: fileURLs, pasteboardTypes: ["public.file-url"]) else {
+    fatalError("File payload builder should create a multi-file payload")
+  }
+
+  expect(
+    multiPayload.title == "4 个文件: a.txt, b.txt, c.txt",
+    "File payload should summarize multi-file titles"
+  )
+  expect(
+    multiPayload.plainText == fileURLs.map(\.path).joined(separator: "\n"),
+    "File payload should preserve file URL order in plain text"
+  )
+  expect(
+    multiPayload.contents.map(\.displayOrder) == [0, 1, 2, 3],
+    "File payload snapshots should preserve display order"
+  )
+  expect(
+    multiPayload.contents.compactMap { $0.inlineData.flatMap { String(data: $0, encoding: .utf8) } } == fileURLs.map(\.path),
+    "File payload snapshots should preserve ordered paths"
   )
 }
 
