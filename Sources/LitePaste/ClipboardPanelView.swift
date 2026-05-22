@@ -54,6 +54,51 @@ struct ClipboardPanelView: View {
     return "\(currentPage.totalCount) 条"
   }
 
+  private var emptyState: (systemName: String, title: String, message: String?) {
+    if store.allRecordCount() == 0 {
+      return (
+        "doc.on.clipboard",
+        "暂无剪贴板历史",
+        "复制文本、图片、文件或链接后会显示在这里。"
+      )
+    }
+
+    if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+      return (
+        "magnifyingglass",
+        "没有匹配结果",
+        "试试其他关键词，或切换筛选类型。"
+      )
+    }
+
+    if filter != .all {
+      return (
+        filterEmptyStateIconName,
+        "没有\(filter.displayName)记录",
+        "切换到全部，或复制对应类型的内容。"
+      )
+    }
+
+    return ("tray", "没有可显示的记录", nil)
+  }
+
+  private var filterEmptyStateIconName: String {
+    switch filter {
+    case .all:
+      "tray"
+    case .text:
+      "text.alignleft"
+    case .images:
+      "photo"
+    case .files:
+      "folder"
+    case .favorites:
+      "star"
+    case .pinned:
+      "pin"
+    }
+  }
+
   var body: some View {
     ZStack {
       VisualEffectBackground(material: .hudWindow, blendingMode: .behindWindow)
@@ -63,7 +108,11 @@ struct ClipboardPanelView: View {
         filters
 
         if records.isEmpty {
-          EmptyHistoryView()
+          EmptyHistoryView(
+            systemName: emptyState.systemName,
+            title: emptyState.title,
+            message: emptyState.message
+          )
         } else {
           content
         }
