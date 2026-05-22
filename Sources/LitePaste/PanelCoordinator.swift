@@ -49,10 +49,10 @@ final class PanelCoordinator {
       store: store,
       presentationState: presentationState,
       copyAction: { [weak self] record in
-        self?.writer.copy(record)
+        self?.copy(record)
       },
       copyPlainTextAction: { [weak self] record in
-        self?.writer.copy(record, asPlainText: true)
+        self?.copy(record, asPlainText: true)
       },
       pasteAction: { [weak self] record in
         self?.paste(record)
@@ -61,7 +61,7 @@ final class PanelCoordinator {
         self?.paste(record, asPlainText: true)
       },
       primaryCopyAction: { [weak self] record in
-        self?.writer.copy(record, asPlainText: self?.settingsStore.settings.pastePlainByDefault ?? false)
+        self?.copy(record, asPlainText: self?.settingsStore.settings.pastePlainByDefault ?? false)
       },
       primaryPasteAction: { [weak self] record in
         self?.paste(record, asPlainText: self?.settingsStore.settings.pastePlainByDefault ?? false)
@@ -116,8 +116,12 @@ final class PanelCoordinator {
     paste(record, asPlainText: false)
   }
 
+  private func copy(_ record: ClipboardRecord, asPlainText: Bool = false) {
+    let result = writer.copy(record, asPlainText: asPlainText)
+    handleActionResult(result)
+  }
+
   private func paste(_ record: ClipboardRecord, asPlainText: Bool) {
-    panel?.orderOut(nil)
     let result = writer.paste(
       record,
       targetApplication: previousApplication,
@@ -125,8 +129,24 @@ final class PanelCoordinator {
       restorePreviousClipboard: settingsStore.settings.restoreClipboardAfterPaste
     )
 
-    if result == .accessibilityPermissionRequired {
+    handleActionResult(result, closesPanelOnSuccess: true)
+  }
+
+  private func handleActionResult(_ result: PasteActionResult, closesPanelOnSuccess: Bool = false) {
+    switch result {
+    case .copied:
+      break
+    case .pasted:
+      if closesPanelOnSuccess {
+        panel?.orderOut(nil)
+      }
+    case .accessibilityPermissionRequired:
+      if closesPanelOnSuccess {
+        panel?.orderOut(nil)
+      }
       showAccessibilityPermissionAlert()
+    case .missingContent:
+      showMissingContentAlert()
     }
   }
 
@@ -141,6 +161,15 @@ final class PanelCoordinator {
     if alert.runModal() == .alertFirstButtonReturn {
       AccessibilityPermissionController.openSystemSettings()
     }
+  }
+
+  private func showMissingContentAlert() {
+    let alert = NSAlert()
+    alert.messageText = "无法恢复该内容"
+    alert.informativeText = "该历史记录引用的文件或媒体数据已经不存在。你可以删除这条记录，或从备份恢复缺失的 Blobs 数据。"
+    alert.addButton(withTitle: "好")
+    alert.alertStyle = .warning
+    alert.runModal()
   }
 }
 

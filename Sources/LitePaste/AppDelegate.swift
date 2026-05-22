@@ -293,8 +293,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       restorePreviousClipboard: settingsStore.settings.restoreClipboardAfterPaste
     )
 
-    if result == .accessibilityPermissionRequired {
+    switch result {
+    case .some(.accessibilityPermissionRequired):
       showAccessibilityPermissionAlert()
+    case .some(.missingContent):
+      showMissingContentAlert()
+    case .some(.copied), .some(.pasted), .none:
+      break
     }
   }
 
@@ -309,6 +314,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     if alert.runModal() == .alertFirstButtonReturn {
       AccessibilityPermissionController.openSystemSettings()
     }
+  }
+
+  private func showMissingContentAlert() {
+    showAlert(
+      title: "无法恢复该内容",
+      message: "该历史记录引用的文件或媒体数据已经不存在。你可以删除这条记录，或从备份恢复缺失的 Blobs 数据。"
+    )
   }
 
   private func showAlert(title: String, message: String) {
