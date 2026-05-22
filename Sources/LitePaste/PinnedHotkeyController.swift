@@ -13,7 +13,8 @@ final class PinnedHotkeyController {
     self.action = action
   }
 
-  func update(records: [ClipboardRecord]) {
+  @discardableResult
+  func update(records: [ClipboardRecord]) -> [PinnedHotkeyRegistrationIssue] {
     unregisterHotKeys()
     shortcutByHotKeyID.removeAll()
 
@@ -22,15 +23,40 @@ final class PinnedHotkeyController {
       .sorted { $0.lastCopiedAt > $1.lastCopiedAt }
 
     guard !pinnedRecords.isEmpty else {
-      return
+      return []
     }
 
-    installHandlerIfNeeded()
+    if let handlerStatus = installHandlerIfNeeded() {
+      return pinnedRecords.compactMap { record in
+        guard let shortcut = record.pinShortcut else {
+          return nil
+        }
 
+        return PinnedHotkeyRegistrationIssue(
+          recordID: record.id,
+          recordTitle: record.title,
+          shortcut: shortcut,
+          reason: .handlerFailed(handlerStatus)
+        )
+      }
+    }
+
+    var issues: [PinnedHotkeyRegistrationIssue] = []
     for record in pinnedRecords {
-      guard let shortcut = record.pinShortcut,
-            let keyCode = Self.keyCode(for: shortcut),
+      guard let shortcut = record.pinShortcut else {
+        continue
+      }
+
+      guard let keyCode = Self.keyCode(for: shortcut),
             let hotKeyID = Self.hotKeyID(for: shortcut) else {
+        issues.append(
+          PinnedHotkeyRegistrationIssue(
+            recordID: record.id,
+            recordTitle: record.title,
+            shortcut: shortcut,
+            reason: .invalidShortcut
+          )
+        )
         continue
       }
 
@@ -45,13 +71,22 @@ final class PinnedHotkeyController {
       )
 
       guard status == noErr, let hotKeyRef else {
-        print("Unable to register Lite Paste pinned hotkey \(shortcut): \(status)")
+        issues.append(
+          PinnedHotkeyRegistrationIssue(
+            recordID: record.id,
+            recordTitle: record.title,
+            shortcut: shortcut,
+            reason: .registrationFailed(status)
+          )
+        )
         continue
       }
 
       hotKeyRefs.append(hotKeyRef)
       shortcutByHotKeyID[hotKeyID.id] = record.id
     }
+
+    return issues
   }
 
   func unregister() {
@@ -72,9 +107,9 @@ final class PinnedHotkeyController {
     hotKeyRefs.removeAll()
   }
 
-  private func installHandlerIfNeeded() {
+  private func installHandlerIfNeeded() -> OSStatus? {
     guard eventHandlerRef == nil else {
-      return
+      return nil
     }
 
     var eventSpec = EventTypeSpec(
@@ -120,9 +155,12 @@ final class PinnedHotkeyController {
       &eventHandlerRef
     )
 
-    if status != noErr {
-      print("Unable to install Lite Paste pinned hotkey handler: \(status)")
+    if status == noErr {
+      return nil
     }
+
+    eventHandlerRef = nil
+    return status
   }
 
   private func trigger(_ hotKeyID: UInt32) {
@@ -173,4 +211,17 @@ final class PinnedHotkeyController {
       (result << 8) + FourCharCode(character)
     }
   }
+}
+
+struct PinnedHotkeyRegistrationIssue: Equatable {
+  var recordID: ClipboardRecord.ID
+  var recordTitle: String
+  var shortcut: String
+  var reason: PinnedHotkeyRegistrationIssueReason
+}
+
+enum PinnedHotkeyRegistrationIssueReason: Equatable {
+  case invalidShortcut
+  case registrationFailed(OSStatus)
+  case handlerFailed(OSStatus)
 }

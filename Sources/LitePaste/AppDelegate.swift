@@ -23,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var pinnedHotkeyController: PinnedHotkeyController?
   private var registeredPanelHotkey: String?
   private var isRevertingPanelHotkey = false
+  private var pinnedHotkeyIssueSignature: String?
   private let clipboardWriteTracker = ClipboardWriteTracker()
   private let launchAtLoginController = LaunchAtLoginController()
   private let activeApplicationTracker = ActiveApplicationTracker.shared
@@ -189,7 +190,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let pinnedHotkeyController = PinnedHotkeyController { [weak self] recordID in
       self?.pastePinnedRecord(recordID)
     }
-    pinnedHotkeyController.update(records: store.pinnedShortcutRecords())
+    handlePinnedHotkeyIssues(pinnedHotkeyController.update(records: store.pinnedShortcutRecords()))
     self.pinnedHotkeyController = pinnedHotkeyController
 
     store.$records
@@ -197,9 +198,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let self else {
           return
         }
-        pinnedHotkeyController.update(records: store.pinnedShortcutRecords())
+        handlePinnedHotkeyIssues(pinnedHotkeyController.update(records: store.pinnedShortcutRecords()))
       }
       .store(in: &cancellables)
+  }
+
+  private func handlePinnedHotkeyIssues(_ issues: [PinnedHotkeyRegistrationIssue]) {
+    guard !issues.isEmpty else {
+      pinnedHotkeyIssueSignature = nil
+      return
+    }
+
+    let signature = issues
+      .map { "\($0.recordID.uuidString):\($0.shortcut):\(pinnedHotkeyIssueReasonDescription($0.reason))" }
+      .sorted()
+      .joined(separator: "|")
+    guard signature != pinnedHotkeyIssueSignature else {
+      return
+    }
+
+    pinnedHotkeyIssueSignature = signature
+    showPinnedHotkeyRegistrationAlert(issues)
   }
 
   private func observeSettings() {
@@ -394,6 +413,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       "可能已被其他应用或系统快捷键占用。系统状态码：\(status)。"
     case let .handlerFailed(status):
       "快捷键事件监听无法启动。系统状态码：\(status)。"
+    }
+  }
+
+  private func showPinnedHotkeyRegistrationAlert(_ issues: [PinnedHotkeyRegistrationIssue]) {
+    let details = issues
+      .prefix(5)
+      .map { issue in
+        "\(PinShortcutCatalog.displayName(for: issue.shortcut)) “\(issue.recordTitle)”：\(pinnedHotkeyIssueReasonDescription(issue.reason))"
+      }
+      .joined(separator: "\n")
+    let remainingCount = issues.count - min(issues.count, 5)
+    let remainingMessage = remainingCount > 0 ? "\n另有 \(remainingCount) 个置顶快捷键未注册。" : ""
+
+    showAlert(
+      title: "部分置顶快捷键不可用",
+      message: "\(details)\(remainingMessage)\n请在条目中改用其他置顶快捷键。"
+    )
+  }
+
+  private func pinnedHotkeyIssueReasonDescription(_ reason: PinnedHotkeyRegistrationIssueReason) -> String {
+    switch reason {
+    case .invalidShortcut:
+      "快捷键格式无效"
+    case let .registrationFailed(status):
+      "可能已被系统或其他应用占用（\(status)）"
+    case let .handlerFailed(status):
+      "快捷键事件监听无法启动（\(status)）"
     }
   }
 
