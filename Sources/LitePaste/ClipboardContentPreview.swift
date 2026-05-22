@@ -41,21 +41,18 @@ private struct FileClipboardPreview: View {
   let style: ClipboardPreviewStyle
 
   var body: some View {
+    let items = fileItems
+
     switch style {
     case .card:
       VStack(alignment: .leading, spacing: 10) {
         HStack(spacing: -6) {
-          ForEach(Array(fileURLs.prefix(3).enumerated()), id: \.offset) { _, url in
-            Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
-              .resizable()
-              .scaledToFit()
-              .frame(width: 34, height: 34)
-              .padding(4)
-              .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+          ForEach(Array(items.prefix(3).enumerated()), id: \.offset) { _, item in
+            fileIcon(for: item)
           }
 
-          if fileURLs.count > 3 {
-            Text("+\(fileURLs.count - 3)")
+          if items.count > 3 {
+            Text("+\(items.count - 3)")
               .font(.system(size: 12, weight: .semibold))
               .frame(width: 34, height: 34)
               .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
@@ -63,9 +60,9 @@ private struct FileClipboardPreview: View {
         }
 
         VStack(alignment: .leading, spacing: 4) {
-          Text("\(fileURLs.count) 个文件")
+          Text(fileCountText(for: items))
             .font(.system(size: 15, weight: .semibold))
-          Text(fileNames)
+          Text(fileDetailText(for: items))
             .font(.system(size: 12))
             .foregroundStyle(.secondary)
             .lineLimit(2)
@@ -76,15 +73,32 @@ private struct FileClipboardPreview: View {
       .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
     case .thumbnail:
-      if let firstURL = fileURLs.first {
-        Image(nsImage: NSWorkspace.shared.icon(forFile: firstURL.path))
-          .resizable()
-          .scaledToFit()
-          .padding(6)
+      if let firstItem = items.first {
+        fileIcon(for: firstItem)
+          .padding(2)
       } else {
         FallbackClipboardPreview(record: record, style: style)
       }
     }
+  }
+
+  private func fileIcon(for item: FilePreviewItem) -> some View {
+    Image(nsImage: NSWorkspace.shared.icon(forFile: item.url.path))
+      .resizable()
+      .scaledToFit()
+      .frame(width: 34, height: 34)
+      .padding(4)
+      .opacity(item.exists ? 1 : 0.46)
+      .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+      .overlay(alignment: .bottomTrailing) {
+        if !item.exists {
+          Image(systemName: "exclamationmark.circle.fill")
+            .font(.system(size: 11, weight: .bold))
+            .symbolRenderingMode(.palette)
+            .foregroundStyle(.white, .orange)
+            .padding(1)
+        }
+      }
   }
 
   private var fileURLs: [URL] {
@@ -100,11 +114,36 @@ private struct FileClipboardPreview: View {
       }
   }
 
-  private var fileNames: String {
-    fileURLs
+  private var fileItems: [FilePreviewItem] {
+    fileURLs.map(FilePreviewItem.init(url:))
+  }
+
+  private func fileCountText(for items: [FilePreviewItem]) -> String {
+    let missingCount = items.filter { !$0.exists }.count
+    guard missingCount > 0 else {
+      return "\(items.count) 个文件"
+    }
+    return "\(items.count) 个文件 · \(missingCount) 个已移动或删除"
+  }
+
+  private func fileDetailText(for items: [FilePreviewItem]) -> String {
+    let names = items
       .prefix(4)
-      .map(\.lastPathComponent)
+      .map { item in
+        item.exists ? item.url.lastPathComponent : "\(item.url.lastPathComponent)（缺失）"
+      }
       .joined(separator: ", ")
+    return names.isEmpty ? record.title : names
+  }
+}
+
+private struct FilePreviewItem {
+  let url: URL
+  let exists: Bool
+
+  init(url: URL) {
+    self.url = url
+    exists = FileManager.default.fileExists(atPath: url.path)
   }
 }
 
@@ -158,7 +197,7 @@ private struct RichClipboardPreview: View {
           .font(.system(size: 12, weight: .semibold))
           .foregroundStyle(.secondary)
 
-        Text(previewText)
+        Text(previewAttributedText)
           .font(.system(size: 14))
           .lineLimit(4)
           .frame(maxWidth: .infinity, alignment: .leading)
@@ -174,8 +213,16 @@ private struct RichClipboardPreview: View {
     }
   }
 
+  private var previewAttributedText: AttributedString {
+    if let attributed = richAttributedStringFromSnapshots() {
+      return AttributedString(attributed)
+    }
+
+    return AttributedString(previewText)
+  }
+
   private var previewText: String {
-    let extracted = richTextFromSnapshots()
+    let extracted = richAttributedStringFromSnapshots()?.string
       ?? record.plainText
       ?? record.searchText
 
@@ -183,7 +230,7 @@ private struct RichClipboardPreview: View {
     return trimmed.isEmpty ? record.title : trimmed
   }
 
-  private func richTextFromSnapshots() -> String? {
+  private func richAttributedStringFromSnapshots() -> NSAttributedString? {
     for snapshot in record.contents.sorted(by: { $0.displayOrder < $1.displayOrder }) {
       guard let data = snapshot.dataForPreview else {
         continue
@@ -195,7 +242,7 @@ private struct RichClipboardPreview: View {
           options: [.documentType: NSAttributedString.DocumentType.rtf],
           documentAttributes: nil
          ) {
-        return attributed.string
+        return attributed
       }
 
       if snapshot.pasteboardType == NSPasteboard.PasteboardType.html.rawValue,
@@ -207,7 +254,7 @@ private struct RichClipboardPreview: View {
           ],
           documentAttributes: nil
          ) {
-        return attributed.string
+        return attributed
       }
     }
 
