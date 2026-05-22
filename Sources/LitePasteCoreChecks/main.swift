@@ -22,6 +22,22 @@ func checkAppSettingsBackwardCompatibility() {
     expect(settings.viewMode == ClipboardPanelViewMode.list, "Settings should decode existing view mode string")
     expect(settings.clearSearchOnOpen, "Settings should default clearSearchOnOpen for old files")
     expect(settings.maxHistoryCount == 1_000, "Settings should default maxHistoryCount for old files")
+
+    let custom = AppSettings(
+      ignoredPasteboardTypes: ["org.example.SecretType"],
+      ignoredApps: ["com.example.SecretApp"]
+    )
+    let encoded = try JSONEncoder.litePaste.encode(custom)
+    let decoded = try JSONDecoder.litePaste.decode(AppSettings.self, from: encoded)
+
+    expect(
+      decoded.ignoredApps.contains("com.example.SecretApp"),
+      "Settings should preserve ignored apps"
+    )
+    expect(
+      decoded.ignoredPasteboardTypes.contains("org.example.SecretType"),
+      "Settings should preserve ignored pasteboard types"
+    )
   } catch {
     fatalError("Settings compatibility check failed: \(error)")
   }

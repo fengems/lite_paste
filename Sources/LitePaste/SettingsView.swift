@@ -43,6 +43,24 @@ struct SettingsView: View {
 
       Section("隐私") {
         Toggle("私密模式", isOn: privacyMode)
+
+        EditableStringList(
+          title: "忽略应用 Bundle ID",
+          placeholder: "com.example.SecretApp",
+          values: ignoredApps
+        )
+
+        EditableStringList(
+          title: "忽略剪贴板类型",
+          placeholder: "org.nspasteboard.TransientType",
+          values: ignoredPasteboardTypes
+        )
+
+        Button {
+          resetIgnoredPasteboardTypes()
+        } label: {
+          Label("恢复默认忽略类型", systemImage: "arrow.counterclockwise")
+        }
       }
 
       Section("备份") {
@@ -147,6 +165,22 @@ struct SettingsView: View {
     }
   }
 
+  private var ignoredApps: Binding<Set<String>> {
+    Binding {
+      store.settings.ignoredApps
+    } set: { value in
+      store.update { $0.ignoredApps = value }
+    }
+  }
+
+  private var ignoredPasteboardTypes: Binding<Set<String>> {
+    Binding {
+      store.settings.ignoredPasteboardTypes
+    } set: { value in
+      store.update { $0.ignoredPasteboardTypes = value }
+    }
+  }
+
   private var autoPasteMode: Binding<AutoPasteMode> {
     Binding {
       store.settings.autoPasteMode
@@ -171,6 +205,10 @@ struct SettingsView: View {
         }
       }
     }
+  }
+
+  private func resetIgnoredPasteboardTypes() {
+    store.update { $0.ignoredPasteboardTypes = PrivacyFilter.defaultIgnoredPasteboardTypes }
   }
 
   private func showAlert(title: String, message: String) {
