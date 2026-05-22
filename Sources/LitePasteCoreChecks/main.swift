@@ -25,12 +25,14 @@ func checkAppSettingsBackwardCompatibility() {
     expect(settings.maxHistoryCount == 1_000, "Settings should default maxHistoryCount for old files")
     expect(!settings.restoreClipboardAfterPaste, "Settings should default restoreClipboardAfterPaste for old files")
     expect(settings.moveDuplicatesToTop, "Settings should default moveDuplicatesToTop for old files")
+    expect(settings.focusSearchOnOpen, "Settings should default focusSearchOnOpen for old files")
 
     let custom = AppSettings(
       ignoredPasteboardTypes: ["org.example.SecretType"],
       ignoredApps: ["com.example.SecretApp"],
       restoreClipboardAfterPaste: true,
-      moveDuplicatesToTop: false
+      moveDuplicatesToTop: false,
+      focusSearchOnOpen: false
     )
     let encoded = try JSONEncoder.litePaste.encode(custom)
     let decoded = try JSONDecoder.litePaste.decode(AppSettings.self, from: encoded)
@@ -50,6 +52,10 @@ func checkAppSettingsBackwardCompatibility() {
     expect(
       !decoded.moveDuplicatesToTop,
       "Settings should preserve duplicate ordering behavior"
+    )
+    expect(
+      !decoded.focusSearchOnOpen,
+      "Settings should preserve search focus behavior"
     )
   } catch {
     fatalError("Settings compatibility check failed: \(error)")

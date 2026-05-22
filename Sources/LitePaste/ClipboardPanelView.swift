@@ -18,6 +18,7 @@ struct ClipboardPanelView: View {
   @State private var sort: ClipboardHistorySort = .pinnedThenRecent
   @State private var viewMode: ClipboardPanelViewMode = AppSettingsStore.shared.settings.viewMode
   @State private var selectedRecordID: ClipboardRecord.ID?
+  @FocusState private var searchFieldFocused: Bool
 
   private var records: [ClipboardRecord] {
     store.filteredRecords(
@@ -75,6 +76,7 @@ struct ClipboardPanelView: View {
         .padding(.vertical, 10)
         .padding(.horizontal, 12)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .focused($searchFieldFocused)
 
       Picker("", selection: $viewMode) {
         Image(systemName: "rectangle.grid.2x2").tag(ClipboardPanelViewMode.card)
@@ -353,6 +355,12 @@ struct ClipboardPanelView: View {
     viewMode = settingsStore.settings.viewMode
     if settingsStore.settings.clearSearchOnOpen {
       query = ""
+    }
+    searchFieldFocused = false
+    if settingsStore.settings.focusSearchOnOpen {
+      DispatchQueue.main.async {
+        searchFieldFocused = true
+      }
     }
     normalizeSelection()
   }

@@ -19,6 +19,7 @@ struct SettingsView: View {
         }
 
         Toggle("打开面板时清空搜索", isOn: clearSearchOnOpen)
+        Toggle("打开面板时聚焦搜索", isOn: focusSearchOnOpen)
       }
 
       Section("剪贴板") {
@@ -141,6 +142,14 @@ struct SettingsView: View {
       store.settings.clearSearchOnOpen
     } set: { value in
       store.update { $0.clearSearchOnOpen = value }
+    }
+  }
+
+  private var focusSearchOnOpen: Binding<Bool> {
+    Binding {
+      store.settings.focusSearchOnOpen
+    } set: { value in
+      store.update { $0.focusSearchOnOpen = value }
     }
   }
 

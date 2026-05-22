@@ -13,6 +13,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
   public var restoreClipboardAfterPaste: Bool
   public var moveDuplicatesToTop: Bool
   public var clearSearchOnOpen: Bool
+  public var focusSearchOnOpen: Bool
   public var privacyMode: Bool
   public var launchAtLogin: Bool
 
@@ -29,6 +30,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     restoreClipboardAfterPaste: Bool = false,
     moveDuplicatesToTop: Bool = true,
     clearSearchOnOpen: Bool = true,
+    focusSearchOnOpen: Bool = true,
     privacyMode: Bool = false,
     launchAtLogin: Bool = false
   ) {
@@ -44,6 +46,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     self.restoreClipboardAfterPaste = restoreClipboardAfterPaste
     self.moveDuplicatesToTop = moveDuplicatesToTop
     self.clearSearchOnOpen = clearSearchOnOpen
+    self.focusSearchOnOpen = focusSearchOnOpen
     self.privacyMode = privacyMode
     self.launchAtLogin = launchAtLogin
   }
@@ -61,6 +64,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     case restoreClipboardAfterPaste
     case moveDuplicatesToTop
     case clearSearchOnOpen
+    case focusSearchOnOpen
     case privacyMode
     case launchAtLogin
   }
@@ -81,6 +85,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     restoreClipboardAfterPaste = try container.decodeIfPresent(Bool.self, forKey: .restoreClipboardAfterPaste) ?? defaults.restoreClipboardAfterPaste
     moveDuplicatesToTop = try container.decodeIfPresent(Bool.self, forKey: .moveDuplicatesToTop) ?? defaults.moveDuplicatesToTop
     clearSearchOnOpen = try container.decodeIfPresent(Bool.self, forKey: .clearSearchOnOpen) ?? defaults.clearSearchOnOpen
+    focusSearchOnOpen = try container.decodeIfPresent(Bool.self, forKey: .focusSearchOnOpen) ?? defaults.focusSearchOnOpen
     privacyMode = try container.decodeIfPresent(Bool.self, forKey: .privacyMode) ?? defaults.privacyMode
     launchAtLogin = try container.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? defaults.launchAtLogin
   }
@@ -99,6 +104,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     try container.encode(restoreClipboardAfterPaste, forKey: .restoreClipboardAfterPaste)
     try container.encode(moveDuplicatesToTop, forKey: .moveDuplicatesToTop)
     try container.encode(clearSearchOnOpen, forKey: .clearSearchOnOpen)
+    try container.encode(focusSearchOnOpen, forKey: .focusSearchOnOpen)
     try container.encode(privacyMode, forKey: .privacyMode)
     try container.encode(launchAtLogin, forKey: .launchAtLogin)
   }
