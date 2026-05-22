@@ -14,7 +14,11 @@ final class PasteboardWriter {
   }
 
   @discardableResult
-  func copy(_ record: ClipboardRecord) -> PasteActionResult {
+  func copy(_ record: ClipboardRecord, asPlainText: Bool = false) -> PasteActionResult {
+    if asPlainText {
+      return copyPlainText(record)
+    }
+
     if restoreFileURLs(record) {
       store.markUsed(record.id)
       return .copied
@@ -25,19 +29,16 @@ final class PasteboardWriter {
       return .copied
     }
 
-    guard let text = record.plainText else {
-      return .missingContent
-    }
-
-    pasteboard.clearContents()
-    pasteboard.setString(text, forType: .string)
-    store.markUsed(record.id)
-    return .copied
+    return copyPlainText(record)
   }
 
   @discardableResult
-  func paste(_ record: ClipboardRecord, targetApplication: NSRunningApplication?) -> PasteActionResult {
-    let copyResult = copy(record)
+  func paste(
+    _ record: ClipboardRecord,
+    targetApplication: NSRunningApplication?,
+    asPlainText: Bool = false
+  ) -> PasteActionResult {
+    let copyResult = copy(record, asPlainText: asPlainText)
     guard copyResult == .copied else {
       return copyResult
     }
@@ -54,6 +55,17 @@ final class PasteboardWriter {
     }
 
     return .pasted
+  }
+
+  private func copyPlainText(_ record: ClipboardRecord) -> PasteActionResult {
+    guard let text = record.plainText else {
+      return .missingContent
+    }
+
+    pasteboard.clearContents()
+    pasteboard.setString(text, forType: .string)
+    store.markUsed(record.id)
+    return .copied
   }
 
   private func requestAccessibilityPermission() {

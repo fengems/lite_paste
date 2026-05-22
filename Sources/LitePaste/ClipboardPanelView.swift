@@ -7,6 +7,8 @@ struct ClipboardPanelView: View {
   @ObservedObject var presentationState: PanelPresentationState
   let copyAction: (ClipboardRecord) -> Void
   let pasteAction: (ClipboardRecord) -> Void
+  let primaryCopyAction: (ClipboardRecord) -> Void
+  let primaryPasteAction: (ClipboardRecord) -> Void
 
   @State private var itemActions = ClipboardItemActions()
   @StateObject private var settingsStore = AppSettingsStore()
@@ -176,9 +178,9 @@ struct ClipboardPanelView: View {
   private func primaryAction(_ record: ClipboardRecord) {
     switch settingsStore.settings.autoPasteMode {
     case .copyOnly:
-      copyAction(record)
+      primaryCopyAction(record)
     case .paste:
-      pasteAction(record)
+      primaryPasteAction(record)
     }
   }
 

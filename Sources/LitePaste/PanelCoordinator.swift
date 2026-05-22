@@ -7,6 +7,7 @@ import SwiftUI
 final class PanelCoordinator {
   private let store: HistoryStore
   private let writer: PasteboardWriter
+  private let settingsStore = AppSettingsStore.shared
   private let presentationState = PanelPresentationState()
   private var panel: NSPanel?
   private var previousApplication: NSRunningApplication?
@@ -48,11 +49,22 @@ final class PanelCoordinator {
   }
 
   private func makePanel() -> NSPanel {
-    let rootView = ClipboardPanelView(store: store, presentationState: presentationState) { [weak self] record in
-      self?.writer.copy(record)
-    } pasteAction: { [weak self] record in
-      self?.paste(record)
-    }
+    let rootView = ClipboardPanelView(
+      store: store,
+      presentationState: presentationState,
+      copyAction: { [weak self] record in
+        self?.writer.copy(record)
+      },
+      pasteAction: { [weak self] record in
+        self?.paste(record)
+      },
+      primaryCopyAction: { [weak self] record in
+        self?.writer.copy(record, asPlainText: self?.settingsStore.settings.pastePlainByDefault ?? false)
+      },
+      primaryPasteAction: { [weak self] record in
+        self?.paste(record, asPlainText: self?.settingsStore.settings.pastePlainByDefault ?? false)
+      }
+    )
 
     let hostingController = NSHostingController(rootView: rootView)
     let panel = NSPanel(
@@ -78,8 +90,16 @@ final class PanelCoordinator {
   }
 
   private func paste(_ record: ClipboardRecord) {
+    paste(record, asPlainText: false)
+  }
+
+  private func paste(_ record: ClipboardRecord, asPlainText: Bool) {
     panel?.orderOut(nil)
-    let result = writer.paste(record, targetApplication: previousApplication)
+    let result = writer.paste(
+      record,
+      targetApplication: previousApplication,
+      asPlainText: asPlainText
+    )
 
     if result == .accessibilityPermissionRequired {
       showAccessibilityPermissionAlert()
