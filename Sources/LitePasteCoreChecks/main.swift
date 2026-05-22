@@ -10,6 +10,7 @@ func runChecks() {
   checkClipboardFilePayloadBuilder()
   checkClipboardMediaPayloadBuilder()
   checkClipboardPayloadResolver()
+  checkClipboardCaptureGate()
   checkHistoryStore()
   checkHistoryRetention()
   checkHistoryQueryEngine()
@@ -411,6 +412,76 @@ func checkClipboardPayloadResolver() {
     )
     expect(emptyPayload == nil, "Payload resolver should ignore blank fallback text")
   }
+}
+
+@MainActor
+func checkClipboardCaptureGate() {
+  let payload = ClipboardTextPayloadBuilder().payload(
+    from: "hello",
+    pasteboardTypes: [ClipboardTextPayloadBuilder.plainTextPasteboardType]
+  )
+  guard let payload else {
+    fatalError("Capture gate check requires a text payload")
+  }
+
+  let defaultGate = ClipboardCaptureGate()
+  expect(
+    defaultGate.shouldRecord(payload: payload, sourceAppBundleId: "com.apple.TextEdit"),
+    "Capture gate should allow enabled non-private payloads"
+  )
+
+  let disabledTextGate = ClipboardCaptureGate(
+    enabledTypes: [.image],
+    privacyFilter: PrivacyFilter()
+  )
+  expect(
+    !disabledTextGate.shouldRecord(payload: payload, sourceAppBundleId: "com.apple.TextEdit"),
+    "Capture gate should reject disabled payload kinds"
+  )
+
+  let privacyModeGate = ClipboardCaptureGate(
+    enabledTypes: Set(ClipboardKind.allCases),
+    privacyFilter: PrivacyFilter(privacyMode: true)
+  )
+  expect(
+    !privacyModeGate.shouldRecord(payload: payload, sourceAppBundleId: "com.apple.TextEdit"),
+    "Capture gate should reject payloads while privacy mode is enabled"
+  )
+
+  let ignoredAppGate = ClipboardCaptureGate(
+    enabledTypes: Set(ClipboardKind.allCases),
+    privacyFilter: PrivacyFilter(ignoredApps: ["com.example.Secret"])
+  )
+  expect(
+    !ignoredAppGate.shouldRecord(payload: payload, sourceAppBundleId: "com.example.Secret"),
+    "Capture gate should reject ignored source apps"
+  )
+
+  let sensitivePayload = ClipboardPayload(
+    kind: .text,
+    title: "secret",
+    searchText: "secret",
+    plainText: "secret",
+    pasteboardTypes: ["org.nspasteboard.ConcealedType"]
+  )
+  expect(
+    !defaultGate.shouldRecord(payload: sensitivePayload, sourceAppBundleId: "com.apple.TextEdit"),
+    "Capture gate should reject ignored pasteboard types"
+  )
+
+  let tracker = ClipboardWriteTracker()
+  tracker.markIgnoredChangeCount(100)
+  let shouldSkipSelfWrite = tracker.shouldIgnore(changeCount: 100)
+  let shouldRecordAfterSkip = !shouldSkipSelfWrite && defaultGate.shouldRecord(
+    payload: payload,
+    sourceAppBundleId: "com.apple.TextEdit"
+  )
+  expect(shouldSkipSelfWrite, "Capture gate integration should skip Lite Paste self writes before payload checks")
+  expect(!shouldRecordAfterSkip, "Self-write changes should not be recorded")
+  expect(
+    !tracker.shouldIgnore(changeCount: 100) && defaultGate.shouldRecord(payload: payload, sourceAppBundleId: "com.apple.TextEdit"),
+    "A consumed self-write marker should not block later captures"
+  )
 }
 
 @MainActor

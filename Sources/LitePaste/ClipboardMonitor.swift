@@ -8,8 +8,7 @@ final class ClipboardMonitor {
   private let store: HistoryStore
   private let writeTracker: ClipboardWriteTracker
   private let payloadResolver: ClipboardPayloadResolver
-  private var privacyFilter: PrivacyFilter
-  private var enabledTypes: Set<ClipboardKind>
+  private var captureGate: ClipboardCaptureGate
   private var timer: Timer?
   private var lastChangeCount: Int
 
@@ -28,8 +27,10 @@ final class ClipboardMonitor {
     self.payloadResolver = payloadResolver ?? ClipboardPayloadResolver(
       mediaPayloadBuilder: ClipboardMediaPayloadBuilder(blobStorage: blobStorage)
     )
-    self.privacyFilter = privacyFilter
-    self.enabledTypes = enabledTypes
+    self.captureGate = ClipboardCaptureGate(
+      enabledTypes: enabledTypes,
+      privacyFilter: privacyFilter
+    )
     self.lastChangeCount = pasteboard.changeCount
   }
 
@@ -48,11 +49,11 @@ final class ClipboardMonitor {
   }
 
   func updatePrivacyFilter(_ privacyFilter: PrivacyFilter) {
-    self.privacyFilter = privacyFilter
+    captureGate.privacyFilter = privacyFilter
   }
 
   func updateEnabledTypes(_ enabledTypes: Set<ClipboardKind>) {
-    self.enabledTypes = enabledTypes
+    captureGate.enabledTypes = enabledTypes
   }
 
   private func captureIfNeeded() {
@@ -71,17 +72,10 @@ final class ClipboardMonitor {
       return
     }
 
-    guard enabledTypes.contains(payload.kind) else {
-      return
-    }
-
     let sourceApp = NSWorkspace.shared.frontmostApplication
     let bundleId = sourceApp?.bundleIdentifier
 
-    guard privacyFilter.shouldRecord(
-      sourceAppBundleId: bundleId,
-      pasteboardTypes: payload.pasteboardTypes
-    ) else {
+    guard captureGate.shouldRecord(payload: payload, sourceAppBundleId: bundleId) else {
       return
     }
 
