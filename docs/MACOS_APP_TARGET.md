@@ -23,7 +23,7 @@ open Build/LitePaste.app
 Scripts/package_release.sh
 ```
 
-该脚本使用 SwiftPM release 产物组装 `Build/LitePaste.app`，复制 `Config/LitePaste/Info.plist`，执行 ad-hoc 签名，并生成 zip、DMG 与 SHA-256 校验文件。它适合本机试用，不替代正式 Xcode target、Developer ID 签名、公证和发布流程。
+该脚本使用 SwiftPM release 产物组装 `Build/LitePaste.app`，复制 `Config/LitePaste/Info.plist`，执行 ad-hoc 签名，并生成 zip、DMG 与 SHA-256 校验文件。它适合本机试用，不替代正式 Xcode target。Developer ID 签名和公证脚本见 `Scripts/sign_notarize_release.sh` 与 `docs/DEVELOPER_ID_RELEASE.md`。
 
 当前环境仅安装 Command Line Tools，`xcodebuild` 无法工作。创建、签名、打包正式发布 `.app` 前，需要安装完整 Xcode，并确保：
 

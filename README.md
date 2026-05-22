@@ -49,7 +49,7 @@ Scripts/build_app_bundle.sh
 open Build/LitePaste.app
 ```
 
-生成本地试用 zip 包：
+生成本地试用 zip 和 DMG 包：
 
 ```bash
 Scripts/package_release.sh
@@ -76,6 +76,7 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 
 - `docs/MACOS_APP_TARGET.md`
 - `docs/RELEASE_CHECKLIST.md`
+- `docs/DEVELOPER_ID_RELEASE.md`
 
 产品需求文档见：
 
@@ -93,6 +94,6 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 ## 下一步
 
 - 创建并验证完整 Xcode `.app` target。
-- 补正式签名、公证说明和发布资源。
+- 补正式发布视觉资源。
 - 完善图片、文件和富文本预览细节。
 - 补充真正的单元测试和 UI 测试。

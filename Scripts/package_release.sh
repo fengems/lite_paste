@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="${VERSION:-0.1.0}"
 BUILD="${BUILD:-1}"
+BUILD_APP="${BUILD_APP:-1}"
 OUTPUT_DIR="${ROOT_DIR}/Build"
 APP_PATH="${OUTPUT_DIR}/LitePaste.app"
 ARCHIVE_BASENAME="LitePaste-${VERSION}-${BUILD}"
@@ -20,7 +21,12 @@ trap cleanup EXIT
 
 cd "${ROOT_DIR}"
 
-Scripts/build_app_bundle.sh
+if [[ "${BUILD_APP}" == "1" ]]; then
+  Scripts/build_app_bundle.sh
+elif [[ ! -d "${APP_PATH}" ]]; then
+  echo "Missing ${APP_PATH}. Run Scripts/build_app_bundle.sh first, or leave BUILD_APP=1." >&2
+  exit 1
+fi
 
 rm -f "${ARCHIVE_PATH}" "${CHECKSUM_PATH}" "${DMG_PATH}" "${DMG_CHECKSUM_PATH}"
 ditto -c -k --keepParent "${APP_PATH}" "${ARCHIVE_PATH}"

@@ -1,0 +1,108 @@
+# Lite Paste Developer ID 发布流程
+
+本文档记录 Lite Paste 从本地试用包升级到 Developer ID 签名和公证发布包的命令行流程。Apple 官方要求直接分发的 macOS 软件使用 Developer ID 签名，并建议提交到 Apple notary service；公证上传应使用 Xcode 附带的 `notarytool`，可用 `stapler` 把票据附加到分发物。
+
+参考：
+
+- [Signing Mac Software with Developer ID](https://developer.apple.com/developer-id/)
+- [Notarizing macOS software before distribution](https://developer.apple.com/documentation/security/notarizing_macos_software_before_distribution)
+- [Customizing the notarization workflow](https://developer.apple.com/documentation/security/notarizing_macos_software_before_distribution/customizing_the_notarization_workflow)
+- [Hardened Runtime](https://developer.apple.com/documentation/Security/hardened-runtime)
+
+## 1. 前置条件
+
+- 安装完整 Xcode，并切换命令行工具：
+
+```bash
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+```
+
+- Apple Developer Program 账号。
+- 本机钥匙串中存在 `Developer ID Application` 证书。
+- 有 App Store Connect app-specific password，或已保存的 `notarytool` keychain profile。
+
+查看可用证书：
+
+```bash
+security find-identity -v -p codesigning
+```
+
+保存公证凭据到钥匙串：
+
+```bash
+xcrun notarytool store-credentials litepaste-notary \
+  --apple-id "you@example.com" \
+  --team-id "TEAMID" \
+  --password "xxxx-xxxx-xxxx-xxxx"
+```
+
+## 2. 一键签名和公证
+
+推荐使用 keychain profile：
+
+```bash
+DEVELOPER_ID_APPLICATION="Developer ID Application: Your Name (TEAMID)" \
+NOTARY_PROFILE="litepaste-notary" \
+VERSION=0.1.0 \
+BUILD=1 \
+Scripts/sign_notarize_release.sh
+```
+
+也可以直接通过环境变量传入公证凭据：
+
+```bash
+DEVELOPER_ID_APPLICATION="Developer ID Application: Your Name (TEAMID)" \
+APPLE_ID="you@example.com" \
+APP_SPECIFIC_PASSWORD="xxxx-xxxx-xxxx-xxxx" \
+TEAM_ID="TEAMID" \
+VERSION=0.1.0 \
+BUILD=1 \
+Scripts/sign_notarize_release.sh
+```
+
+脚本会执行：
+
+- 重新构建 `Build/LitePaste.app`。
+- 使用 Developer ID、Hardened Runtime 和 `Config/LitePaste/LitePaste.entitlements` 重签名。
+- 生成 zip、DMG 和 SHA-256 校验文件。
+- 使用 Developer ID 签名 DMG。
+- 提交 DMG 到 Apple notary service。
+- 对 DMG 执行 `stapler staple` 和 `stapler validate`。
+- 在所有签名和 staple 操作完成后重新生成 SHA-256 校验文件。
+
+## 3. 只生成 Developer ID 签名包
+
+在调试证书或离线环境中，可以跳过公证：
+
+```bash
+DEVELOPER_ID_APPLICATION="Developer ID Application: Your Name (TEAMID)" \
+NOTARIZE=0 \
+Scripts/sign_notarize_release.sh
+```
+
+此模式生成的包仍不是最终用户发布包，只适合检查签名、entitlements 和打包流程。
+
+## 4. 发布前验证
+
+签名和公证完成后至少执行：
+
+```bash
+codesign --verify --deep --strict --verbose=2 Build/LitePaste.app
+hdiutil verify Build/LitePaste-0.1.0-1.dmg
+xcrun stapler validate Build/LitePaste-0.1.0-1.dmg
+spctl --assess --type open --verbose=4 Build/LitePaste-0.1.0-1.dmg
+shasum -a 256 -c Build/LitePaste-0.1.0-1.zip.sha256
+shasum -a 256 -c Build/LitePaste-0.1.0-1.dmg.sha256
+```
+
+如果公证失败，先查看 notarytool 输出中的 submission id，再拉取日志：
+
+```bash
+xcrun notarytool log SUBMISSION_ID --keychain-profile litepaste-notary
+```
+
+## 5. 当前限制
+
+- 当前仓库仍是 SwiftPM 主入口，完整 Xcode target 还未创建。
+- 当前 DMG 是基础安装镜像，尚未加入自定义背景图、窗口布局和许可证页。
+- 正式发布前需要在干净 macOS 用户环境中完成首次运行、辅助功能授权、复制、搜索、自动粘贴和备份恢复检查。

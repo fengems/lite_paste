@@ -1,6 +1,6 @@
 # Lite Paste 可使用版本发布检查清单
 
-本文档用于当前 Command Line Tools 环境下的本地试用版发布。正式 Developer ID 签名、公证和 Xcode target 发布流程后续再补。
+本文档用于当前 Command Line Tools 环境下的本地试用版发布。Developer ID 签名和公证流程见 `docs/DEVELOPER_ID_RELEASE.md`，正式 Xcode target 发布流程后续再补。
 
 ## 1. 构建
 
@@ -64,6 +64,14 @@ shasum -a 256 -c Build/LitePaste-0.1.0-1.zip.sha256
 shasum -a 256 -c Build/LitePaste-0.1.0-1.dmg.sha256
 ```
 
+如果要生成 Developer ID 签名并公证的发布包，改用：
+
+```bash
+DEVELOPER_ID_APPLICATION="Developer ID Application: Your Name (TEAMID)" \
+NOTARY_PROFILE="litepaste-notary" \
+Scripts/sign_notarize_release.sh
+```
+
 ## 3. 首次运行检查
 
 1. 打开应用：
@@ -85,7 +93,7 @@ open Build/LitePaste.app
 
 ## 4. 已知限制
 
-- 当前 zip 和 DMG 为 ad-hoc 签名本地试用包，不是 Developer ID 签名和公证发布包。
+- 默认 zip 和 DMG 为 ad-hoc 签名本地试用包；正式分发应使用 `Scripts/sign_notarize_release.sh`。
 - 首次打开可能需要用户在 macOS 安全设置中确认允许运行。
 - 开机启动能力更适合正式 `.app` bundle 和签名环境验证。
 - 菜单栏使用项目内绘制的 template 图标，完整 Xcode target 阶段可再迁移到 asset catalog。
