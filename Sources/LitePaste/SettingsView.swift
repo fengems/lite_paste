@@ -6,6 +6,7 @@ struct SettingsView: View {
   @ObservedObject private var activeApplicationTracker = ActiveApplicationTracker.shared
   @State private var backupCoordinator = BackupCoordinator()
   @State private var launchAtLoginController = LaunchAtLoginController()
+  @State private var accessibilityTrusted = AccessibilityPermissionController.isTrusted
 
   var body: some View {
     Form {
@@ -31,6 +32,36 @@ struct SettingsView: View {
 
         Toggle("打开面板时清空搜索", isOn: clearSearchOnOpen)
         Toggle("打开面板时聚焦搜索", isOn: focusSearchOnOpen)
+      }
+
+      Section("权限") {
+        HStack {
+          Label(accessibilityStatusTitle, systemImage: accessibilityTrusted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+            .foregroundStyle(accessibilityTrusted ? .green : .orange)
+
+          Spacer()
+
+          Button {
+            refreshAccessibilityStatus()
+          } label: {
+            Label("刷新", systemImage: "arrow.clockwise")
+          }
+        }
+
+        HStack {
+          Button {
+            AccessibilityPermissionController.requestPermission()
+            refreshAccessibilityStatus()
+          } label: {
+            Label("请求辅助功能权限", systemImage: "hand.raised")
+          }
+
+          Button {
+            AccessibilityPermissionController.openSystemSettings()
+          } label: {
+            Label("打开系统设置", systemImage: "gearshape")
+          }
+        }
       }
 
       Section("剪贴板") {
@@ -123,6 +154,9 @@ struct SettingsView: View {
     }
     .padding(24)
     .frame(width: 520)
+    .onAppear {
+      refreshAccessibilityStatus()
+    }
   }
 
   private var launchAtLogin: Binding<Bool> {
@@ -258,6 +292,10 @@ struct SettingsView: View {
     }
   }
 
+  private var accessibilityStatusTitle: String {
+    accessibilityTrusted ? "辅助功能权限已授权" : "自动粘贴需要辅助功能权限"
+  }
+
   private var recordableKinds: [ClipboardKind] {
     [.text, .richText, .html, .image, .files, .url, .email, .color]
   }
@@ -298,6 +336,10 @@ struct SettingsView: View {
     }
 
     store.update { $0.ignoredApps.insert(application.bundleIdentifier) }
+  }
+
+  private func refreshAccessibilityStatus() {
+    accessibilityTrusted = AccessibilityPermissionController.isTrusted
   }
 
   private func showAlert(title: String, message: String) {

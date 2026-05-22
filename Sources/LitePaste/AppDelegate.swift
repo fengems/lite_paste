@@ -235,10 +235,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   private func showAccessibilityPermissionAlert() {
-    showAlert(
-      title: "需要辅助功能权限",
-      message: "Lite Paste 已复制该内容。授予辅助功能权限后，可以使用置顶快捷键自动粘贴。"
-    )
+    let alert = NSAlert()
+    alert.messageText = "需要辅助功能权限"
+    alert.informativeText = "Lite Paste 已复制该内容。授予辅助功能权限后，可以使用置顶快捷键自动粘贴。"
+    alert.addButton(withTitle: "打开系统设置")
+    alert.addButton(withTitle: "稍后")
+    alert.alertStyle = .informational
+
+    if alert.runModal() == .alertFirstButtonReturn {
+      AccessibilityPermissionController.openSystemSettings()
+    }
   }
 
   private func showAlert(title: String, message: String) {

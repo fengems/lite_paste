@@ -49,8 +49,8 @@ final class PasteboardWriter {
       return copyResult
     }
 
-    guard AXIsProcessTrusted() else {
-      requestAccessibilityPermission()
+    guard AccessibilityPermissionController.isTrusted else {
+      AccessibilityPermissionController.requestPermission()
       return .accessibilityPermissionRequired
     }
 
@@ -67,13 +67,6 @@ final class PasteboardWriter {
     }
 
     return .pasted
-  }
-
-  private func requestAccessibilityPermission() {
-    let options = [
-      "AXTrustedCheckOptionPrompt": true
-    ] as CFDictionary
-    AXIsProcessTrustedWithOptions(options)
   }
 
   private static func sendPasteShortcut() {
