@@ -6,11 +6,8 @@ import LitePasteCore
 final class ClipboardMonitor {
   private let pasteboard: NSPasteboard
   private let store: HistoryStore
-  private let blobStorage: any BlobStorage
   private let writeTracker: ClipboardWriteTracker
-  private let textPayloadBuilder: ClipboardTextPayloadBuilder
-  private let filePayloadBuilder: ClipboardFilePayloadBuilder
-  private let mediaPayloadBuilder: ClipboardMediaPayloadBuilder
+  private let payloadResolver: ClipboardPayloadResolver
   private var privacyFilter: PrivacyFilter
   private var enabledTypes: Set<ClipboardKind>
   private var timer: Timer?
@@ -21,21 +18,15 @@ final class ClipboardMonitor {
     store: HistoryStore,
     blobStorage: any BlobStorage = LocalBlobStorage(),
     writeTracker: ClipboardWriteTracker,
-    textPayloadBuilder: ClipboardTextPayloadBuilder = ClipboardTextPayloadBuilder(),
-    filePayloadBuilder: ClipboardFilePayloadBuilder = ClipboardFilePayloadBuilder(),
-    mediaPayloadBuilder: ClipboardMediaPayloadBuilder? = nil,
+    payloadResolver: ClipboardPayloadResolver? = nil,
     privacyFilter: PrivacyFilter = PrivacyFilter(),
     enabledTypes: Set<ClipboardKind> = Set(ClipboardKind.allCases)
   ) {
     self.pasteboard = pasteboard
     self.store = store
-    self.blobStorage = blobStorage
     self.writeTracker = writeTracker
-    self.textPayloadBuilder = textPayloadBuilder
-    self.filePayloadBuilder = filePayloadBuilder
-    self.mediaPayloadBuilder = mediaPayloadBuilder ?? ClipboardMediaPayloadBuilder(
-      blobStorage: blobStorage,
-      textPayloadBuilder: textPayloadBuilder
+    self.payloadResolver = payloadResolver ?? ClipboardPayloadResolver(
+      mediaPayloadBuilder: ClipboardMediaPayloadBuilder(blobStorage: blobStorage)
     )
     self.privacyFilter = privacyFilter
     self.enabledTypes = enabledTypes
@@ -103,132 +94,81 @@ final class ClipboardMonitor {
 
   private func readPayload() -> ClipboardPayload? {
     let types = Set(pasteboard.types?.map(\.rawValue) ?? [])
+    let fileURLs = readFileURLs()
+    let imageCandidates = readImageCandidates()
+    let richTextCandidates = readRichTextCandidates()
+    let plainText = pasteboard.string(forType: .string)
 
-    if let filePayload = readFilePayload(types: types) {
-      return filePayload
-    }
-
-    if let imagePayload = readImagePayload(types: types) {
-      return imagePayload
-    }
-
-    if let richPayload = readRichTextPayload(types: types) {
-      return richPayload
-    }
-
-    if let text = pasteboard.string(forType: .string) {
-      return textPayloadBuilder.payload(from: text, pasteboardTypes: types)
-    }
-
-    return nil
+    return payloadResolver.resolve(
+      pasteboardTypes: types,
+      fileURLs: fileURLs,
+      imageCandidates: imageCandidates,
+      richTextCandidates: richTextCandidates,
+      plainText: plainText
+    )
   }
 
-  private func readFilePayload(types: Set<String>) -> ClipboardPayload? {
+  private func readFileURLs() -> [URL] {
     let options: [NSPasteboard.ReadingOptionKey: Any] = [
       .urlReadingFileURLsOnly: true
     ]
     let objects = pasteboard.readObjects(forClasses: [NSURL.self], options: options)
     let urls = (objects as? [URL]) ?? (objects as? [NSURL])?.map { $0 as URL } ?? []
-    let fileURLs = urls.filter { $0.isFileURL }
-
-    guard !fileURLs.isEmpty else {
-      return nil
-    }
-
-    return filePayloadBuilder.payload(from: fileURLs, pasteboardTypes: types)
+    return urls.filter { $0.isFileURL }
   }
 
-  private func readImagePayload(types: Set<String>) -> ClipboardPayload? {
+  private func readImageCandidates() -> [ClipboardImageCandidate] {
     let candidateTypes: [(NSPasteboard.PasteboardType, String)] = [
       (.png, "png"),
       (.tiff, "tiff")
     ]
 
-    for (type, fileExtension) in candidateTypes {
+    var candidates = candidateTypes.compactMap { type, fileExtension -> ClipboardImageCandidate? in
       guard let data = pasteboard.data(forType: type) else {
-        continue
-      }
-
-      do {
-        return try mediaPayloadBuilder.imagePayload(
-          data: data,
-          pasteboardType: type.rawValue,
-          preferredExtension: fileExtension,
-          pasteboardTypes: types
-        )
-      } catch {
-        print("Unable to persist image clipboard data: \(error)")
         return nil
       }
+
+      return ClipboardImageCandidate(
+        data: data,
+        pasteboardType: type.rawValue,
+        preferredExtension: fileExtension
+      )
     }
 
-    guard let image = NSImage(pasteboard: pasteboard),
+    guard candidates.isEmpty,
+          let image = NSImage(pasteboard: pasteboard),
           let data = image.tiffRepresentation else {
-      return nil
+      return candidates
     }
 
-    do {
-      return try mediaPayloadBuilder.imagePayload(
+    candidates.append(
+      ClipboardImageCandidate(
         data: data,
         pasteboardType: NSPasteboard.PasteboardType.tiff.rawValue,
-        preferredExtension: "tiff",
-        pasteboardTypes: types
+        preferredExtension: "tiff"
       )
-    } catch {
-      print("Unable to persist image clipboard data: \(error)")
-      return nil
-    }
+    )
+    return candidates
   }
 
-  private func readRichTextPayload(types: Set<String>) -> ClipboardPayload? {
-    if let htmlData = pasteboard.data(forType: .html) {
-      return makeRichPayload(
-        kind: .html,
-        data: htmlData,
-        pasteboardType: .html,
-        fileExtension: "html",
-        fallbackTitle: "HTML",
-        types: types
-      )
-    }
+  private func readRichTextCandidates() -> [ClipboardRichTextCandidate] {
+    let candidateTypes: [(NSPasteboard.PasteboardType, ClipboardKind, String, String)] = [
+      (.html, .html, "html", "HTML"),
+      (.rtf, .richText, "rtf", "富文本")
+    ]
 
-    if let rtfData = pasteboard.data(forType: .rtf) {
-      return makeRichPayload(
-        kind: .richText,
-        data: rtfData,
-        pasteboardType: .rtf,
-        fileExtension: "rtf",
-        fallbackTitle: "富文本",
-        types: types
-      )
-    }
+    return candidateTypes.compactMap { type, kind, fileExtension, fallbackTitle in
+      guard let data = pasteboard.data(forType: type) else {
+        return nil
+      }
 
-    return nil
-  }
-
-  private func makeRichPayload(
-    kind: ClipboardKind,
-    data: Data,
-    pasteboardType: NSPasteboard.PasteboardType,
-    fileExtension: String,
-    fallbackTitle: String,
-    types: Set<String>
-  ) -> ClipboardPayload? {
-    let plainText = pasteboard.string(forType: .string)
-
-    do {
-      return try mediaPayloadBuilder.richTextPayload(
+      return ClipboardRichTextCandidate(
         kind: kind,
         data: data,
-        pasteboardType: pasteboardType.rawValue,
+        pasteboardType: type.rawValue,
         preferredExtension: fileExtension,
-        fallbackTitle: fallbackTitle,
-        plainText: plainText,
-        pasteboardTypes: types
+        fallbackTitle: fallbackTitle
       )
-    } catch {
-      print("Unable to persist rich clipboard data: \(error)")
-      return nil
     }
   }
 }

@@ -9,6 +9,7 @@ func runChecks() {
   checkClipboardTextPayloadBuilder()
   checkClipboardFilePayloadBuilder()
   checkClipboardMediaPayloadBuilder()
+  checkClipboardPayloadResolver()
   checkHistoryStore()
   checkHistoryRetention()
   checkHistoryQueryEngine()
@@ -307,6 +308,108 @@ func checkClipboardMediaPayloadBuilder() {
     expect(rtfPayload.plainText == nil, "Rich payload should allow missing plain text")
   } catch {
     fatalError("Media payload builder check failed: \(error)")
+  }
+}
+
+func checkClipboardPayloadResolver() {
+  let directory = FileManager.default.temporaryDirectory
+    .appending(path: "LitePastePayloadResolverChecks-\(UUID().uuidString)", directoryHint: .isDirectory)
+  let resolver = ClipboardPayloadResolver(
+    mediaPayloadBuilder: ClipboardMediaPayloadBuilder(
+      blobStorage: LocalBlobStorage(directory: directory)
+    )
+  )
+  let pasteboardTypes: Set<String> = [
+    ClipboardFilePayloadBuilder.fileURLPasteboardType,
+    "public.png",
+    "public.html",
+    ClipboardTextPayloadBuilder.plainTextPasteboardType
+  ]
+
+  do {
+    defer {
+      try? FileManager.default.removeItem(at: directory)
+    }
+
+    let filePayload = resolver.resolve(
+      pasteboardTypes: pasteboardTypes,
+      fileURLs: [URL(fileURLWithPath: "/tmp/report.pdf")],
+      imageCandidates: [
+        ClipboardImageCandidate(data: Data("image".utf8), pasteboardType: "public.png", preferredExtension: "png")
+      ],
+      richTextCandidates: [
+        ClipboardRichTextCandidate(
+          kind: .html,
+          data: Data("<b>Hello</b>".utf8),
+          pasteboardType: "public.html",
+          preferredExtension: "html",
+          fallbackTitle: "HTML"
+        )
+      ],
+      plainText: "hello"
+    )
+    expect(filePayload?.kind == .files, "Payload resolver should prefer files over other candidates")
+
+    let imagePayload = resolver.resolve(
+      pasteboardTypes: pasteboardTypes,
+      fileURLs: [],
+      imageCandidates: [
+        ClipboardImageCandidate(data: Data("image".utf8), pasteboardType: "public.png", preferredExtension: "png")
+      ],
+      richTextCandidates: [
+        ClipboardRichTextCandidate(
+          kind: .html,
+          data: Data("<b>Hello</b>".utf8),
+          pasteboardType: "public.html",
+          preferredExtension: "html",
+          fallbackTitle: "HTML"
+        )
+      ],
+      plainText: "hello"
+    )
+    expect(imagePayload?.kind == .image, "Payload resolver should prefer images over rich text and text")
+
+    let richPayload = resolver.resolve(
+      pasteboardTypes: pasteboardTypes,
+      fileURLs: [],
+      imageCandidates: [],
+      richTextCandidates: [
+        ClipboardRichTextCandidate(
+          kind: .html,
+          data: Data("<b>Hello</b>".utf8),
+          pasteboardType: "public.html",
+          preferredExtension: "html",
+          fallbackTitle: "HTML"
+        ),
+        ClipboardRichTextCandidate(
+          kind: .richText,
+          data: Data("{\\rtf1 Hello}".utf8),
+          pasteboardType: "public.rtf",
+          preferredExtension: "rtf",
+          fallbackTitle: "富文本"
+        )
+      ],
+      plainText: "hello"
+    )
+    expect(richPayload?.kind == .html, "Payload resolver should prefer the first rich text candidate")
+
+    let textPayload = resolver.resolve(
+      pasteboardTypes: [ClipboardTextPayloadBuilder.plainTextPasteboardType],
+      fileURLs: [],
+      imageCandidates: [],
+      richTextCandidates: [],
+      plainText: "hello"
+    )
+    expect(textPayload?.kind == .text, "Payload resolver should fall back to plain text")
+
+    let emptyPayload = resolver.resolve(
+      pasteboardTypes: [],
+      fileURLs: [],
+      imageCandidates: [],
+      richTextCandidates: [],
+      plainText: " \n "
+    )
+    expect(emptyPayload == nil, "Payload resolver should ignore blank fallback text")
   }
 }
 
