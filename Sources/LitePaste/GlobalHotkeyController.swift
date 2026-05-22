@@ -1,5 +1,6 @@
 import Carbon
 import Foundation
+import LitePasteCore
 
 @MainActor
 final class GlobalHotkeyController {
@@ -23,14 +24,20 @@ final class GlobalHotkeyController {
     }
   }
 
-  func registerDefaultHotkey() {
+  func register(hotkey: String) {
+    unregister()
+
+    guard let descriptor = HotkeyDescriptor(hotkey) else {
+      print("Unable to parse Lite Paste global hotkey: \(hotkey)")
+      return
+    }
+
     let signature = fourCharacterCode("LTPA")
     let hotKeyID = EventHotKeyID(signature: signature, id: 1)
-    let modifiers = UInt32(cmdKey | shiftKey)
 
     let hotKeyStatus = RegisterEventHotKey(
-      UInt32(kVK_ANSI_V),
-      modifiers,
+      descriptor.keyCode,
+      descriptor.modifiers,
       hotKeyID,
       GetApplicationEventTarget(),
       0,
@@ -75,10 +82,62 @@ final class GlobalHotkeyController {
     }
   }
 
+  func registerDefaultHotkey() {
+    register(hotkey: AppSettings().hotkey)
+  }
+
   private func fourCharacterCode(_ string: String) -> FourCharCode {
     assert(string.utf8.count == 4)
     return string.utf8.reduce(0) { result, character in
       (result << 8) + FourCharCode(character)
+    }
+  }
+}
+
+private struct HotkeyDescriptor {
+  var keyCode: UInt32
+  var modifiers: UInt32
+
+  init?(_ hotkey: String) {
+    let parts = Set(
+      hotkey
+        .lowercased()
+        .split(separator: "+")
+        .map(String.init)
+    )
+
+    var modifiers: UInt32 = 0
+    if parts.contains("command") {
+      modifiers |= UInt32(cmdKey)
+    }
+    if parts.contains("shift") {
+      modifiers |= UInt32(shiftKey)
+    }
+    if parts.contains("option") {
+      modifiers |= UInt32(optionKey)
+    }
+    if parts.contains("control") {
+      modifiers |= UInt32(controlKey)
+    }
+
+    guard let key = parts.first(where: { !["command", "shift", "option", "control"].contains($0) }),
+          let keyCode = Self.keyCode(for: key),
+          modifiers != 0 else {
+      return nil
+    }
+
+    self.keyCode = keyCode
+    self.modifiers = modifiers
+  }
+
+  private static func keyCode(for key: String) -> UInt32? {
+    switch key {
+    case "v":
+      UInt32(kVK_ANSI_V)
+    case "space":
+      UInt32(kVK_Space)
+    default:
+      nil
     }
   }
 }

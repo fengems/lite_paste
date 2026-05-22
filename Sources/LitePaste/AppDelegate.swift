@@ -18,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var panelCoordinator: PanelCoordinator?
   private var hotkeyController: GlobalHotkeyController?
   private var pinnedHotkeyController: PinnedHotkeyController?
+  private var registeredPanelHotkey: String?
   private let clipboardWriteTracker = ClipboardWriteTracker()
   private let launchAtLoginController = LaunchAtLoginController()
   private let activeApplicationTracker = ActiveApplicationTracker.shared
@@ -108,8 +109,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let hotkeyController = GlobalHotkeyController { [weak self] in
       self?.togglePanel()
     }
-    hotkeyController.registerDefaultHotkey()
+    registerPanelHotkey(settingsStore.settings.hotkey, controller: hotkeyController)
     self.hotkeyController = hotkeyController
+  }
+
+  private func registerPanelHotkey(_ hotkey: String, controller: GlobalHotkeyController? = nil) {
+    let hotkeyController = controller ?? self.hotkeyController
+    guard registeredPanelHotkey != hotkey else {
+      return
+    }
+
+    hotkeyController?.register(hotkey: hotkey)
+    registeredPanelHotkey = hotkey
   }
 
   private func configurePinnedHotkeys() {
@@ -141,6 +152,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self?.store.updateMaxHistoryCount(settings.maxHistoryCount)
         self?.store.updateRetentionDays(settings.retentionDays)
         self?.store.updateMoveDuplicatesToTop(settings.moveDuplicatesToTop)
+        self?.registerPanelHotkey(settings.hotkey)
       }
       .store(in: &cancellables)
   }

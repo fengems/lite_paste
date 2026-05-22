@@ -11,7 +11,12 @@ struct SettingsView: View {
     Form {
       Section("通用") {
         Toggle("开机启动", isOn: launchAtLogin)
-        LabeledContent("打开面板快捷键", value: store.settings.hotkey)
+
+        Picker("打开面板快捷键", selection: panelHotkey) {
+          ForEach(PanelHotkeyCatalog.hotkeys, id: \.self) { hotkey in
+            Text(PanelHotkeyCatalog.displayName(for: hotkey)).tag(hotkey)
+          }
+        }
 
         Picker("默认视图", selection: viewMode) {
           Text("卡片").tag(ClipboardPanelViewMode.card)
@@ -118,6 +123,14 @@ struct SettingsView: View {
       } catch {
         showAlert(title: "无法更新开机启动", message: error.localizedDescription)
       }
+    }
+  }
+
+  private var panelHotkey: Binding<String> {
+    Binding {
+      store.settings.hotkey
+    } set: { value in
+      store.update { $0.hotkey = value }
     }
   }
 

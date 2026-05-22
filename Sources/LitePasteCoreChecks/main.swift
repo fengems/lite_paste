@@ -21,6 +21,7 @@ func checkAppSettingsBackwardCompatibility() {
   do {
     let settings = try JSONDecoder.litePaste.decode(AppSettings.self, from: data)
     expect(settings.viewMode == ClipboardPanelViewMode.list, "Settings should decode existing view mode string")
+    expect(PanelHotkeyCatalog.displayName(for: settings.hotkey) == "⌘⇧V", "Panel hotkey should have display name")
     expect(settings.clearSearchOnOpen, "Settings should default clearSearchOnOpen for old files")
     expect(settings.maxHistoryCount == 1_000, "Settings should default maxHistoryCount for old files")
     expect(!settings.restoreClipboardAfterPaste, "Settings should default restoreClipboardAfterPaste for old files")
