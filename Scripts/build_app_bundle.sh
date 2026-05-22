@@ -13,6 +13,7 @@ MACOS_DIR="${CONTENTS_DIR}/MacOS"
 RESOURCES_DIR="${CONTENTS_DIR}/Resources"
 INFO_PLIST_SOURCE="${ROOT_DIR}/Config/LitePaste/Info.plist"
 INFO_PLIST_DESTINATION="${CONTENTS_DIR}/Info.plist"
+ICON_DESTINATION="${RESOURCES_DIR}/AppIcon.icns"
 
 cd "${ROOT_DIR}"
 
@@ -25,6 +26,7 @@ mkdir -p "${MACOS_DIR}" "${RESOURCES_DIR}"
 
 cp "${EXECUTABLE_PATH}" "${MACOS_DIR}/${PRODUCT_NAME}"
 cp "${INFO_PLIST_SOURCE}" "${INFO_PLIST_DESTINATION}"
+swift "${ROOT_DIR}/Scripts/generate_app_icon.swift" "${ICON_DESTINATION}"
 printf 'APPL????' > "${CONTENTS_DIR}/PkgInfo"
 
 chmod +x "${MACOS_DIR}/${PRODUCT_NAME}"

@@ -76,12 +76,11 @@ Lite Paste 的自动粘贴依赖 Accessibility 权限。该权限不通过 Info.
 
 正式 target 还需要补齐：
 
-- AppIcon `.appiconset`
 - 菜单栏 template 图标
 - 关于页图标
 - 发布用 DMG 或 zip 打包配置
 
-图标文件应放入未来的 Xcode asset catalog 中，不放入 SwiftPM 构建产物目录。
+本地 bundle 脚本会用 `Scripts/generate_app_icon.swift` 生成 `AppIcon.icns`。未来完整 Xcode target 可继续复用该脚本生成的图标，或迁移为 asset catalog 中的 AppIcon `.appiconset`。
 
 ## 本地 Bundle 脚本
 
@@ -90,6 +89,7 @@ Lite Paste 的自动粘贴依赖 Accessibility 权限。该权限不通过 Info.
 - `Build/LitePaste.app/Contents/MacOS/LitePaste`
 - `Build/LitePaste.app/Contents/Info.plist`
 - `Build/LitePaste.app/Contents/PkgInfo`
+- `Build/LitePaste.app/Contents/Resources/AppIcon.icns`
 
 脚本默认使用 release 配置。需要改配置时可传环境变量：
 

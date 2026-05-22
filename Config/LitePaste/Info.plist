@@ -12,6 +12,8 @@
   <string>com.fengems.LitePaste</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
+  <key>CFBundleIconFile</key>
+  <string>AppIcon</string>
   <key>CFBundleName</key>
   <string>Lite Paste</string>
   <key>CFBundlePackageType</key>
@@ -30,4 +32,3 @@
   <string>Lite Paste 需要在用户触发粘贴时把内容发送到上一个活跃应用。</string>
 </dict>
 </plist>
-
