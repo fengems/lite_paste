@@ -10,6 +10,7 @@ final class ClipboardMonitor {
   private let writeTracker: ClipboardWriteTracker
   private let textPayloadBuilder: ClipboardTextPayloadBuilder
   private let filePayloadBuilder: ClipboardFilePayloadBuilder
+  private let mediaPayloadBuilder: ClipboardMediaPayloadBuilder
   private var privacyFilter: PrivacyFilter
   private var enabledTypes: Set<ClipboardKind>
   private var timer: Timer?
@@ -22,6 +23,7 @@ final class ClipboardMonitor {
     writeTracker: ClipboardWriteTracker,
     textPayloadBuilder: ClipboardTextPayloadBuilder = ClipboardTextPayloadBuilder(),
     filePayloadBuilder: ClipboardFilePayloadBuilder = ClipboardFilePayloadBuilder(),
+    mediaPayloadBuilder: ClipboardMediaPayloadBuilder? = nil,
     privacyFilter: PrivacyFilter = PrivacyFilter(),
     enabledTypes: Set<ClipboardKind> = Set(ClipboardKind.allCases)
   ) {
@@ -31,6 +33,10 @@ final class ClipboardMonitor {
     self.writeTracker = writeTracker
     self.textPayloadBuilder = textPayloadBuilder
     self.filePayloadBuilder = filePayloadBuilder
+    self.mediaPayloadBuilder = mediaPayloadBuilder ?? ClipboardMediaPayloadBuilder(
+      blobStorage: blobStorage,
+      textPayloadBuilder: textPayloadBuilder
+    )
     self.privacyFilter = privacyFilter
     self.enabledTypes = enabledTypes
     self.lastChangeCount = pasteboard.changeCount
@@ -144,20 +150,11 @@ final class ClipboardMonitor {
       }
 
       do {
-        let snapshot = try blobStorage.snapshot(
+        return try mediaPayloadBuilder.imagePayload(
           data: data,
           pasteboardType: type.rawValue,
           preferredExtension: fileExtension,
-          displayOrder: 0
-        )
-        return ClipboardPayload(
-          kind: .image,
-          title: "图片",
-          searchText: "图片 image",
-          contentHashBasis: ContentHasher.hash(kind: .image, data: data),
-          pasteboardTypes: types,
-          contents: [snapshot],
-          previewFilePath: snapshot.externalFilePath
+          pasteboardTypes: types
         )
       } catch {
         print("Unable to persist image clipboard data: \(error)")
@@ -171,20 +168,11 @@ final class ClipboardMonitor {
     }
 
     do {
-      let snapshot = try blobStorage.snapshot(
+      return try mediaPayloadBuilder.imagePayload(
         data: data,
         pasteboardType: NSPasteboard.PasteboardType.tiff.rawValue,
         preferredExtension: "tiff",
-        displayOrder: 0
-      )
-      return ClipboardPayload(
-        kind: .image,
-        title: "图片",
-        searchText: "图片 image",
-        contentHashBasis: ContentHasher.hash(kind: .image, data: data),
-        pasteboardTypes: types,
-        contents: [snapshot],
-        previewFilePath: snapshot.externalFilePath
+        pasteboardTypes: types
       )
     } catch {
       print("Unable to persist image clipboard data: \(error)")
@@ -227,23 +215,16 @@ final class ClipboardMonitor {
     types: Set<String>
   ) -> ClipboardPayload? {
     let plainText = pasteboard.string(forType: .string)
-    let title = plainText.map(textPayloadBuilder.makeTitle(from:)) ?? fallbackTitle
 
     do {
-      let snapshot = try blobStorage.snapshot(
+      return try mediaPayloadBuilder.richTextPayload(
+        kind: kind,
         data: data,
         pasteboardType: pasteboardType.rawValue,
         preferredExtension: fileExtension,
-        displayOrder: 0
-      )
-      return ClipboardPayload(
-        kind: kind,
-        title: title,
-        searchText: plainText ?? fallbackTitle,
+        fallbackTitle: fallbackTitle,
         plainText: plainText,
-        contentHashBasis: ContentHasher.hash(kind: kind, data: data),
-        pasteboardTypes: types,
-        contents: [snapshot]
+        pasteboardTypes: types
       )
     } catch {
       print("Unable to persist rich clipboard data: \(error)")
