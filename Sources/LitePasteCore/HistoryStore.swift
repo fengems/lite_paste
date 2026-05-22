@@ -20,6 +20,7 @@ public final class HistoryStore: ObservableObject {
   private var retentionDays: Int
   private var moveDuplicatesToTop: Bool
   private var isApplyingControlledMutation = false
+  private var isLoadedPartially: Bool
 
   public init(
     records: [ClipboardRecord]? = nil,
@@ -28,16 +29,19 @@ public final class HistoryStore: ObservableObject {
     queryEngine: ClipboardHistoryQueryEngine = ClipboardHistoryQueryEngine(),
     maxHistoryCount: Int = 1_000,
     retentionDays: Int = 0,
-    moveDuplicatesToTop: Bool = true
+    moveDuplicatesToTop: Bool = true,
+    initialLoadLimit: Int? = nil
   ) {
+    let initialHistory = Self.loadInitial(from: repository, records: records, limit: initialLoadLimit)
     self.repository = repository
     self.blobStorage = blobStorage
     self.queryEngine = queryEngine
     self.maxHistoryCount = max(maxHistoryCount, 1)
     self.retentionDays = max(retentionDays, 0)
     self.moveDuplicatesToTop = moveDuplicatesToTop
-    self.records = records ?? Self.load(from: repository)
-    trimHistoryIfNeeded(now: .now)
+    self.isLoadedPartially = initialHistory.isPartial
+    self.records = initialHistory.records
+    trimHistoryIfNeeded(now: .now, loadFullIfNeeded: false)
   }
 
   @discardableResult
@@ -88,7 +92,7 @@ public final class HistoryStore: ObservableObject {
       records.insert(record, at: 0)
     }
     persistUpsert(record, position: 0)
-    trimHistoryIfNeeded(now: now)
+    trimHistoryIfNeeded(now: now, loadFullIfNeeded: false)
     return record
   }
 
@@ -206,7 +210,7 @@ public final class HistoryStore: ObservableObject {
 
   public func usedPinShortcuts(excluding id: ClipboardRecord.ID? = nil) -> Set<String> {
     Set(
-      records.compactMap { record in
+      pinnedShortcutRecords().compactMap { record in
         guard record.id != id else {
           return nil
         }
@@ -228,7 +232,15 @@ public final class HistoryStore: ObservableObject {
   }
 
   public func delete(_ id: ClipboardRecord.ID) {
-    let deleted = records.filter { $0.id == id }
+    let deleted = records.filter { $0.id == id } + [record(id: id)].compactMap { optionalLookup in
+      guard let lookup = optionalLookup else {
+        return nil
+      }
+      guard records.allSatisfy({ $0.id != lookup.id }) else {
+        return nil
+      }
+      return lookup
+    }
     applyControlledMutation {
       records.removeAll { $0.id == id }
     }
@@ -237,6 +249,7 @@ public final class HistoryStore: ObservableObject {
   }
 
   public func clearUnpinned() {
+    loadFullHistoryIfNeeded()
     let deleted = records.filter { !$0.isPinned }
     applyControlledMutation {
       records.removeAll { !$0.isPinned }
@@ -246,6 +259,7 @@ public final class HistoryStore: ObservableObject {
   }
 
   public func clearAll() {
+    loadFullHistoryIfNeeded()
     removeExternalFiles(in: records)
     applyControlledMutation {
       records.removeAll()
@@ -255,12 +269,12 @@ public final class HistoryStore: ObservableObject {
 
   public func updateMaxHistoryCount(_ maxHistoryCount: Int) {
     self.maxHistoryCount = max(maxHistoryCount, 1)
-    trimHistoryIfNeeded()
+    trimHistoryIfNeeded(loadFullIfNeeded: true)
   }
 
   public func updateRetentionDays(_ retentionDays: Int, now: Date = .now) {
     self.retentionDays = max(retentionDays, 0)
-    trimHistoryIfNeeded(now: now)
+    trimHistoryIfNeeded(now: now, loadFullIfNeeded: true)
   }
 
   public func updateMoveDuplicatesToTop(_ moveDuplicatesToTop: Bool) {
@@ -268,8 +282,12 @@ public final class HistoryStore: ObservableObject {
   }
 
   public func reload(now: Date = .now) throws {
-    records = try repository.load()
-    trimHistoryIfNeeded(now: now)
+    let loadedRecords = try repository.load()
+    applyControlledMutation {
+      records = loadedRecords
+      isLoadedPartially = false
+    }
+    trimHistoryIfNeeded(now: now, loadFullIfNeeded: false)
   }
 
   private func update(_ id: ClipboardRecord.ID, _ mutate: (inout ClipboardRecord) -> Void) {
@@ -289,7 +307,14 @@ public final class HistoryStore: ObservableObject {
     persistUpsert(record, position: nil)
   }
 
-  private func trimHistoryIfNeeded(now: Date = .now) {
+  private func trimHistoryIfNeeded(now: Date = .now, loadFullIfNeeded: Bool) {
+    if isLoadedPartially {
+      guard loadFullIfNeeded else {
+        return
+      }
+      loadFullHistoryIfNeeded()
+    }
+
     trimExpiredHistory(now: now)
     trimOverflowHistory()
   }
@@ -399,14 +424,55 @@ public final class HistoryStore: ObservableObject {
 
   private func persistAll() {
     do {
+      if isLoadedPartially {
+        try loadFullHistoryIfNeededThrowing()
+      }
       try repository.save(records)
     } catch {
       assertionFailure("Unable to save clipboard history: \(error)")
     }
   }
 
-  private static func load(from repository: any ClipboardHistoryRepository) -> [ClipboardRecord] {
-    (try? repository.load()) ?? []
+  private func loadFullHistoryIfNeeded() {
+    do {
+      try loadFullHistoryIfNeededThrowing()
+    } catch {
+      assertionFailure("Unable to load full clipboard history: \(error)")
+    }
+  }
+
+  private func loadFullHistoryIfNeededThrowing() throws {
+    guard isLoadedPartially else {
+      return
+    }
+
+    let loadedRecords = try repository.load()
+    applyControlledMutation {
+      records = loadedRecords
+      isLoadedPartially = false
+    }
+  }
+
+  private static func loadInitial(
+    from repository: any ClipboardHistoryRepository,
+    records: [ClipboardRecord]?,
+    limit: Int?
+  ) -> (records: [ClipboardRecord], isPartial: Bool) {
+    if let records {
+      return (records, false)
+    }
+
+    guard let limit,
+          let queryRepository = repository as? any ClipboardHistoryQueryingRepository,
+          let records = try? queryRepository.execute(
+            ClipboardHistoryQuery(sort: .pinnedThenRecent),
+            limit: max(limit, 0),
+            offset: 0
+          ) else {
+      return ((try? repository.load()) ?? [], false)
+    }
+
+    return (records, true)
   }
 
   private func slice(_ records: [ClipboardRecord], limit: Int?, offset: Int) -> [ClipboardRecord] {

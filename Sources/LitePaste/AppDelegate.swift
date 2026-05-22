@@ -8,7 +8,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   lazy var store = HistoryStore(
     maxHistoryCount: settingsStore.settings.maxHistoryCount,
     retentionDays: settingsStore.settings.retentionDays,
-    moveDuplicatesToTop: settingsStore.settings.moveDuplicatesToTop
+    moveDuplicatesToTop: settingsStore.settings.moveDuplicatesToTop,
+    initialLoadLimit: 80
   )
 
   private var statusItem: NSStatusItem?

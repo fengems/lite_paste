@@ -15,6 +15,7 @@ func runChecks() {
   checkHistoryStore()
   checkHistoryStoreIncrementalPersistence()
   checkHistoryStorePagedQueries()
+  checkHistoryStorePartialInitialLoad()
   checkHistoryRetention()
   checkHistoryBlobCleanup()
   checkHistoryQueryEngine()
@@ -1012,6 +1013,64 @@ func checkHistoryStorePagedQueries() {
     expect(fallbackPage.totalCount == 5, "HistoryStore fallback page should expose total count")
   } catch {
     fatalError("HistoryStore paged query check failed: \(error)")
+  }
+}
+
+@MainActor
+func checkHistoryStorePartialInitialLoad() {
+  let directory = FileManager.default.temporaryDirectory
+    .appending(path: "LitePasteHistoryStorePartialLoadChecks-\(UUID().uuidString)", directoryHint: .isDirectory)
+  let url = directory.appending(path: "history.sqlite3")
+
+  do {
+    defer {
+      try? FileManager.default.removeItem(at: directory)
+    }
+
+    let records = (0..<5).map { index in
+      ClipboardRecord(
+        id: UUID(uuidString: "00000000-0000-0000-0000-00000000030\(index)")!,
+        kind: .text,
+        title: "partial \(index)",
+        searchText: "partial \(index)",
+        createdAt: Date(timeIntervalSince1970: TimeInterval(index)),
+        lastCopiedAt: Date(timeIntervalSince1970: TimeInterval(index)),
+        contentHash: "partial-\(index)",
+        plainText: "partial \(index)"
+      )
+    }
+    let repository = SQLiteClipboardHistoryRepository(url: url)
+    try repository.save(records)
+
+    let store = HistoryStore(repository: repository, initialLoadLimit: 2)
+    expect(store.records.map(\.id) == [records[4].id, records[3].id], "HistoryStore should initially load only the first page")
+    expect(
+      store.filteredRecordCount(ClipboardHistoryQuery()) == 5,
+      "HistoryStore partial initial load should keep repository-backed total counts"
+    )
+
+    let hidden = records[1]
+    store.markUsed(hidden.id, now: Date(timeIntervalSince1970: 10))
+    let hiddenRecord = try repository.record(id: hidden.id)
+    expect(
+      hiddenRecord?.lastUsedAt == Date(timeIntervalSince1970: 10),
+      "HistoryStore partial initial load should update hidden repository records"
+    )
+
+    store.updateMaxHistoryCount(2)
+    let trimmed = try repository.load()
+    expect(trimmed.map(\.id) == [records[4].id, records[3].id], "HistoryStore should load full history before max-count trimming")
+
+    let clearRepository = SQLiteClipboardHistoryRepository(
+      url: directory.appending(path: "clear-history.sqlite3")
+    )
+    try clearRepository.save(records)
+    let clearStore = HistoryStore(repository: clearRepository, initialLoadLimit: 2)
+    clearStore.clearAll()
+    let clearedRecords = try clearRepository.load()
+    expect(clearedRecords.isEmpty, "HistoryStore should clear full repository after partial initial load")
+  } catch {
+    fatalError("HistoryStore partial initial load check failed: \(error)")
   }
 }
 
