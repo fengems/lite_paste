@@ -283,9 +283,14 @@ struct ClipboardPanelView: View {
   }
 
   private func confirmClearAll() {
+    let count = store.allRecordCount()
+    guard count > 0 else {
+      return
+    }
+
     let alert = NSAlert()
     alert.messageText = "清空全部历史？"
-    alert.informativeText = "所有未导出的剪贴板历史都会被删除，此操作无法撤销。"
+    alert.informativeText = "将删除全部 \(count) 条剪贴板历史，包含置顶记录。此操作无法撤销。"
     alert.addButton(withTitle: "清空")
     alert.addButton(withTitle: "取消")
     alert.alertStyle = .warning

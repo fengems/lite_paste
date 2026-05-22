@@ -1048,6 +1048,10 @@ func checkHistoryStorePartialInitialLoad() {
       store.filteredRecordCount(ClipboardHistoryQuery()) == 5,
       "HistoryStore partial initial load should keep repository-backed total counts"
     )
+    expect(
+      store.allRecordCount() == 5,
+      "HistoryStore should expose full record count beyond the partial initial page"
+    )
 
     let hidden = records[1]
     store.markUsed(hidden.id, now: Date(timeIntervalSince1970: 10))
