@@ -5,8 +5,18 @@ public enum PinShortcutCatalog {
     "command+option+\($0)"
   }
 
+  public static func normalized(_ shortcut: String) -> String? {
+    let value = shortcut
+      .split(separator: "+")
+      .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+      .filter { !$0.isEmpty }
+      .joined(separator: "+")
+
+    return shortcuts.contains(value) ? value : nil
+  }
+
   public static func displayName(for shortcut: String) -> String {
-    switch shortcut.lowercased() {
+    switch normalized(shortcut) ?? shortcut.lowercased() {
     case "command+option+1":
       "⌘⌥1"
     case "command+option+2":

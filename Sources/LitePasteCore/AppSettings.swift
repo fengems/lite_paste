@@ -36,7 +36,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     privacyMode: Bool = false,
     launchAtLogin: Bool = false
   ) {
-    self.hotkey = hotkey
+    self.hotkey = Self.normalizedHotkey(hotkey)
     self.viewMode = viewMode
     self.panelPosition = panelPosition
     self.maxHistoryCount = Self.normalizedMaxHistoryCount(maxHistoryCount)
@@ -77,7 +77,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
     let defaults = AppSettings()
     let container = try decoder.container(keyedBy: CodingKeys.self)
 
-    hotkey = try container.decodeIfPresent(String.self, forKey: .hotkey) ?? defaults.hotkey
+    hotkey = Self.normalizedHotkey(
+      try container.decodeIfPresent(String.self, forKey: .hotkey) ?? defaults.hotkey
+    )
     viewMode = try container.decodeIfPresent(ClipboardPanelViewMode.self, forKey: .viewMode) ?? defaults.viewMode
     panelPosition = try container.decodeIfPresent(PanelPosition.self, forKey: .panelPosition) ?? defaults.panelPosition
     maxHistoryCount = Self.normalizedMaxHistoryCount(
@@ -119,12 +121,22 @@ public struct AppSettings: Codable, Equatable, Sendable {
     try container.encode(launchAtLogin, forKey: .launchAtLogin)
   }
 
+  public mutating func normalize() {
+    hotkey = Self.normalizedHotkey(hotkey)
+    maxHistoryCount = Self.normalizedMaxHistoryCount(maxHistoryCount)
+    retentionDays = Self.normalizedRetentionDays(retentionDays)
+  }
+
   private static func normalizedMaxHistoryCount(_ value: Int) -> Int {
     max(value, 1)
   }
 
   private static func normalizedRetentionDays(_ value: Int) -> Int {
     max(value, 0)
+  }
+
+  private static func normalizedHotkey(_ value: String) -> String {
+    PanelHotkeyCatalog.normalized(value) ?? "command+shift+v"
   }
 }
 

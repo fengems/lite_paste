@@ -5,6 +5,7 @@ import LitePasteCore
 func runChecks() {
   checkContentHasher()
   checkAppSettingsBackwardCompatibility()
+  checkAppSettingsStoreNormalization()
   checkPrivacyFilter()
   checkClipboardTextPayloadBuilder()
   checkClipboardFilePayloadBuilder()
@@ -81,16 +82,65 @@ func checkAppSettingsBackwardCompatibility() {
       "Settings should preserve search focus behavior"
     )
 
-    let invalidData = Data(#"{"maxHistoryCount":0,"retentionDays":-12}"#.utf8)
+    let invalidData = Data(#"{"hotkey":"command+shift+x","maxHistoryCount":0,"retentionDays":-12}"#.utf8)
     let invalidSettings = try JSONDecoder.litePaste.decode(AppSettings.self, from: invalidData)
+    expect(invalidSettings.hotkey == "command+shift+v", "Settings should normalize invalid panel hotkey")
     expect(invalidSettings.maxHistoryCount == 1, "Settings should normalize invalid max history count")
     expect(invalidSettings.retentionDays == 0, "Settings should normalize invalid retention days")
 
-    let invalidInit = AppSettings(maxHistoryCount: -50, retentionDays: -7)
+    let invalidInit = AppSettings(hotkey: "invalid", maxHistoryCount: -50, retentionDays: -7)
+    expect(invalidInit.hotkey == "command+shift+v", "Settings init should normalize panel hotkey")
     expect(invalidInit.maxHistoryCount == 1, "Settings init should normalize max history count")
     expect(invalidInit.retentionDays == 0, "Settings init should normalize retention days")
+
+    expect(
+      AppSettings(hotkey: " Command + Option + Space ").hotkey == "command+option+space",
+      "Settings init should normalize panel hotkey formatting"
+    )
+    expect(
+      PanelHotkeyCatalog.normalized(" Command + Option + Space ") == "command+option+space",
+      "Panel hotkey catalog should normalize valid formatting"
+    )
+    expect(PanelHotkeyCatalog.normalized("control+space") == nil, "Panel hotkey catalog should reject unknown hotkeys")
+    expect(
+      PinShortcutCatalog.normalized(" Command + Option + 9 ") == "command+option+9",
+      "Pin shortcut catalog should normalize valid formatting"
+    )
+    expect(PinShortcutCatalog.normalized("command+option+0") == nil, "Pin shortcut catalog should reject unknown shortcuts")
   } catch {
     fatalError("Settings compatibility check failed: \(error)")
+  }
+}
+
+@MainActor
+func checkAppSettingsStoreNormalization() {
+  let directory = FileManager.default.temporaryDirectory.appending(
+    path: "LitePasteSettingsNormalization-\(UUID().uuidString)",
+    directoryHint: .isDirectory
+  )
+  let url = directory.appending(path: "settings.json")
+
+  do {
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let store = AppSettingsStore(url: url)
+    store.update {
+      $0.hotkey = "bad+hotkey"
+      $0.maxHistoryCount = -99
+      $0.retentionDays = -3
+    }
+
+    expect(store.settings.hotkey == "command+shift+v", "Settings store update should normalize invalid hotkey")
+    expect(store.settings.maxHistoryCount == 1, "Settings store update should normalize max history count")
+    expect(store.settings.retentionDays == 0, "Settings store update should normalize retention days")
+
+    let reloaded = AppSettingsStore(url: url)
+    expect(reloaded.settings.hotkey == "command+shift+v", "Settings store should persist normalized hotkey")
+    expect(reloaded.settings.maxHistoryCount == 1, "Settings store should persist normalized max history count")
+    expect(reloaded.settings.retentionDays == 0, "Settings store should persist normalized retention days")
+  } catch {
+    fatalError("Settings store normalization check failed: \(error)")
   }
 }
 
@@ -700,6 +750,16 @@ func checkHistoryStore() {
     store.records.filter { $0.pinShortcut == "command+option+1" }.count == 1,
     "Pin shortcuts should be unique"
   )
+  store.updatePinShortcut(secondShortcut.id, shortcut: " Command + Option + 2 ")
+  expect(
+    store.records.first(where: { $0.id == secondShortcut.id })?.pinShortcut == "command+option+2",
+    "Pin shortcut update should normalize valid shortcuts"
+  )
+  store.updatePinShortcut(secondShortcut.id, shortcut: "command+option+0")
+  expect(
+    store.records.first(where: { $0.id == secondShortcut.id })?.pinShortcut == nil,
+    "Pin shortcut update should clear invalid shortcuts"
+  )
   store.updatePinShortcut(UUID(), shortcut: "command+option+2")
   expect(
     store.records.allSatisfy { $0.pinShortcut != "command+option+2" },
@@ -1283,12 +1343,12 @@ func checkRuntimeReload() {
       settings.hotkey = "command+shift+v"
     }
 
-    let importedSettings = AppSettings(hotkey: "control+space", viewMode: .list)
+    let importedSettings = AppSettings(hotkey: "command+option+space", viewMode: .list)
     try JSONEncoder.litePaste.encode(importedSettings).write(to: settingsURL, options: .atomic)
 
     settingsStore.reload()
     expect(settingsStore.settings.viewMode == .list, "AppSettingsStore reload should read imported view mode")
-    expect(settingsStore.settings.hotkey == "control+space", "AppSettingsStore reload should read imported hotkey")
+    expect(settingsStore.settings.hotkey == "command+option+space", "AppSettingsStore reload should read imported hotkey")
   } catch {
     fatalError("Runtime reload check failed: \(error)")
   }
@@ -1380,7 +1440,7 @@ func checkImportExportRoundTrip() {
       previewFilePath: sourceBlob.path
     )
     try repository.save([sourceRecord])
-    try JSONEncoder.litePaste.encode(AppSettings(hotkey: "control+space", viewMode: .list))
+    try JSONEncoder.litePaste.encode(AppSettings(hotkey: "command+option+space", viewMode: .list))
       .write(to: paths.settingsURL, options: .atomic)
 
     let backupURL = try service.exportBackup(to: backupParent, now: Date(timeIntervalSince1970: 100))
@@ -1406,7 +1466,7 @@ func checkImportExportRoundTrip() {
     expect(restoredHistory.count == 1, "Replace import should restore exported history")
     expect(restoredHistory.first?.previewFilePath == restoredBlob.path, "Replace import should rewrite preview path")
     expect(FileManager.default.fileExists(atPath: restoredBlob.path), "Replace import should restore blob files")
-    expect(restoredSettings.hotkey == "control+space", "Replace import should restore settings")
+    expect(restoredSettings.hotkey == "command+option+space", "Replace import should restore settings")
 
     let localRecord = ClipboardRecord(
       kind: .text,
@@ -1471,7 +1531,7 @@ func checkImportExportRoundTrip() {
       "Merge import should rewrite incoming preview blob path"
     )
     expect(FileManager.default.fileExists(atPath: importedBlob.path), "Merge import should copy incoming blobs")
-    expect(mergedSettings.hotkey == "control+space", "Merge import should not overwrite existing settings")
+    expect(mergedSettings.hotkey == "command+option+space", "Merge import should not overwrite existing settings")
   } catch {
     fatalError("Import/export round-trip check failed: \(error)")
   }

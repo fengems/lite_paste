@@ -106,11 +106,11 @@ public final class HistoryStore: ObservableObject {
       return
     }
 
-    let normalizedShortcut = shortcut?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    let normalizedShortcut = shortcut.flatMap(PinShortcutCatalog.normalized)
     records[targetIndex].isPinned = true
-    records[targetIndex].pinShortcut = normalizedShortcut?.isEmpty == true ? nil : normalizedShortcut
+    records[targetIndex].pinShortcut = normalizedShortcut
 
-    guard let normalizedShortcut, !normalizedShortcut.isEmpty else {
+    guard let normalizedShortcut else {
       return
     }
 

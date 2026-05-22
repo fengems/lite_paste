@@ -19,7 +19,10 @@ public final class AppSettingsStore: ObservableObject {
   }
 
   public func update(_ mutate: (inout AppSettings) -> Void) {
-    mutate(&settings)
+    var nextSettings = settings
+    mutate(&nextSettings)
+    nextSettings.normalize()
+    settings = nextSettings
   }
 
   public func reload() {
