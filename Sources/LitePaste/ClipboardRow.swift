@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ClipboardRow: View {
   let record: ClipboardRecord
+  let isSelected: Bool
   let primaryAction: (ClipboardRecord) -> Void
   let copyAction: (ClipboardRecord) -> Void
   let pasteAction: (ClipboardRecord) -> Void
@@ -88,6 +89,11 @@ struct ClipboardRow: View {
     .padding(.horizontal, 12)
     .padding(.vertical, 10)
     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+    .overlay(
+      RoundedRectangle(cornerRadius: 8)
+        .stroke(isSelected ? Color.accentColor.opacity(0.9) : .clear, lineWidth: 2)
+    )
+    .shadow(color: isSelected ? Color.accentColor.opacity(0.18) : .clear, radius: 8)
     .onTapGesture {
       primaryAction(record)
     }

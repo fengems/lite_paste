@@ -16,6 +16,7 @@ struct ClipboardPanelView: View {
   @State private var filter: ClipboardFilter = .all
   @State private var sort: ClipboardHistorySort = .pinnedThenRecent
   @State private var viewMode: ClipboardPanelViewMode = AppSettingsStore.shared.settings.viewMode
+  @State private var selectedRecordID: ClipboardRecord.ID?
 
   private var records: [ClipboardRecord] {
     store.filteredRecords(
@@ -44,8 +45,20 @@ struct ClipboardPanelView: View {
       .padding(20)
     }
     .frame(minWidth: 720, minHeight: 460)
+    .background(
+      PanelKeyboardBridge { event in
+        handleKeyDown(event)
+      }
+      .frame(width: 0, height: 0)
+    )
+    .onAppear {
+      normalizeSelection()
+    }
     .onChange(of: presentationState.openRevision) {
       prepareForOpen()
+    }
+    .onChange(of: records.map(\.id)) {
+      normalizeSelection()
     }
   }
 
@@ -129,6 +142,7 @@ struct ClipboardPanelView: View {
         ForEach(records) { record in
           ClipboardCard(
             record: record,
+            isSelected: selectedRecordID == record.id,
             primaryAction: primaryAction,
             copyAction: copyAction,
             pasteAction: pasteAction,
@@ -158,6 +172,7 @@ struct ClipboardPanelView: View {
         ForEach(records) { record in
           ClipboardRow(
             record: record,
+            isSelected: selectedRecordID == record.id,
             primaryAction: primaryAction,
             copyAction: copyAction,
             pasteAction: pasteAction,
@@ -182,6 +197,8 @@ struct ClipboardPanelView: View {
   }
 
   private func primaryAction(_ record: ClipboardRecord) {
+    selectedRecordID = record.id
+
     switch settingsStore.settings.autoPasteMode {
     case .copyOnly:
       primaryCopyAction(record)
@@ -211,10 +228,99 @@ struct ClipboardPanelView: View {
     store.updateNote(record.id, note: note)
   }
 
+  private func handleKeyDown(_ event: NSEvent) -> Bool {
+    let significantModifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
+    let commandOnly = significantModifiers == .command
+
+    if commandOnly, event.charactersIgnoringModifiers?.lowercased() == "c" {
+      return copySelected()
+    }
+
+    if commandOnly, event.keyCode == 51 {
+      return deleteSelected()
+    }
+
+    guard significantModifiers.isEmpty else {
+      return false
+    }
+
+    switch event.keyCode {
+    case 36, 76:
+      return pasteSelected()
+    case 117:
+      return deleteSelected()
+    case 123, 126:
+      selectRelative(-1)
+      return true
+    case 124, 125:
+      selectRelative(1)
+      return true
+    default:
+      return false
+    }
+  }
+
+  private func copySelected() -> Bool {
+    guard let record = selectedRecord else {
+      return false
+    }
+
+    copyAction(record)
+    return true
+  }
+
+  private func pasteSelected() -> Bool {
+    guard let record = selectedRecord else {
+      return false
+    }
+
+    primaryAction(record)
+    return true
+  }
+
+  private func deleteSelected() -> Bool {
+    guard let record = selectedRecord else {
+      return false
+    }
+
+    store.delete(record.id)
+    normalizeSelection()
+    return true
+  }
+
+  private func selectRelative(_ offset: Int) {
+    guard !records.isEmpty else {
+      selectedRecordID = nil
+      return
+    }
+
+    let currentIndex = records.firstIndex { $0.id == selectedRecordID } ?? 0
+    let nextIndex = min(max(currentIndex + offset, 0), records.count - 1)
+    selectedRecordID = records[nextIndex].id
+  }
+
+  private func normalizeSelection() {
+    guard !records.isEmpty else {
+      selectedRecordID = nil
+      return
+    }
+
+    if let selectedRecordID, records.contains(where: { $0.id == selectedRecordID }) {
+      return
+    }
+
+    selectedRecordID = records[0].id
+  }
+
   private func prepareForOpen() {
     viewMode = settingsStore.settings.viewMode
     if settingsStore.settings.clearSearchOnOpen {
       query = ""
     }
+    normalizeSelection()
+  }
+
+  private var selectedRecord: ClipboardRecord? {
+    records.first { $0.id == selectedRecordID }
   }
 }
