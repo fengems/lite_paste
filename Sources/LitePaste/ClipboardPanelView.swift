@@ -188,7 +188,7 @@ struct ClipboardPanelView: View {
           } togglePinned: {
             store.togglePinned(record.id)
           } deleteAction: {
-            store.delete(record.id)
+            confirmDelete(record)
           }
         }
 
@@ -228,7 +228,7 @@ struct ClipboardPanelView: View {
           } togglePinned: {
             store.togglePinned(record.id)
           } deleteAction: {
-            store.delete(record.id)
+            confirmDelete(record)
           }
         }
 
@@ -292,6 +292,20 @@ struct ClipboardPanelView: View {
 
     if alert.runModal() == .alertFirstButtonReturn {
       store.clearAll()
+    }
+  }
+
+  private func confirmDelete(_ record: ClipboardRecord) {
+    let alert = NSAlert()
+    alert.messageText = "删除这条历史？"
+    alert.informativeText = "“\(record.title)”会从剪贴板历史中移除。此操作无法撤销。"
+    alert.addButton(withTitle: "删除")
+    alert.addButton(withTitle: "取消")
+    alert.alertStyle = .warning
+
+    if alert.runModal() == .alertFirstButtonReturn {
+      store.delete(record.id)
+      normalizeSelection()
     }
   }
 
@@ -390,8 +404,7 @@ struct ClipboardPanelView: View {
       return false
     }
 
-    store.delete(record.id)
-    normalizeSelection()
+    confirmDelete(record)
     return true
   }
 
