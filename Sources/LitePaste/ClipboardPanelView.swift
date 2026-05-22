@@ -1,3 +1,4 @@
+import AppKit
 import LitePasteCore
 import SwiftUI
 
@@ -54,6 +55,20 @@ struct ClipboardPanelView: View {
       }
       .pickerStyle(.segmented)
       .frame(width: 92)
+
+      IconButton(
+        systemName: "trash.slash",
+        accessibilityLabel: "清空未置顶",
+        action: {
+          store.clearUnpinned()
+        }
+      )
+
+      IconButton(
+        systemName: "trash",
+        accessibilityLabel: "清空全部",
+        action: confirmClearAll
+      )
     }
   }
 
@@ -145,6 +160,19 @@ struct ClipboardPanelView: View {
       copyAction(record)
     case .paste:
       pasteAction(record)
+    }
+  }
+
+  private func confirmClearAll() {
+    let alert = NSAlert()
+    alert.messageText = "清空全部历史？"
+    alert.informativeText = "所有未导出的剪贴板历史都会被删除，此操作无法撤销。"
+    alert.addButton(withTitle: "清空")
+    alert.addButton(withTitle: "取消")
+    alert.alertStyle = .warning
+
+    if alert.runModal() == .alertFirstButtonReturn {
+      store.clearAll()
     }
   }
 }
