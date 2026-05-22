@@ -2097,6 +2097,19 @@ func checkImportExportRoundTrip() {
     )
     expect(FileManager.default.fileExists(atPath: importedBlob.path), "Merge import should copy incoming blobs")
     expect(mergedSettings.hotkey == "command+option+space", "Merge import should not overwrite existing settings")
+
+    let emptyBackup = directory.appending(path: "Empty.litepastebackup", directoryHint: .isDirectory)
+    try FileManager.default.createDirectory(at: emptyBackup, withIntermediateDirectories: true)
+    try Data(#"{"createdAt":"2026-01-01T00:00:00Z","formatVersion":1}"#.utf8)
+      .write(to: emptyBackup.appending(path: "manifest.json"))
+    try service.importBackup(from: emptyBackup, mode: .replace)
+
+    let emptyReplaceHistory = try repository.load()
+    expect(emptyReplaceHistory.isEmpty, "Replace import without history should clear existing history")
+    expect(
+      !FileManager.default.fileExists(atPath: paths.blobsDirectory.path),
+      "Replace import without blobs should clear existing blobs"
+    )
   } catch {
     fatalError("Import/export round-trip check failed: \(error)")
   }

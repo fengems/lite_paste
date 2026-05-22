@@ -67,8 +67,8 @@ public struct ImportExportService: Sendable {
   }
 
   private func replaceBackup(from backupURL: URL) throws {
-    try replaceDirectoryIfExists(from: backupURL.appending(path: "Blobs", directoryHint: .isDirectory), to: paths.blobsDirectory)
-    try replaceHistoryIfExists(from: backupURL.appending(path: "history.json"))
+    try replaceBlobDirectory(from: backupURL.appending(path: "Blobs", directoryHint: .isDirectory))
+    try replaceHistory(from: backupURL.appending(path: "history.json"))
     try replaceIfExists(from: backupURL.appending(path: "settings.json"), to: paths.settingsURL)
   }
 
@@ -104,13 +104,17 @@ public struct ImportExportService: Sendable {
     try data.write(to: destination, options: .atomic)
   }
 
-  private func replaceHistoryIfExists(from source: URL) throws {
-    guard FileManager.default.fileExists(atPath: source.path) else {
-      return
-    }
-
+  private func replaceHistory(from source: URL) throws {
     let records = try loadHistoryIfExists(at: source, rewritingExternalBlobPathsTo: paths.blobsDirectory)
     try currentHistoryRepository().save(records)
+  }
+
+  private func replaceBlobDirectory(from source: URL) throws {
+    if FileManager.default.fileExists(atPath: paths.blobsDirectory.path) {
+      try FileManager.default.removeItem(at: paths.blobsDirectory)
+    }
+
+    try copyDirectoryIfExists(from: source, to: paths.blobsDirectory)
   }
 
   private func currentHistoryRepository() -> any ClipboardHistoryRepository {
