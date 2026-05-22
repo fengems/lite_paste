@@ -1,9 +1,10 @@
 import AppKit
+import Combine
 import LitePasteCore
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-  let settingsStore = AppSettingsStore()
+  let settingsStore = AppSettingsStore.shared
   lazy var store = HistoryStore(maxHistoryCount: settingsStore.settings.maxHistoryCount)
 
   private var statusItem: NSStatusItem?
@@ -11,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var writer: PasteboardWriter?
   private var panelCoordinator: PanelCoordinator?
   private var hotkeyController: GlobalHotkeyController?
+  private var cancellables = Set<AnyCancellable>()
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.accessory)
@@ -32,6 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     configureStatusItem()
     configureHotkey()
+    observeSettings()
     monitor.start()
   }
 
@@ -57,6 +60,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     hotkeyController.registerDefaultHotkey()
     self.hotkeyController = hotkeyController
+  }
+
+  private func observeSettings() {
+    settingsStore.settingsPublisher
+      .dropFirst()
+      .sink { [weak self] settings in
+        self?.monitor?.updatePrivacyFilter(
+          PrivacyFilter(
+            privacyMode: settings.privacyMode,
+            ignoredApps: settings.ignoredApps,
+            ignoredPasteboardTypes: settings.ignoredPasteboardTypes
+          )
+        )
+      }
+      .store(in: &cancellables)
   }
 
   @objc private func togglePanel() {

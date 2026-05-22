@@ -3,6 +3,8 @@ import Foundation
 
 @MainActor
 public final class AppSettingsStore: ObservableObject {
+  public static let shared = AppSettingsStore()
+
   @Published public private(set) var settings: AppSettings {
     didSet {
       save()
@@ -18,6 +20,10 @@ public final class AppSettingsStore: ObservableObject {
 
   public func update(_ mutate: (inout AppSettings) -> Void) {
     mutate(&settings)
+  }
+
+  public var settingsPublisher: Published<AppSettings>.Publisher {
+    $settings
   }
 
   private func save() {
@@ -39,4 +45,3 @@ public final class AppSettingsStore: ObservableObject {
     return settings
   }
 }
-

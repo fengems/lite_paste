@@ -38,6 +38,10 @@ final class ClipboardMonitor {
     timer = nil
   }
 
+  func updatePrivacyFilter(_ privacyFilter: PrivacyFilter) {
+    self.privacyFilter = privacyFilter
+  }
+
   private func captureIfNeeded() {
     guard pasteboard.changeCount != lastChangeCount else {
       return

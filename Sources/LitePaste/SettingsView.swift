@@ -2,7 +2,7 @@ import LitePasteCore
 import SwiftUI
 
 struct SettingsView: View {
-  @StateObject private var store = AppSettingsStore()
+  @ObservedObject private var store = AppSettingsStore.shared
   @State private var backupCoordinator = BackupCoordinator()
 
   var body: some View {
