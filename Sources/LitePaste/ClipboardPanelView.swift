@@ -135,6 +135,9 @@ struct ClipboardPanelView: View {
             externalAction: itemActions.primaryExternalAction(for: record),
             performExternalAction: {
               itemActions.perform($0, for: record)
+            },
+            editNote: {
+              editNote(record)
             }
           ) {
             store.toggleFavorite(record.id)
@@ -161,6 +164,9 @@ struct ClipboardPanelView: View {
             externalAction: itemActions.primaryExternalAction(for: record),
             performExternalAction: {
               itemActions.perform($0, for: record)
+            },
+            editNote: {
+              editNote(record)
             }
           ) {
             store.toggleFavorite(record.id)
@@ -195,6 +201,14 @@ struct ClipboardPanelView: View {
     if alert.runModal() == .alertFirstButtonReturn {
       store.clearAll()
     }
+  }
+
+  private func editNote(_ record: ClipboardRecord) {
+    guard let note = NoteEditor.edit(record: record) else {
+      return
+    }
+
+    store.updateNote(record.id, note: note)
   }
 
   private func prepareForOpen() {

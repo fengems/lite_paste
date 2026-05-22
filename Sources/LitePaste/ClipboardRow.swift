@@ -8,6 +8,7 @@ struct ClipboardRow: View {
   let pasteAction: (ClipboardRecord) -> Void
   let externalAction: ClipboardExternalAction?
   let performExternalAction: (ClipboardExternalAction) -> Void
+  let editNote: () -> Void
   let toggleFavorite: () -> Void
   let togglePinned: () -> Void
   let deleteAction: () -> Void
@@ -28,6 +29,9 @@ struct ClipboardRow: View {
           Text(record.kind.displayName)
           if let source = record.sourceAppName {
             Text(source)
+          }
+          if !record.note.isEmpty {
+            Label("备注", systemImage: "note.text")
           }
           Text(record.lastCopiedAt, style: .relative)
         }
@@ -60,6 +64,11 @@ struct ClipboardRow: View {
           }
         )
       }
+      IconButton(
+        systemName: record.note.isEmpty ? "note.text.badge.plus" : "note.text",
+        accessibilityLabel: "编辑备注",
+        action: editNote
+      )
       IconButton(
         systemName: record.isPinned ? "pin.fill" : "pin",
         accessibilityLabel: "置顶",

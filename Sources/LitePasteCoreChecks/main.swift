@@ -112,9 +112,14 @@ func checkHistoryStore() {
   expect(store.records.first?.copyCount == 2, "Duplicate content should increment copy count")
 
   store.toggleFavorite(first.id)
+  store.updateNote(first.id, note: "  saved memo  ")
   expect(
     store.filteredRecords(query: "hello", filter: .favorites).count == 1,
     "Favorite filter should include favorited matching records"
+  )
+  expect(
+    store.filteredRecords(query: "saved memo", filter: .all).count == 1,
+    "Notes should be searchable after update"
   )
 
   store.updateMaxHistoryCount(1)

@@ -98,6 +98,12 @@ public final class HistoryStore: ObservableObject {
     }
   }
 
+  public func updateNote(_ id: ClipboardRecord.ID, note: String) {
+    update(id) { record in
+      record.note = note.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+  }
+
   public func delete(_ id: ClipboardRecord.ID) {
     let deleted = records.filter { $0.id == id }
     records.removeAll { $0.id == id }
