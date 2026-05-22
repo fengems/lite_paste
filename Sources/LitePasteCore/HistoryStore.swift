@@ -198,7 +198,10 @@ public final class HistoryStore: ObservableObject {
 
     let pinned = records.filter(\.isPinned)
     let regularLimit = max(maxHistoryCount - pinned.count, 0)
-    let regularRecords = records.filter { !$0.isPinned }
+    let regularRecords = queryEngine.execute(
+      ClipboardHistoryQuery(sort: .recent),
+      records: records.filter { !$0.isPinned }
+    )
     let regular = regularRecords.prefix(regularLimit)
     let trimmed = regularRecords.dropFirst(regularLimit)
     removeExternalFiles(in: Array(trimmed))
