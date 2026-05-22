@@ -10,7 +10,16 @@
 swift run LitePaste
 ```
 
-当前环境仅安装 Command Line Tools，`xcodebuild` 无法工作。创建、签名、打包正式 `.app` 前，需要安装完整 Xcode，并确保：
+当前仓库也提供 Command Line Tools 环境可用的本地 `.app` 打包脚本：
+
+```bash
+Scripts/build_app_bundle.sh
+open Build/LitePaste.app
+```
+
+该脚本使用 SwiftPM release 产物组装 `Build/LitePaste.app`，复制 `Config/LitePaste/Info.plist`，并执行 ad-hoc 签名。它适合本机试用，不替代正式 Xcode target、Developer ID 签名、公证和发布流程。
+
+当前环境仅安装 Command Line Tools，`xcodebuild` 无法工作。创建、签名、打包正式发布 `.app` 前，需要安装完整 Xcode，并确保：
 
 ```bash
 sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
@@ -73,6 +82,20 @@ Lite Paste 的自动粘贴依赖 Accessibility 权限。该权限不通过 Info.
 - 发布用 DMG 或 zip 打包配置
 
 图标文件应放入未来的 Xcode asset catalog 中，不放入 SwiftPM 构建产物目录。
+
+## 本地 Bundle 脚本
+
+`Scripts/build_app_bundle.sh` 会生成：
+
+- `Build/LitePaste.app/Contents/MacOS/LitePaste`
+- `Build/LitePaste.app/Contents/Info.plist`
+- `Build/LitePaste.app/Contents/PkgInfo`
+
+脚本默认使用 release 配置。需要改配置时可传环境变量：
+
+```bash
+CONFIGURATION=debug Scripts/build_app_bundle.sh
+```
 
 ## 验证命令
 

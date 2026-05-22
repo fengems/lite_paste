@@ -2,7 +2,7 @@
 
 Lite Paste 是一个原生 macOS 剪贴板管理器，目标是提供接近 Paste 的视觉体验、Maccy 的轻量效率，以及隐私优先的本地数据策略。
 
-当前项目仍处于早期开发阶段，已具备 SwiftPM 可运行入口，正式 `.app` target 的配置基线已放在 `Config/LitePaste/`。
+当前项目已具备 SwiftPM 可运行入口，并提供本地 `.app` bundle 打包脚本。正式 Xcode target 的配置基线放在 `Config/LitePaste/`。
 
 ## 当前能力
 
@@ -41,6 +41,13 @@ Lite Paste 是一个原生 macOS 剪贴板管理器，目标是提供接近 Past
 swift run LitePaste
 ```
 
+也可以打包成本地可打开的 `.app`：
+
+```bash
+Scripts/build_app_bundle.sh
+open Build/LitePaste.app
+```
+
 核心检查和编译：
 
 ```bash
@@ -50,7 +57,9 @@ swift build
 
 ## 环境说明
 
-当前开发机只有 Command Line Tools，`xcodebuild` 不可用。正式 `.app` target、签名和打包需要完整 Xcode：
+当前开发机只有 Command Line Tools，`xcodebuild` 不可用。仓库内的 `Scripts/build_app_bundle.sh` 会用 SwiftPM release 产物组装本地 `.app` 并进行 ad-hoc 签名，适合本机试用。
+
+正式 Xcode target、Developer ID 签名、公证和发布打包需要完整 Xcode：
 
 ```bash
 sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
@@ -77,6 +86,6 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 
 - 创建并验证完整 Xcode `.app` target。
 - 补 AppIcon、菜单栏 template 图标和发布资源。
-- 收敛可使用版本：完善 `.app` target、图标资源、打包说明和核心体验缺口。
+- 收敛可使用版本：补 AppIcon、菜单栏 template 图标和发布说明。
 - 完善图片、文件和富文本预览细节。
 - 补充真正的单元测试和 UI 测试。
