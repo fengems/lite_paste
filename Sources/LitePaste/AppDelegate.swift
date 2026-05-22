@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var statusItem: NSStatusItem?
   private var statusMenu: NSMenu?
   private var privacyModeMenuItem: NSMenuItem?
+  private var ignoreApplicationMenuItem: NSMenuItem?
   private var monitor: ClipboardMonitor?
   private var writer: PasteboardWriter?
   private var panelCoordinator: PanelCoordinator?
@@ -91,6 +92,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     )
     menu.addItem(privacyModeItem)
     self.privacyModeMenuItem = privacyModeItem
+
+    let ignoreApplicationItem = NSMenuItem(
+      title: "忽略当前应用",
+      action: #selector(ignoreCurrentApplicationFromMenu),
+      keyEquivalent: ""
+    )
+    menu.addItem(ignoreApplicationItem)
+    self.ignoreApplicationMenuItem = ignoreApplicationItem
 
     menu.addItem(
       NSMenuItem(
@@ -218,6 +227,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     updateStatusMenuState()
   }
 
+  @objc private func ignoreCurrentApplicationFromMenu() {
+    guard let application = activeApplicationTracker.lastExternalApplication else {
+      return
+    }
+
+    settingsStore.update { settings in
+      settings.ignoredApps.insert(application.bundleIdentifier)
+    }
+    updateStatusMenuState()
+  }
+
   @objc private func openSettings() {
     NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
     NSApp.activate(ignoringOtherApps: true)
@@ -234,7 +254,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private func updateStatusMenuState() {
     let privacyMode = settingsStore.settings.privacyMode
     privacyModeMenuItem?.state = privacyMode ? .on : .off
+    updateIgnoreApplicationMenuItem()
     statusItem?.button?.toolTip = privacyMode ? "Lite Paste - 私密模式已开启" : "Lite Paste"
+  }
+
+  private func updateIgnoreApplicationMenuItem() {
+    guard let item = ignoreApplicationMenuItem else {
+      return
+    }
+
+    guard let application = activeApplicationTracker.lastExternalApplication else {
+      item.title = "忽略当前应用"
+      item.isEnabled = false
+      item.state = .off
+      return
+    }
+
+    let isIgnored = settingsStore.settings.ignoredApps.contains(application.bundleIdentifier)
+    item.title = isIgnored ? "已忽略 \(application.name)" : "忽略 \(application.name)"
+    item.isEnabled = !isIgnored
+    item.state = isIgnored ? .on : .off
   }
 
   private func pastePinnedRecord(_ recordID: ClipboardRecord.ID) {
