@@ -18,6 +18,7 @@ run() {
 
 cd "${ROOT_DIR}"
 
+run Scripts/verify_metadata.sh
 run swift run LitePasteCoreChecks
 run swift build
 run Scripts/build_app_bundle.sh

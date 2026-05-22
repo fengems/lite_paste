@@ -58,6 +58,7 @@ Scripts/package_release.sh
 核心检查和编译：
 
 ```bash
+Scripts/verify_metadata.sh
 swift run LitePasteCoreChecks
 swift build
 ```

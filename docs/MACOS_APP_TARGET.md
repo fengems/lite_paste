@@ -56,6 +56,8 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 - `Config/LitePaste/Info.plist`
 - `Sources/LitePasteCore/AppMetadata.swift`
 
+发布前可用 `Scripts/verify_metadata.sh` 检查 bundle id、显示名称、版本号、build 号和最低 macOS 版本是否一致。`Scripts/package_release.sh`、`Scripts/sign_notarize_release.sh` 和 `Scripts/verify_release.sh` 都会自动执行该检查。
+
 ## 权限说明
 
 Lite Paste 的自动粘贴依赖 Accessibility 权限。该权限不通过 Info.plist 文案声明，而是在运行时调用系统 API 请求用户授权。

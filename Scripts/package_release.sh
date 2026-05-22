@@ -21,6 +21,8 @@ trap cleanup EXIT
 
 cd "${ROOT_DIR}"
 
+VERSION="${VERSION}" BUILD="${BUILD}" Scripts/verify_metadata.sh
+
 if [[ "${BUILD_APP}" == "1" ]]; then
   Scripts/build_app_bundle.sh
 elif [[ ! -d "${APP_PATH}" ]]; then

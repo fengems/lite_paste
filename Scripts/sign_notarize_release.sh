@@ -53,6 +53,8 @@ require_command xcrun
 
 cd "${ROOT_DIR}"
 
+VERSION="${VERSION}" BUILD="${BUILD}" Scripts/verify_metadata.sh
+
 Scripts/build_app_bundle.sh
 
 codesign \
