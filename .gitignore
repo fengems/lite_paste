@@ -1,0 +1,54 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+
+# Xcode user state
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.moved-aside
+*.xccheckout
+
+# Xcode build products
+DerivedData/
+build/
+Build/
+*.ipa
+*.dSYM
+*.dSYM.zip
+*.app.dSYM/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# CocoaPods / Carthage
+Pods/
+Carthage/Build/
+
+# App signing and secrets
+*.p12
+*.cer
+*.mobileprovision
+*.provisionprofile
+*.entitlements.local
+.env
+.env.*
+!.env.example
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Editor folders
+.vscode/
+.idea/
+*.swp
+*.swo
+
