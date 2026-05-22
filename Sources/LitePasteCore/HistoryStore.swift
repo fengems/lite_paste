@@ -39,6 +39,7 @@ public final class HistoryStore: ObservableObject {
       records[index].sourceAppName = sourceAppName
       let updated = records.remove(at: index)
       records.insert(updated, at: 0)
+      removeExternalFiles(in: payload.contents)
       return updated
     }
 
@@ -106,14 +107,19 @@ public final class HistoryStore: ObservableObject {
   }
 
   public func delete(_ id: ClipboardRecord.ID) {
+    let deleted = records.filter { $0.id == id }
     records.removeAll { $0.id == id }
+    removeExternalFiles(in: deleted)
   }
 
   public func clearUnpinned() {
+    let deleted = records.filter { !$0.isPinned }
     records.removeAll { !$0.isPinned }
+    removeExternalFiles(in: deleted)
   }
 
   public func clearAll() {
+    removeExternalFiles(in: records)
     records.removeAll()
   }
 
@@ -132,7 +138,10 @@ public final class HistoryStore: ObservableObject {
 
     let pinned = records.filter(\.isPinned)
     let regularLimit = max(maxHistoryCount - pinned.count, 0)
-    let regular = records.filter { !$0.isPinned }.prefix(regularLimit)
+    let regularRecords = records.filter { !$0.isPinned }
+    let regular = regularRecords.prefix(regularLimit)
+    let trimmed = regularRecords.dropFirst(regularLimit)
+    removeExternalFiles(in: Array(trimmed))
     records = pinned + regular
   }
 
@@ -158,5 +167,26 @@ public final class HistoryStore: ObservableObject {
     }
 
     return records
+  }
+
+  private func removeExternalFiles(in records: [ClipboardRecord]) {
+    removeExternalFiles(in: records.flatMap(\.contents))
+  }
+
+  private func removeExternalFiles(in snapshots: [ClipboardContentSnapshot]) {
+    let blobsPath = AppPaths.blobsDirectory.standardizedFileURL.path
+
+    for snapshot in snapshots where snapshot.storageMode == .external {
+      guard let externalFilePath = snapshot.externalFilePath else {
+        continue
+      }
+
+      let url = URL(fileURLWithPath: externalFilePath).standardizedFileURL
+      guard url.path.hasPrefix(blobsPath) else {
+        continue
+      }
+
+      try? FileManager.default.removeItem(at: url)
+    }
   }
 }
