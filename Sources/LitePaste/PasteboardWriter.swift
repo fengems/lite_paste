@@ -36,7 +36,7 @@ final class PasteboardWriter {
   }
 
   @discardableResult
-  func paste(_ record: ClipboardRecord) -> PasteActionResult {
+  func paste(_ record: ClipboardRecord, targetApplication: NSRunningApplication?) -> PasteActionResult {
     let copyResult = copy(record)
     guard copyResult == .copied else {
       return copyResult
@@ -47,7 +47,9 @@ final class PasteboardWriter {
       return .accessibilityPermissionRequired
     }
 
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+    targetApplication?.activate(options: [])
+
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
       Self.sendPasteShortcut()
     }
 

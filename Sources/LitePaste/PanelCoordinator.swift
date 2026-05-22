@@ -8,6 +8,7 @@ final class PanelCoordinator {
   private let store: HistoryStore
   private let writer: PasteboardWriter
   private var panel: NSPanel?
+  private var previousApplication: NSRunningApplication?
 
   init(store: HistoryStore, writer: PasteboardWriter) {
     self.store = store
@@ -26,6 +27,7 @@ final class PanelCoordinator {
   func show(relativeTo statusButton: NSStatusBarButton?) {
     let panel = panel ?? makePanel()
     self.panel = panel
+    previousApplication = NSWorkspace.shared.frontmostApplication
 
     if let statusButton, let statusWindow = statusButton.window {
       let buttonFrame = statusButton.convert(statusButton.bounds, to: nil)
@@ -47,8 +49,7 @@ final class PanelCoordinator {
     let rootView = ClipboardPanelView(store: store) { [weak self] record in
       self?.writer.copy(record)
     } pasteAction: { [weak self] record in
-      _ = self?.writer.paste(record)
-      self?.panel?.orderOut(nil)
+      self?.paste(record)
     }
 
     let hostingController = NSHostingController(rootView: rootView)
@@ -72,6 +73,24 @@ final class PanelCoordinator {
     panel.hasShadow = true
 
     return panel
+  }
+
+  private func paste(_ record: ClipboardRecord) {
+    panel?.orderOut(nil)
+    let result = writer.paste(record, targetApplication: previousApplication)
+
+    if result == .accessibilityPermissionRequired {
+      showAccessibilityPermissionAlert()
+    }
+  }
+
+  private func showAccessibilityPermissionAlert() {
+    let alert = NSAlert()
+    alert.messageText = "需要辅助功能权限"
+    alert.informativeText = "Lite Paste 已复制该内容。授予辅助功能权限后，可以自动粘贴到上一个应用。"
+    alert.addButton(withTitle: "好")
+    alert.alertStyle = .informational
+    alert.runModal()
   }
 }
 
