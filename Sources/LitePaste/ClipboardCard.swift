@@ -6,6 +6,8 @@ struct ClipboardCard: View {
   let primaryAction: (ClipboardRecord) -> Void
   let copyAction: (ClipboardRecord) -> Void
   let pasteAction: (ClipboardRecord) -> Void
+  let externalAction: ClipboardExternalAction?
+  let performExternalAction: (ClipboardExternalAction) -> Void
   let toggleFavorite: () -> Void
   let togglePinned: () -> Void
   let deleteAction: () -> Void
@@ -66,6 +68,15 @@ struct ClipboardCard: View {
           copyAction(record)
         }
       )
+      if let externalAction {
+        IconButton(
+          systemName: externalAction.iconName,
+          accessibilityLabel: externalAction.accessibilityLabel,
+          action: {
+            performExternalAction(externalAction)
+          }
+        )
+      }
       IconButton(
         systemName: record.isPinned ? "pin.fill" : "pin",
         accessibilityLabel: "置顶",

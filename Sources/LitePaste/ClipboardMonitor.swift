@@ -123,7 +123,8 @@ final class ClipboardMonitor {
     }
 
     let paths = fileURLs.map(\.path)
-    let title = fileURLs.count == 1 ? fileURLs[0].lastPathComponent : "\(fileURLs.count) 个文件"
+    let names = fileURLs.map(\.lastPathComponent)
+    let title = fileURLs.count == 1 ? names[0] : "\(fileURLs.count) 个文件: \(names.prefix(3).joined(separator: ", "))"
     let text = paths.joined(separator: "\n")
 
     return ClipboardPayload(

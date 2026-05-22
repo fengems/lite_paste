@@ -6,6 +6,7 @@ struct ClipboardPanelView: View {
   let copyAction: (ClipboardRecord) -> Void
   let pasteAction: (ClipboardRecord) -> Void
 
+  @State private var itemActions = ClipboardItemActions()
   @StateObject private var settingsStore = AppSettingsStore()
   @State private var query = ""
   @State private var filter: ClipboardFilter = .all
@@ -94,7 +95,11 @@ struct ClipboardPanelView: View {
             record: record,
             primaryAction: primaryAction,
             copyAction: copyAction,
-            pasteAction: pasteAction
+            pasteAction: pasteAction,
+            externalAction: itemActions.primaryExternalAction(for: record),
+            performExternalAction: {
+              itemActions.perform($0, for: record)
+            }
           ) {
             store.toggleFavorite(record.id)
           } togglePinned: {
@@ -116,7 +121,11 @@ struct ClipboardPanelView: View {
             record: record,
             primaryAction: primaryAction,
             copyAction: copyAction,
-            pasteAction: pasteAction
+            pasteAction: pasteAction,
+            externalAction: itemActions.primaryExternalAction(for: record),
+            performExternalAction: {
+              itemActions.perform($0, for: record)
+            }
           ) {
             store.toggleFavorite(record.id)
           } togglePinned: {
