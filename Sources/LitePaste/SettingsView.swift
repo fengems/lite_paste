@@ -46,6 +46,13 @@ struct SettingsView: View {
           }
         }
       }
+
+      Section("关于") {
+        LabeledContent("应用", value: AppMetadata.displayName)
+        LabeledContent("版本", value: AppMetadata.versionSummary)
+        LabeledContent("Bundle ID", value: AppMetadata.bundleIdentifier)
+        LabeledContent("最低系统", value: "macOS \(AppMetadata.minimumMacOSVersion)+")
+      }
     }
     .padding(24)
     .frame(width: 520)

@@ -476,9 +476,11 @@ v1 完成时应满足：
 
 - App 名称：Lite Paste。
 - Bundle Identifier：`com.fengems.LitePaste`。
+- 初始版本号：`0.1.0 (1)`。
 - 本地开发入口：Swift Package，可通过 `swift run LitePaste` 启动基础原生应用。
 - 后续正式分发入口：完整 Xcode app target，用于签名、打包和权限声明。
 - 当前 Command Line Tools 环境下先使用持久化中立的核心模型；接入完整 Xcode app target 后再启用 SwiftData 持久化模型。
+- 正式 App target 的 Info.plist、entitlements 和接入说明分别维护在 `Config/LitePaste/` 与 `docs/MACOS_APP_TARGET.md`。
 
 首个切片包含：
 
