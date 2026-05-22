@@ -29,6 +29,7 @@ struct SettingsView: View {
         }
 
         Stepper("最大历史数量: \(store.settings.maxHistoryCount)", value: maxHistoryCount, in: 50...10_000, step: 50)
+        Stepper(retentionDaysLabel, value: retentionDays, in: 0...365, step: 1)
 
         VStack(alignment: .leading, spacing: 8) {
           Text("记录类型")
@@ -119,6 +120,22 @@ struct SettingsView: View {
       store.settings.maxHistoryCount
     } set: { value in
       store.update { $0.maxHistoryCount = value }
+    }
+  }
+
+  private var retentionDays: Binding<Int> {
+    Binding {
+      store.settings.retentionDays
+    } set: { value in
+      store.update { $0.retentionDays = value }
+    }
+  }
+
+  private var retentionDaysLabel: String {
+    if store.settings.retentionDays == 0 {
+      "历史保留: 永久"
+    } else {
+      "历史保留: \(store.settings.retentionDays) 天"
     }
   }
 

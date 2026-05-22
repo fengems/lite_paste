@@ -13,19 +13,23 @@ public final class HistoryStore: ObservableObject {
   private let blobStorage: any BlobStorage
   private let queryEngine: ClipboardHistoryQueryEngine
   private var maxHistoryCount: Int
+  private var retentionDays: Int
 
   public init(
     records: [ClipboardRecord]? = nil,
     repository: any ClipboardHistoryRepository = JSONClipboardHistoryRepository(),
     blobStorage: any BlobStorage = LocalBlobStorage(),
     queryEngine: ClipboardHistoryQueryEngine = ClipboardHistoryQueryEngine(),
-    maxHistoryCount: Int = 1_000
+    maxHistoryCount: Int = 1_000,
+    retentionDays: Int = 0
   ) {
     self.repository = repository
     self.blobStorage = blobStorage
     self.queryEngine = queryEngine
     self.maxHistoryCount = maxHistoryCount
+    self.retentionDays = retentionDays
     self.records = records ?? Self.load(from: repository)
+    trimHistoryIfNeeded(now: .now)
   }
 
   @discardableResult
@@ -64,7 +68,7 @@ public final class HistoryStore: ObservableObject {
     )
 
     records.insert(record, at: 0)
-    trimHistoryIfNeeded()
+    trimHistoryIfNeeded(now: now)
     return record
   }
 
@@ -116,6 +120,11 @@ public final class HistoryStore: ObservableObject {
     trimHistoryIfNeeded()
   }
 
+  public func updateRetentionDays(_ retentionDays: Int, now: Date = .now) {
+    self.retentionDays = max(retentionDays, 0)
+    trimHistoryIfNeeded(now: now)
+  }
+
   private func update(_ id: ClipboardRecord.ID, _ mutate: (inout ClipboardRecord) -> Void) {
     guard let index = records.firstIndex(where: { $0.id == id }) else {
       return
@@ -124,7 +133,12 @@ public final class HistoryStore: ObservableObject {
     mutate(&records[index])
   }
 
-  private func trimHistoryIfNeeded() {
+  private func trimHistoryIfNeeded(now: Date = .now) {
+    trimExpiredHistory(now: now)
+    trimOverflowHistory()
+  }
+
+  private func trimOverflowHistory() {
     guard records.count > maxHistoryCount else {
       return
     }
@@ -139,6 +153,25 @@ public final class HistoryStore: ObservableObject {
       ClipboardHistoryQuery(sort: .pinnedThenRecent),
       records: pinned + regular
     )
+  }
+
+  private func trimExpiredHistory(now: Date) {
+    guard retentionDays > 0 else {
+      return
+    }
+
+    let cutoff = Calendar.current.date(byAdding: .day, value: -retentionDays, to: now) ?? now
+    let expired = records.filter { record in
+      !record.isPinned && record.lastCopiedAt < cutoff
+    }
+
+    guard !expired.isEmpty else {
+      return
+    }
+
+    let expiredIds = Set(expired.map(\.id))
+    records.removeAll { expiredIds.contains($0.id) }
+    removeExternalFiles(in: expired)
   }
 
   private func persist() {

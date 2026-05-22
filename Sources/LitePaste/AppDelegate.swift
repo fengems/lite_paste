@@ -5,7 +5,10 @@ import LitePasteCore
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
   let settingsStore = AppSettingsStore.shared
-  lazy var store = HistoryStore(maxHistoryCount: settingsStore.settings.maxHistoryCount)
+  lazy var store = HistoryStore(
+    maxHistoryCount: settingsStore.settings.maxHistoryCount,
+    retentionDays: settingsStore.settings.retentionDays
+  )
 
   private var statusItem: NSStatusItem?
   private var monitor: ClipboardMonitor?
@@ -78,6 +81,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         self?.monitor?.updateEnabledTypes(settings.enabledTypes)
         self?.store.updateMaxHistoryCount(settings.maxHistoryCount)
+        self?.store.updateRetentionDays(settings.retentionDays)
       }
       .store(in: &cancellables)
   }
