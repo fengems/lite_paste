@@ -22,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var hotkeyController: GlobalHotkeyController?
   private var pinnedHotkeyController: PinnedHotkeyController?
   private var registeredPanelHotkey: String?
+  private var isRevertingPanelHotkey = false
   private let clipboardWriteTracker = ClipboardWriteTracker()
   private let launchAtLoginController = LaunchAtLoginController()
   private let activeApplicationTracker = ActiveApplicationTracker.shared
@@ -133,13 +134,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   private func registerPanelHotkey(_ hotkey: String, controller: GlobalHotkeyController? = nil) {
-    let hotkeyController = controller ?? self.hotkeyController
+    guard let hotkeyController = controller ?? self.hotkeyController else {
+      return
+    }
+
     guard registeredPanelHotkey != hotkey else {
       return
     }
 
-    hotkeyController?.register(hotkey: hotkey)
+    let previousHotkey = registeredPanelHotkey
+    let result = hotkeyController.register(hotkey: hotkey)
+    guard result.isRegistered else {
+      let restoredPreviousHotkey = restorePreviousPanelHotkey(previousHotkey, controller: hotkeyController)
+      showPanelHotkeyRegistrationAlert(
+        hotkey: hotkey,
+        result: result,
+        restoredPreviousHotkey: restoredPreviousHotkey
+      )
+      revertPanelHotkeySetting(to: restoredPreviousHotkey ?? AppSettings().hotkey)
+      return
+    }
+
     registeredPanelHotkey = hotkey
+  }
+
+  private func restorePreviousPanelHotkey(
+    _ previousHotkey: String?,
+    controller: GlobalHotkeyController
+  ) -> String? {
+    guard let previousHotkey else {
+      return nil
+    }
+
+    if controller.register(hotkey: previousHotkey).isRegistered {
+      registeredPanelHotkey = previousHotkey
+      return previousHotkey
+    }
+
+    registeredPanelHotkey = nil
+    return nil
+  }
+
+  private func revertPanelHotkeySetting(to hotkey: String) {
+    guard settingsStore.settings.hotkey != hotkey else {
+      return
+    }
+
+    isRevertingPanelHotkey = true
+    settingsStore.update { $0.hotkey = hotkey }
+    isRevertingPanelHotkey = false
   }
 
   private func configurePinnedHotkeys() {
@@ -188,7 +231,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     store.updateMaxHistoryCount(settings.maxHistoryCount)
     store.updateRetentionDays(settings.retentionDays)
     store.updateMoveDuplicatesToTop(settings.moveDuplicatesToTop)
-    registerPanelHotkey(settings.hotkey)
+    if !isRevertingPanelHotkey {
+      registerPanelHotkey(settings.hotkey)
+    }
     launchAtLoginController.sync(with: settings.launchAtLogin)
   }
 
@@ -321,6 +366,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       title: "无法恢复该内容",
       message: "该历史记录引用的文件或媒体数据已经不存在。你可以删除这条记录，或从备份恢复缺失的 Blobs 数据。"
     )
+  }
+
+  private func showPanelHotkeyRegistrationAlert(
+    hotkey: String,
+    result: GlobalHotkeyRegistrationResult,
+    restoredPreviousHotkey: String?
+  ) {
+    let requestedHotkey = PanelHotkeyCatalog.displayName(for: hotkey)
+    let restoredMessage = restoredPreviousHotkey.map {
+      "已恢复为之前可用的快捷键 \(PanelHotkeyCatalog.displayName(for: $0))。"
+    } ?? "当前没有可用的面板快捷键，请在设置中选择其他组合。"
+
+    showAlert(
+      title: "无法注册面板快捷键",
+      message: "\(requestedHotkey) 无法注册。\(panelHotkeyFailureReason(for: result)) \(restoredMessage)"
+    )
+  }
+
+  private func panelHotkeyFailureReason(for result: GlobalHotkeyRegistrationResult) -> String {
+    switch result {
+    case .registered:
+      "快捷键已注册。"
+    case .invalidHotkey:
+      "该快捷键格式无效。"
+    case let .registrationFailed(status):
+      "可能已被其他应用或系统快捷键占用。系统状态码：\(status)。"
+    case let .handlerFailed(status):
+      "快捷键事件监听无法启动。系统状态码：\(status)。"
+    }
   }
 
   private func showAlert(title: String, message: String) {

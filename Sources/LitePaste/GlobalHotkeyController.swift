@@ -24,12 +24,12 @@ final class GlobalHotkeyController {
     }
   }
 
-  func register(hotkey: String) {
+  @discardableResult
+  func register(hotkey: String) -> GlobalHotkeyRegistrationResult {
     unregister()
 
     guard let descriptor = HotkeyDescriptor(hotkey) else {
-      print("Unable to parse Lite Paste global hotkey: \(hotkey)")
-      return
+      return .invalidHotkey
     }
 
     let signature = fourCharacterCode("LTPA")
@@ -45,8 +45,7 @@ final class GlobalHotkeyController {
     )
 
     guard hotKeyStatus == noErr else {
-      print("Unable to register Lite Paste global hotkey: \(hotKeyStatus)")
-      return
+      return .registrationFailed(hotKeyStatus)
     }
 
     var eventSpec = EventTypeSpec(
@@ -78,8 +77,11 @@ final class GlobalHotkeyController {
     )
 
     if handlerStatus != noErr {
-      print("Unable to install Lite Paste hotkey handler: \(handlerStatus)")
+      unregister()
+      return .handlerFailed(handlerStatus)
     }
+
+    return .registered
   }
 
   func registerDefaultHotkey() {
@@ -91,6 +93,17 @@ final class GlobalHotkeyController {
     return string.utf8.reduce(0) { result, character in
       (result << 8) + FourCharCode(character)
     }
+  }
+}
+
+enum GlobalHotkeyRegistrationResult: Equatable {
+  case registered
+  case invalidHotkey
+  case registrationFailed(OSStatus)
+  case handlerFailed(OSStatus)
+
+  var isRegistered: Bool {
+    self == .registered
   }
 }
 
