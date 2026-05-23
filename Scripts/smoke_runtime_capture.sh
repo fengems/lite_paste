@@ -18,6 +18,7 @@ fi
 DATA_DIR="$(mktemp -d "${TMPDIR:-/tmp}/litepaste-runtime-smoke.XXXXXX")"
 APP_LOG="${DATA_DIR}/app.log"
 HISTORY_DB="${DATA_DIR}/history.sqlite3"
+MAX_RSS_KB="${LITEPASTE_RUNTIME_SMOKE_MAX_RSS_KB:-200000}"
 STAMP="$(date +%s)"
 TEXT_VALUE="LitePaste runtime text ${STAMP}"
 URL_VALUE="https://litepaste-smoke.example/${STAMP}"
@@ -220,6 +221,26 @@ wait_for_sql_capture() {
   exit 1
 }
 
+assert_memory_within_limit() {
+  assert_app_running
+
+  local rss_kb
+  rss_kb="$(ps -o rss= -p "${APP_PID}" | tr -d '[:space:]')"
+
+  if [[ -z "${rss_kb}" ]]; then
+    echo "Unable to read Lite Paste RSS during runtime smoke." >&2
+    exit 1
+  fi
+
+  if (( rss_kb > MAX_RSS_KB )); then
+    echo "Lite Paste RSS ${rss_kb} KB exceeded runtime smoke limit ${MAX_RSS_KB} KB." >&2
+    cat "${APP_LOG}" >&2 || true
+    exit 1
+  fi
+
+  echo "Runtime memory smoke passed: RSS ${rss_kb} KB <= ${MAX_RSS_KB} KB."
+}
+
 LITEPASTE_APPLICATION_SUPPORT_DIR="${DATA_DIR}" "${APP_EXECUTABLE}" >"${APP_LOG}" 2>&1 &
 APP_PID="$!"
 
@@ -255,6 +276,7 @@ wait_for_sql_capture \
   "html clipboard content: ${HTML_PLAIN_VALUE}" \
   "select count(*) from clipboard_records where plain_text = '${HTML_PLAIN_VALUE}' and kind = 'html';"
 
+assert_memory_within_limit
 stop_app
 swift run LitePasteRuntimeRestoreChecks \
   "${DATA_DIR}" \

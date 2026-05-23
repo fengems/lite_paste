@@ -51,10 +51,16 @@ codesign --verify --deep --strict --verbose=2 Build/LitePaste.app
 Scripts/package_release.sh
 ```
 
-如需单独排查运行时链路，可执行真实采集和恢复烟测。该脚本会用临时数据目录启动 Lite Paste，写入文本、URL、邮箱、颜色、文件、图片、HTML 和 RTF 到系统剪贴板，确认历史数据库捕获和分类成功，再把历史记录逐条恢复到系统剪贴板验证原格式；脚本结束时会尽量恢复原剪贴板内容：
+如需单独排查运行时链路，可执行真实采集和恢复烟测。该脚本会用临时数据目录启动 Lite Paste，写入文本、URL、邮箱、颜色、文件、图片、HTML 和 RTF 到系统剪贴板，确认历史数据库捕获和分类成功，采样常规 RSS 内存占用，再把历史记录逐条恢复到系统剪贴板验证原格式；脚本结束时会尽量恢复原剪贴板内容：
 
 ```bash
 Scripts/smoke_runtime_capture.sh
+```
+
+默认运行时烟测 RSS 上限为 200 MB，可按需覆盖：
+
+```bash
+LITEPASTE_RUNTIME_SMOKE_MAX_RSS_KB=250000 Scripts/smoke_runtime_capture.sh
 ```
 
 确认 bundle 内容：
