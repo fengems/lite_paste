@@ -72,6 +72,7 @@ wait_for_capture() {
   local value="$1"
   local kind="$2"
 
+  settle_pasteboard
   set_clipboard "text" "${value}"
   wait_for_sql_capture \
     "${kind} clipboard content: ${value}" \
@@ -230,11 +231,13 @@ wait_for_capture "${EMAIL_VALUE}" "email"
 wait_for_capture "${COLOR_VALUE}" "color"
 
 printf '%s' "Lite Paste runtime file" >"${FILE_PATH}"
+settle_pasteboard
 set_clipboard "file" "${FILE_PATH}"
 wait_for_sql_capture \
   "files clipboard content: ${FILE_PATH}" \
   "select count(*) from clipboard_records where plain_text = '${FILE_PATH}' and kind = 'files';"
 
+settle_pasteboard
 set_clipboard "image"
 wait_for_sql_capture \
   "image clipboard content" \

@@ -197,7 +197,9 @@ public final class HistoryStore: ObservableObject {
   }
 
   public func updatePinShortcut(_ id: ClipboardRecord.ID, shortcut: String?) {
-    loadFullHistoryIfNeeded()
+    guard loadFullHistoryIfNeeded() else {
+      return
+    }
 
     guard let targetIndex = records.firstIndex(where: { $0.id == id }) else {
       return
@@ -265,7 +267,10 @@ public final class HistoryStore: ObservableObject {
   }
 
   public func clearUnpinned() {
-    loadFullHistoryIfNeeded()
+    guard loadFullHistoryIfNeeded() else {
+      return
+    }
+
     let deleted = records.filter { !$0.isPinned }
     applyControlledMutation {
       records.removeAll { !$0.isPinned }
@@ -276,7 +281,10 @@ public final class HistoryStore: ObservableObject {
   }
 
   public func clearAll() {
-    loadFullHistoryIfNeeded()
+    guard loadFullHistoryIfNeeded() else {
+      return
+    }
+
     removeExternalFiles(in: records)
     applyControlledMutation {
       records.removeAll()
@@ -330,7 +338,9 @@ public final class HistoryStore: ObservableObject {
       guard loadFullIfNeeded else {
         return
       }
-      loadFullHistoryIfNeeded()
+      guard loadFullHistoryIfNeeded() else {
+        return
+      }
     }
 
     trimExpiredHistory(now: now)
@@ -480,11 +490,14 @@ public final class HistoryStore: ObservableObject {
     NSLog("Unable to persist Lite Paste clipboard history during \(operation): \(error)")
   }
 
-  private func loadFullHistoryIfNeeded() {
+  @discardableResult
+  private func loadFullHistoryIfNeeded() -> Bool {
     do {
       try loadFullHistoryIfNeededThrowing()
+      return true
     } catch {
-      assertionFailure("Unable to load full clipboard history: \(error)")
+      notifyHistoryPersistenceFailed(operation: "读取完整历史", error: error)
+      return false
     }
   }
 
