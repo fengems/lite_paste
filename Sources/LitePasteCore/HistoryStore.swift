@@ -233,6 +233,7 @@ public final class HistoryStore: ObservableObject {
   public func markUsed(_ id: ClipboardRecord.ID, now: Date = .now) {
     update(id) { record in
       record.lastUsedAt = now
+      record.copyCount += 1
     }
   }
 

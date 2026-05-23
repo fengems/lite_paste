@@ -786,6 +786,11 @@ func checkHistoryStore() {
     "Pin shortcut update should pin record and persist shortcut"
   )
 
+  store.markUsed(first.id, now: Date(timeIntervalSince1970: 42))
+  let usedFirst = store.records.first { $0.id == first.id }
+  expect(usedFirst?.lastUsedAt == Date(timeIntervalSince1970: 42), "Marking a record used should update last used time")
+  expect(usedFirst?.copyCount == 3, "Marking a record used should increment copy count for most-used sorting")
+
   let secondShortcut = store.ingest(
     ClipboardPayload(
       kind: .text,
@@ -948,10 +953,9 @@ func checkHistoryStoreIncrementalPersistence() {
   )
   repository.records.append(hidden)
   partialStore.markUsed(hidden.id, now: Date(timeIntervalSince1970: 7))
-  expect(
-    repository.records.first(where: { $0.id == hidden.id })?.lastUsedAt == Date(timeIntervalSince1970: 7),
-    "HistoryStore should update repository records that are not loaded in memory"
-  )
+  let hiddenRecord = repository.records.first { $0.id == hidden.id }
+  expect(hiddenRecord?.lastUsedAt == Date(timeIntervalSince1970: 7), "HistoryStore should update repository records that are not loaded in memory")
+  expect(hiddenRecord?.copyCount == 2, "HistoryStore should increment hidden repository record copy count when marked used")
 }
 
 @MainActor
