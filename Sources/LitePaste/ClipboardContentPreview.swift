@@ -1,5 +1,6 @@
 import AppKit
 import LitePasteCore
+import QuickLookThumbnailing
 import SwiftUI
 
 enum ClipboardPreviewStyle {
@@ -29,7 +30,7 @@ struct ClipboardContentPreview: View {
   @ViewBuilder
   private var imagePreview: some View {
     if let path = record.previewFilePath {
-      ClipboardPreviewImage(path: path)
+      ClipboardPreviewImage(path: path, style: style)
     } else {
       FallbackClipboardPreview(record: record, style: style)
     }
@@ -48,13 +49,13 @@ private struct FileClipboardPreview: View {
       VStack(alignment: .leading, spacing: 10) {
         HStack(spacing: -6) {
           ForEach(Array(items.prefix(3).enumerated()), id: \.offset) { _, item in
-            fileIcon(for: item)
+            fileIcon(for: item, size: 40)
           }
 
           if items.count > 3 {
             Text("+\(items.count - 3)")
               .font(.system(size: 12, weight: .semibold))
-              .frame(width: 34, height: 34)
+              .frame(width: 40, height: 40)
               .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
           }
         }
@@ -66,6 +67,13 @@ private struct FileClipboardPreview: View {
             .font(.system(size: 12))
             .foregroundStyle(.secondary)
             .lineLimit(2)
+
+          if let metadata = fileMetadataText(for: items) {
+            Text(metadata)
+              .font(.system(size: 11))
+              .foregroundStyle(.tertiary)
+              .lineLimit(1)
+          }
         }
 
         Spacer(minLength: 0)
@@ -74,7 +82,7 @@ private struct FileClipboardPreview: View {
 
     case .thumbnail:
       if let firstItem = items.first {
-        fileIcon(for: firstItem)
+        fileIcon(for: firstItem, size: 34)
           .padding(2)
       } else {
         FallbackClipboardPreview(record: record, style: style)
@@ -82,12 +90,8 @@ private struct FileClipboardPreview: View {
     }
   }
 
-  private func fileIcon(for item: FilePreviewItem) -> some View {
-    Image(nsImage: NSWorkspace.shared.icon(forFile: item.url.path))
-      .resizable()
-      .scaledToFit()
-      .frame(width: 34, height: 34)
-      .padding(4)
+  private func fileIcon(for item: FilePreviewItem, size: CGFloat) -> some View {
+    FileThumbnailPreview(item: item, size: size)
       .opacity(item.exists ? 1 : 0.46)
       .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
       .overlay(alignment: .bottomTrailing) {
@@ -135,15 +139,97 @@ private struct FileClipboardPreview: View {
       .joined(separator: ", ")
     return names.isEmpty ? record.title : names
   }
+
+  private func fileMetadataText(for items: [FilePreviewItem]) -> String? {
+    guard let firstExisting = items.first(where: \.exists) else {
+      return nil
+    }
+
+    var parts: [String] = []
+    if let typeDescription = firstExisting.typeDescription {
+      parts.append(typeDescription)
+    }
+    if let byteSize = firstExisting.byteSize {
+      parts.append(ByteCountFormatter.string(fromByteCount: byteSize, countStyle: .file))
+    }
+
+    return parts.isEmpty ? nil : parts.joined(separator: " · ")
+  }
 }
 
 private struct FilePreviewItem {
   let url: URL
   let exists: Bool
+  let isDirectory: Bool
+  let typeDescription: String?
+  let byteSize: Int64?
 
   init(url: URL) {
     self.url = url
-    exists = FileManager.default.fileExists(atPath: url.path)
+    var isDirectoryValue: ObjCBool = false
+    exists = FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectoryValue)
+    isDirectory = isDirectoryValue.boolValue
+
+    let resourceValues = try? url.resourceValues(forKeys: [
+      .localizedTypeDescriptionKey,
+      .fileSizeKey,
+      .totalFileSizeKey
+    ])
+    typeDescription = resourceValues?.localizedTypeDescription
+    byteSize = Int64(resourceValues?.totalFileSize ?? resourceValues?.fileSize ?? 0)
+  }
+}
+
+private struct FileThumbnailPreview: View {
+  let item: FilePreviewItem
+  let size: CGFloat
+  @State private var thumbnail: NSImage?
+
+  var body: some View {
+    ZStack {
+      if let thumbnail {
+        Image(nsImage: thumbnail)
+          .resizable()
+          .scaledToFill()
+      } else {
+        Image(nsImage: NSWorkspace.shared.icon(forFile: item.url.path))
+          .resizable()
+          .scaledToFit()
+          .padding(size * 0.14)
+      }
+    }
+    .frame(width: size, height: size)
+    .clipShape(RoundedRectangle(cornerRadius: 8))
+    .overlay(alignment: .bottomLeading) {
+      if item.isDirectory {
+        Image(systemName: "folder.fill")
+          .font(.system(size: max(9, size * 0.24), weight: .semibold))
+          .foregroundStyle(.blue)
+          .padding(3)
+      }
+    }
+    .task(id: item.url.path) {
+      thumbnail = await loadThumbnail(for: item.url, size: size)
+    }
+  }
+
+  private func loadThumbnail(for url: URL, size: CGFloat) async -> NSImage? {
+    guard item.exists else {
+      return nil
+    }
+
+    let request = QLThumbnailGenerator.Request(
+      fileAt: url,
+      size: CGSize(width: size * 2, height: size * 2),
+      scale: NSScreen.main?.backingScaleFactor ?? 2,
+      representationTypes: [.thumbnail, .icon]
+    )
+
+    return await withCheckedContinuation { continuation in
+      QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { representation, _ in
+        continuation.resume(returning: representation?.nsImage)
+      }
+    }
   }
 }
 
@@ -192,15 +278,31 @@ private struct RichClipboardPreview: View {
   var body: some View {
     switch style {
     case .card:
-      VStack(alignment: .leading, spacing: 8) {
-        Label(record.kind.displayName, systemImage: record.kind.previewIconName)
-          .font(.system(size: 12, weight: .semibold))
-          .foregroundStyle(.secondary)
+      VStack(alignment: .leading, spacing: 7) {
+        HStack(spacing: 6) {
+          Label(record.kind.displayName, systemImage: record.kind.previewIconName)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(.secondary)
+
+          Spacer(minLength: 0)
+
+          if richAttributedStringFromSnapshots() == nil {
+            Image(systemName: "exclamationmark.circle.fill")
+              .font(.system(size: 12, weight: .semibold))
+              .foregroundStyle(.orange)
+          }
+        }
 
         Text(previewAttributedText)
-          .font(.system(size: 14))
+          .font(.system(size: 13))
           .lineLimit(4)
-          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(9)
+          .frame(maxWidth: .infinity, alignment: .topLeading)
+          .background(Color(nsColor: .textBackgroundColor).opacity(0.72), in: RoundedRectangle(cornerRadius: 7))
+          .overlay(
+            RoundedRectangle(cornerRadius: 7)
+              .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+          )
 
         Spacer(minLength: 0)
       }
