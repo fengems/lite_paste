@@ -26,11 +26,26 @@ EMAIL_VALUE="litepaste-smoke-${STAMP}@example.com"
 COLOR_VALUE="#A1B2C3"
 PRIVACY_VALUE="LitePaste privacy smoke ${STAMP}"
 DISABLED_TEXT_VALUE="LitePaste disabled text smoke ${STAMP}"
+IGNORED_APP_VALUE="LitePaste ignored app smoke ${STAMP}"
 FILE_PATH="${DATA_DIR}/LitePaste Runtime File ${STAMP}.txt"
 HTML_PLAIN_VALUE="LitePaste runtime html ${STAMP}"
 RTF_PLAIN_VALUE="LitePaste runtime rtf ${STAMP}"
 CLIPBOARD_SNAPSHOT="${DATA_DIR}/clipboard-snapshot.json"
 APP_PID=""
+IGNORED_APP_BUNDLE_IDS_JSON=""
+
+running_app_bundle_ids_json() {
+  swift - <<'SWIFT'
+import AppKit
+import Foundation
+
+let bundleIDs = NSWorkspace.shared.runningApplications
+  .compactMap(\.bundleIdentifier)
+  .filter { !$0.isEmpty }
+let data = try JSONSerialization.data(withJSONObject: Array(Set(bundleIDs)).sorted())
+print(String(data: data, encoding: .utf8) ?? "[]")
+SWIFT
+}
 
 cleanup() {
   stop_app
@@ -87,6 +102,17 @@ write_enabled_types_setting() {
   cat >"${DATA_DIR}/settings.json" <<JSON
 {
   "enabledTypes" : ${types_json},
+  "privacyMode" : false
+}
+JSON
+}
+
+write_ignored_apps_setting() {
+  IGNORED_APP_BUNDLE_IDS_JSON="$(running_app_bundle_ids_json)"
+
+  cat >"${DATA_DIR}/settings.json" <<JSON
+{
+  "ignoredApps" : ${IGNORED_APP_BUNDLE_IDS_JSON},
   "privacyMode" : false
 }
 JSON
@@ -153,6 +179,38 @@ assert_text_type_disabled_blocks_capture() {
         echo "Lite Paste captured disabled text content while only image capture was enabled." >&2
         sqlite3 -cmd ".timeout 5000" "${HISTORY_DB}" \
           "select kind, title, plain_text from clipboard_records order by last_copied_at desc limit 10;" >&2 || true
+        cat "${APP_LOG}" >&2 || true
+        exit 1
+      fi
+    fi
+  done
+}
+
+assert_ignored_app_blocks_capture() {
+  if [[ "${IGNORED_APP_BUNDLE_IDS_JSON}" == "[]" ]]; then
+    echo "Unable to determine running app bundle ids for ignored-app runtime smoke." >&2
+    exit 1
+  fi
+
+  settle_pasteboard
+  set_clipboard "text" "${IGNORED_APP_VALUE}"
+
+  for _ in {1..12}; do
+    assert_app_running
+    sleep 0.25
+
+    if [[ -f "${HISTORY_DB}" ]]; then
+      local match_count
+      match_count="$(
+        sqlite3 -cmd ".timeout 5000" "${HISTORY_DB}" \
+          "select count(*) from clipboard_records where plain_text = '${IGNORED_APP_VALUE}';" 2>/dev/null || printf '0'
+      )"
+
+      if [[ "${match_count}" != "0" ]]; then
+        echo "Lite Paste captured content from an ignored running app." >&2
+        sqlite3 -cmd ".timeout 5000" "${HISTORY_DB}" \
+          "select kind, title, source_app_bundle_id, plain_text from clipboard_records order by last_copied_at desc limit 10;" >&2 || true
+        echo "Ignored bundle ids: ${IGNORED_APP_BUNDLE_IDS_JSON}" >&2
         cat "${APP_LOG}" >&2 || true
         exit 1
       fi
@@ -357,11 +415,18 @@ wait_for_history_db
 assert_text_type_disabled_blocks_capture
 stop_app
 
+write_ignored_apps_setting
+start_app
+wait_for_history_db
+assert_ignored_app_blocks_capture
+stop_app
+
 write_enabled_types_setting '["text","richText","html","image","files","url","email","color","unknown"]'
 start_app
 wait_for_history_db
 assert_not_captured "${PRIVACY_VALUE}" "privacy-mode smoke content"
 assert_not_captured "${DISABLED_TEXT_VALUE}" "disabled-type smoke content"
+assert_not_captured "${IGNORED_APP_VALUE}" "ignored-app smoke content"
 wait_for_capture "${TEXT_VALUE}" "text"
 wait_for_capture "${URL_VALUE}" "url"
 wait_for_capture "${EMAIL_VALUE}" "email"
