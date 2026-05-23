@@ -188,6 +188,12 @@ struct SettingsView: View {
     .onAppear {
       refreshStatus()
     }
+    .onReceive(NotificationCenter.default.publisher(for: .litePasteHistoryChanged)) { _ in
+      refreshHistoryStatus()
+    }
+    .onReceive(NotificationCenter.default.publisher(for: .litePasteBackupImported)) { _ in
+      refreshStatus()
+    }
   }
 
   private var launchAtLogin: Binding<Bool> {

@@ -300,6 +300,7 @@ public final class HistoryStore: ObservableObject {
       isLoadedPartially = false
     }
     trimHistoryIfNeeded(now: now, loadFullIfNeeded: false)
+    notifyHistoryChanged()
   }
 
   private func update(_ id: ClipboardRecord.ID, _ mutate: (inout ClipboardRecord) -> Void) {
@@ -403,6 +404,7 @@ public final class HistoryStore: ObservableObject {
 
     do {
       try repository.upsert(record, position: position)
+      notifyHistoryChanged()
     } catch {
       assertionFailure("Unable to upsert clipboard history: \(error)")
     }
@@ -416,6 +418,7 @@ public final class HistoryStore: ObservableObject {
 
     do {
       try repository.delete(id: id)
+      notifyHistoryChanged()
     } catch {
       assertionFailure("Unable to delete clipboard history: \(error)")
     }
@@ -429,6 +432,7 @@ public final class HistoryStore: ObservableObject {
 
     do {
       try repository.deleteAll()
+      notifyHistoryChanged()
     } catch {
       assertionFailure("Unable to clear clipboard history: \(error)")
     }
@@ -440,9 +444,14 @@ public final class HistoryStore: ObservableObject {
         try loadFullHistoryIfNeededThrowing()
       }
       try repository.save(records)
+      notifyHistoryChanged()
     } catch {
       assertionFailure("Unable to save clipboard history: \(error)")
     }
+  }
+
+  private func notifyHistoryChanged() {
+    NotificationCenter.default.post(name: .litePasteHistoryChanged, object: nil)
   }
 
   private func loadFullHistoryIfNeeded() {

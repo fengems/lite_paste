@@ -13,6 +13,7 @@ func runChecks() {
   checkClipboardPayloadResolver()
   checkClipboardCaptureGate()
   checkHistoryStore()
+  checkHistoryChangeNotifications()
   checkHistoryStoreIncrementalPersistence()
   checkHistoryStorePagedQueries()
   checkHistoryStorePartialInitialLoad()
@@ -32,6 +33,39 @@ func runChecks() {
   checkImportExportRoundTrip()
   checkLocalBlobStorage()
   print("LitePasteCoreChecks passed")
+}
+
+@MainActor
+func checkHistoryChangeNotifications() {
+  let store = HistoryStore(records: [], repository: InMemoryClipboardHistoryRepository())
+  let counter = NotificationCounter()
+  let observer = NotificationCenter.default.addObserver(
+    forName: .litePasteHistoryChanged,
+    object: nil,
+    queue: nil
+  ) { _ in
+    counter.count += 1
+  }
+  defer {
+    NotificationCenter.default.removeObserver(observer)
+  }
+
+  let payload = ClipboardPayload(
+    kind: .text,
+    title: "notify",
+    searchText: "notify",
+    plainText: "notify",
+    pasteboardTypes: ["public.utf8-plain-text"]
+  )
+  let record = store.ingest(payload, sourceAppBundleId: nil, sourceAppName: nil)
+  store.markUsed(record.id)
+  store.delete(record.id)
+
+  expect(counter.count >= 3, "HistoryStore should post change notifications for status refreshes")
+}
+
+final class NotificationCounter: @unchecked Sendable {
+  var count = 0
 }
 
 func checkAppSettingsBackwardCompatibility() {
