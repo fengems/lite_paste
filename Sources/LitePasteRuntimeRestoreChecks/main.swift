@@ -119,16 +119,14 @@ private final class RuntimeRestoreChecker {
     case let .fileURLs(urls):
       restored = pasteboard.writeObjects(urls as [NSURL])
     case let .items(items):
-      for item in items {
+      restored = items.allSatisfy { item in
         pasteboard.setData(
           item.data,
           forType: NSPasteboard.PasteboardType(item.pasteboardType)
         )
       }
-      restored = true
     case let .plainText(text):
-      pasteboard.setString(text, forType: .string)
-      restored = true
+      restored = pasteboard.setString(text, forType: .string)
     }
 
     expect(restored, "Expected pasteboard restore to succeed")

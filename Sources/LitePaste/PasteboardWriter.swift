@@ -99,14 +99,12 @@ final class PasteboardWriter {
     case let .fileURLs(urls):
       restored = pasteboard.writeObjects(urls as [NSURL])
     case let .items(items):
-      for item in items {
+      restored = items.allSatisfy { item in
         let type = NSPasteboard.PasteboardType(item.pasteboardType)
-        pasteboard.setData(item.data, forType: type)
+        return pasteboard.setData(item.data, forType: type)
       }
-      restored = true
     case let .plainText(text):
-      pasteboard.setString(text, forType: .string)
-      restored = true
+      restored = pasteboard.setString(text, forType: .string)
     }
 
     if restored {

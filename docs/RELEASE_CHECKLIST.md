@@ -38,19 +38,20 @@ VERSION=0.1.0 BUILD=1 Scripts/package_release.sh
 Scripts/verify_release.sh
 ```
 
-该脚本会依次执行核心检查、debug 编译、本地 `.app` 打包、Info.plist 校验、codesign 校验、zip/DMG 打包、DMG 校验和 SHA-256 校验。需要拆开排查时，可单独运行：
+该脚本会依次执行核心检查、debug 编译、本地 `.app` 打包、运行时采集和恢复烟测、Info.plist 校验、codesign 校验、zip/DMG 打包、DMG 校验和 SHA-256 校验。需要拆开排查时，可单独运行：
 
 ```bash
 Scripts/verify_metadata.sh
 swift run LitePasteCoreChecks
 swift build
 Scripts/build_app_bundle.sh
+Scripts/smoke_runtime_capture.sh
 plutil -lint Build/LitePaste.app/Contents/Info.plist
 codesign --verify --deep --strict --verbose=2 Build/LitePaste.app
 Scripts/package_release.sh
 ```
 
-完成 `.app` 构建后，可额外执行一次真实运行时采集和恢复烟测。该脚本会用临时数据目录启动 Lite Paste，写入文本、URL、邮箱、颜色、文件、图片、HTML 和 RTF 到系统剪贴板，确认历史数据库捕获和分类成功，再把历史记录逐条恢复到系统剪贴板验证原格式；脚本结束时会尽量恢复原剪贴板内容：
+如需单独排查运行时链路，可执行真实采集和恢复烟测。该脚本会用临时数据目录启动 Lite Paste，写入文本、URL、邮箱、颜色、文件、图片、HTML 和 RTF 到系统剪贴板，确认历史数据库捕获和分类成功，再把历史记录逐条恢复到系统剪贴板验证原格式；脚本结束时会尽量恢复原剪贴板内容：
 
 ```bash
 Scripts/smoke_runtime_capture.sh

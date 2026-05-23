@@ -26,6 +26,7 @@ run Scripts/verify_metadata.sh
 run swift run LitePasteCoreChecks
 run swift build
 run Scripts/build_app_bundle.sh
+run Scripts/smoke_runtime_capture.sh
 run plutil -lint "${APP_PATH}/Contents/Info.plist"
 run codesign --verify --deep --strict --verbose=2 "${APP_PATH}"
 run Scripts/package_release.sh
