@@ -50,6 +50,12 @@ codesign --verify --deep --strict --verbose=2 Build/LitePaste.app
 Scripts/package_release.sh
 ```
 
+完成 `.app` 构建后，可额外执行一次真实运行时采集烟测。该脚本会用临时数据目录启动 Lite Paste，写入一段唯一文本到系统剪贴板，并确认历史数据库捕获成功：
+
+```bash
+Scripts/smoke_runtime_capture.sh
+```
+
 确认 bundle 内容：
 
 ```bash
@@ -85,6 +91,13 @@ Scripts/sign_notarize_release.sh
 
 ```bash
 open Build/LitePaste.app
+```
+
+如需不污染当前用户数据，可用临时数据目录直接启动可执行文件：
+
+```bash
+LITEPASTE_APPLICATION_SUPPORT_DIR="$(mktemp -d)" \
+  Build/LitePaste.app/Contents/MacOS/LitePaste
 ```
 
 2. 确认菜单栏出现 Lite Paste 图标。

@@ -40,12 +40,28 @@ public struct AppStoragePaths: Sendable {
 }
 
 public enum AppPaths {
+  public static let applicationSupportDirectoryOverrideEnvironmentKey = "LITEPASTE_APPLICATION_SUPPORT_DIR"
+
   public static var storagePaths: AppStoragePaths {
     AppStoragePaths(applicationSupportDirectory: applicationSupportDirectory)
   }
 
   public static var applicationSupportDirectory: URL {
-    FileManager.default
+    applicationSupportDirectory(environment: ProcessInfo.processInfo.environment)
+  }
+
+  public static func applicationSupportDirectory(environment: [String: String]) -> URL {
+    if let override = environment[applicationSupportDirectoryOverrideEnvironmentKey]?
+      .trimmingCharacters(in: .whitespacesAndNewlines),
+      !override.isEmpty {
+      return URL(
+        fileURLWithPath: (override as NSString).expandingTildeInPath,
+        isDirectory: true
+      )
+      .standardizedFileURL
+    }
+
+    return FileManager.default
       .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
       .appending(path: "LitePaste", directoryHint: .isDirectory)
   }

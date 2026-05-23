@@ -4,6 +4,7 @@ import LitePasteCore
 @MainActor
 func runChecks() {
   checkContentHasher()
+  checkAppPathsEnvironmentOverride()
   checkAppSettingsBackwardCompatibility()
   checkAppSettingsStoreNormalization()
   checkAppSettingsStoreSaveFailureNotification()
@@ -35,6 +36,23 @@ func runChecks() {
   checkImportExportRoundTrip()
   checkLocalBlobStorage()
   print("LitePasteCoreChecks passed")
+}
+
+func checkAppPathsEnvironmentOverride() {
+  let override = "/tmp/LitePaste Isolated Data"
+  let overriddenURL = AppPaths.applicationSupportDirectory(
+    environment: [AppPaths.applicationSupportDirectoryOverrideEnvironmentKey: override]
+  )
+  expect(
+    overriddenURL.path == override,
+    "AppPaths should honor isolated application support directory overrides"
+  )
+
+  let defaultURL = AppPaths.applicationSupportDirectory(environment: [:])
+  expect(
+    defaultURL.lastPathComponent == "LitePaste",
+    "AppPaths should default to the LitePaste application support directory"
+  )
 }
 
 @MainActor
