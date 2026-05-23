@@ -25,6 +25,7 @@ URL_VALUE="https://litepaste-smoke.example/${STAMP}"
 EMAIL_VALUE="litepaste-smoke-${STAMP}@example.com"
 COLOR_VALUE="#A1B2C3"
 PRIVACY_VALUE="LitePaste privacy smoke ${STAMP}"
+DISABLED_TEXT_VALUE="LitePaste disabled text smoke ${STAMP}"
 FILE_PATH="${DATA_DIR}/LitePaste Runtime File ${STAMP}.txt"
 HTML_PLAIN_VALUE="LitePaste runtime html ${STAMP}"
 RTF_PLAIN_VALUE="LitePaste runtime rtf ${STAMP}"
@@ -80,6 +81,17 @@ write_privacy_mode_setting() {
 JSON
 }
 
+write_enabled_types_setting() {
+  local types_json="$1"
+
+  cat >"${DATA_DIR}/settings.json" <<JSON
+{
+  "enabledTypes" : ${types_json},
+  "privacyMode" : false
+}
+JSON
+}
+
 start_app() {
   LITEPASTE_APPLICATION_SUPPORT_DIR="${DATA_DIR}" "${APP_EXECUTABLE}" >"${APP_LOG}" 2>&1 &
   APP_PID="$!"
@@ -120,6 +132,55 @@ assert_privacy_mode_blocks_capture() {
       fi
     fi
   done
+}
+
+assert_text_type_disabled_blocks_capture() {
+  settle_pasteboard
+  set_clipboard "text" "${DISABLED_TEXT_VALUE}"
+
+  for _ in {1..12}; do
+    assert_app_running
+    sleep 0.25
+
+    if [[ -f "${HISTORY_DB}" ]]; then
+      local match_count
+      match_count="$(
+        sqlite3 -cmd ".timeout 5000" "${HISTORY_DB}" \
+          "select count(*) from clipboard_records where plain_text = '${DISABLED_TEXT_VALUE}';" 2>/dev/null || printf '0'
+      )"
+
+      if [[ "${match_count}" != "0" ]]; then
+        echo "Lite Paste captured disabled text content while only image capture was enabled." >&2
+        sqlite3 -cmd ".timeout 5000" "${HISTORY_DB}" \
+          "select kind, title, plain_text from clipboard_records order by last_copied_at desc limit 10;" >&2 || true
+        cat "${APP_LOG}" >&2 || true
+        exit 1
+      fi
+    fi
+  done
+}
+
+assert_not_captured() {
+  local value="$1"
+  local description="$2"
+
+  if [[ ! -f "${HISTORY_DB}" ]]; then
+    return
+  fi
+
+  local match_count
+  match_count="$(
+    sqlite3 -cmd ".timeout 5000" "${HISTORY_DB}" \
+      "select count(*) from clipboard_records where plain_text = '${value}';" 2>/dev/null || printf '0'
+  )"
+
+  if [[ "${match_count}" != "0" ]]; then
+    echo "Lite Paste unexpectedly captured ${description}." >&2
+    sqlite3 -cmd ".timeout 5000" "${HISTORY_DB}" \
+      "select kind, title, plain_text from clipboard_records order by last_copied_at desc limit 10;" >&2 || true
+    cat "${APP_LOG}" >&2 || true
+    exit 1
+  fi
 }
 
 run_clipboard_helper() {
@@ -290,9 +351,17 @@ wait_for_history_db
 assert_privacy_mode_blocks_capture
 stop_app
 
-write_privacy_mode_setting false
+write_enabled_types_setting '["image"]'
 start_app
 wait_for_history_db
+assert_text_type_disabled_blocks_capture
+stop_app
+
+write_enabled_types_setting '["text","richText","html","image","files","url","email","color","unknown"]'
+start_app
+wait_for_history_db
+assert_not_captured "${PRIVACY_VALUE}" "privacy-mode smoke content"
+assert_not_captured "${DISABLED_TEXT_VALUE}" "disabled-type smoke content"
 wait_for_capture "${TEXT_VALUE}" "text"
 wait_for_capture "${URL_VALUE}" "url"
 wait_for_capture "${EMAIL_VALUE}" "email"
