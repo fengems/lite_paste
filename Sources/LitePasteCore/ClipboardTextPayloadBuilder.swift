@@ -67,10 +67,17 @@ public struct ClipboardTextPayloadBuilder: Sendable {
     guard let url = URL(string: text),
           let scheme = url.scheme?.lowercased(),
           !scheme.isEmpty else {
-      return false
+      return isBareWebURL(text)
     }
 
     return true
+  }
+
+  private func isBareWebURL(_ text: String) -> Bool {
+    text.range(
+      of: #"^(?:www\.)?[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+(?:[/:?#][^\s]*)?$"#,
+      options: [.regularExpression, .caseInsensitive]
+    ) != nil
   }
 
   private func isEmail(_ text: String) -> Bool {

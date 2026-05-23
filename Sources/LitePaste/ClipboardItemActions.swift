@@ -34,13 +34,25 @@ final class ClipboardItemActions {
 
   private func openURL(_ record: ClipboardRecord) -> ClipboardExternalActionResult {
     guard let value = record.plainText?.trimmingCharacters(in: .whitespacesAndNewlines),
-          let url = URL(string: value) else {
+          let url = normalizedURL(from: value) else {
       return .failed(title: "无法打开链接", message: "这条历史记录没有可用的 URL。")
     }
 
     return NSWorkspace.shared.open(url)
       ? .completed
       : .failed(title: "无法打开链接", message: "系统无法打开：\(value)")
+  }
+
+  private func normalizedURL(from value: String) -> URL? {
+    guard let directURL = URL(string: value) else {
+      return nil
+    }
+
+    if directURL.scheme != nil {
+      return directURL
+    }
+
+    return URL(string: "https://\(value)")
   }
 
   private func composeEmail(_ record: ClipboardRecord) -> ClipboardExternalActionResult {

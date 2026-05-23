@@ -424,8 +424,11 @@ func checkClipboardTextPayloadBuilder() {
   expect(builder.classify("https://example.com/docs") == .url, "Text payload builder should classify HTTPS URLs")
   expect(builder.classify("file:///tmp/report.pdf") == .url, "Text payload builder should classify file URLs")
   expect(builder.classify("raycast://extensions") == .url, "Text payload builder should classify custom URL schemes")
+  expect(builder.classify("example.com/docs") == .url, "Text payload builder should classify bare domains")
+  expect(builder.classify("www.example.com?q=1") == .url, "Text payload builder should classify www bare domains")
   expect(builder.classify("hello@example.com") == .email, "Text payload builder should classify email addresses")
   expect(builder.classify("#FF00AA") == .color, "Text payload builder should classify hex colors")
+  expect(builder.classify("release notes v1.2") == .text, "Text payload builder should not classify dotted prose as URLs")
 
   let longText = String(repeating: "a", count: ClipboardTextPayloadBuilder.maxTitleLength + 20)
   expect(
