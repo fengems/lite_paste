@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Foundation
 import LitePasteCore
 import SwiftUI
@@ -11,10 +12,12 @@ final class PanelCoordinator {
   private let presentationState = PanelPresentationState()
   private var panel: NSPanel?
   private var previousApplication: NSRunningApplication?
+  private var cancellables = Set<AnyCancellable>()
 
   init(store: HistoryStore, writer: PasteboardWriter) {
     self.store = store
     self.writer = writer
+    observeAppDeactivation()
   }
 
   func toggle(relativeTo statusButton: NSStatusBarButton?) {
@@ -87,6 +90,16 @@ final class PanelCoordinator {
     return panel
   }
 
+  private func observeAppDeactivation() {
+    NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)
+      .sink { [weak self] _ in
+        Task { @MainActor in
+          self?.hidePanel()
+        }
+      }
+      .store(in: &cancellables)
+  }
+
   private func position(_ panel: NSPanel, relativeTo statusButton: NSStatusBarButton?) {
     switch settingsStore.settings.panelPosition {
     case .statusItem:
@@ -138,11 +151,11 @@ final class PanelCoordinator {
       break
     case .pasted:
       if closesPanelOnSuccess {
-        panel?.orderOut(nil)
+        hidePanel()
       }
     case .accessibilityPermissionRequired:
       if closesPanelOnSuccess {
-        panel?.orderOut(nil)
+        hidePanel()
       }
       showAccessibilityPermissionAlert()
     case .missingContent:
@@ -170,6 +183,10 @@ final class PanelCoordinator {
     alert.addButton(withTitle: "好")
     alert.alertStyle = .warning
     alert.runModal()
+  }
+
+  private func hidePanel() {
+    panel?.orderOut(nil)
   }
 }
 
