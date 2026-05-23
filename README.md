@@ -52,6 +52,19 @@ Scripts/build_app_bundle.sh
 open Build/LitePaste.app
 ```
 
+人工验收前建议使用预检脚本。该脚本会验证 metadata、确认 Xcode 能构建 SwiftPM scheme、运行核心检查、生成本地 `.app`，并验证 Info.plist 和签名：
+
+```bash
+Scripts/prepare_manual_check.sh
+open Build/LitePaste.app
+```
+
+如需把真实剪贴板采集/恢复烟测也纳入人工验收准备：
+
+```bash
+Scripts/prepare_manual_check.sh --with-smoke
+```
+
 生成本地试用 zip 和 DMG 包，版本号默认读取 `Config/LitePaste/Info.plist`：
 
 ```bash
@@ -82,12 +95,13 @@ Scripts/verify_release.sh
 
 ## 环境说明
 
-当前开发机只有 Command Line Tools，`xcodebuild` 和 XCTest/Swift Testing 模块不可用。仓库内的 `Scripts/build_app_bundle.sh` 会用 SwiftPM release 产物组装本地 `.app` 并进行 ad-hoc 签名，适合本机试用。
+当前开发机已安装完整 Xcode，`xcodebuild` 可构建 SwiftPM scheme。仓库内的 `Scripts/build_app_bundle.sh` 会用 SwiftPM release 产物组装本地 `.app` 并进行 ad-hoc 签名，适合本机试用。
 
-正式 Xcode target、Developer ID 签名、公证和发布打包需要完整 Xcode：
+如需确认 Xcode 命令行环境：
 
 ```bash
-sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+xcode-select -p
+xcodebuild -version
 ```
 
 正式 App target 接入说明见：

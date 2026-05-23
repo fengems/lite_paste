@@ -38,10 +38,23 @@ VERSION=0.1.0 BUILD=1 Scripts/package_release.sh
 Scripts/verify_release.sh
 ```
 
-该脚本会依次执行核心检查、debug 编译、本地 `.app` 打包、运行时采集和恢复烟测、Info.plist 校验、codesign 校验、zip/DMG 打包、DMG 校验和 SHA-256 校验。需要拆开排查时，可单独运行：
+准备给人工验收的本地 `.app` 时，可先运行：
+
+```bash
+Scripts/prepare_manual_check.sh
+```
+
+如需把真实剪贴板采集/恢复烟测也纳入人工验收准备：
+
+```bash
+Scripts/prepare_manual_check.sh --with-smoke
+```
+
+`Scripts/verify_release.sh` 会依次执行核心检查、debug 编译、本地 `.app` 打包、运行时采集和恢复烟测、Info.plist 校验、codesign 校验、zip/DMG 打包、DMG 校验和 SHA-256 校验。需要拆开排查时，可单独运行：
 
 ```bash
 Scripts/verify_metadata.sh
+xcodebuild -scheme LitePaste -destination 'platform=macOS' -configuration Debug build
 swift run LitePasteCoreChecks
 swift build
 Scripts/build_app_bundle.sh
