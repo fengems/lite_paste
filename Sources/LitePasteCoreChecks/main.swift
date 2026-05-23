@@ -1162,6 +1162,21 @@ func checkHistoryStorePartialInitialLoad() {
       "HistoryStore should expose full record count beyond the partial initial page"
     )
 
+    let maxRepository = SQLiteClipboardHistoryRepository(
+      url: directory.appending(path: "max-history.sqlite3")
+    )
+    try maxRepository.save(records)
+    let maxStore = HistoryStore(repository: maxRepository, maxHistoryCount: 2, initialLoadLimit: 2)
+    let initiallyTrimmedRecords = try maxRepository.load()
+    expect(
+      maxStore.records.map(\.id) == [records[4].id, records[3].id],
+      "HistoryStore should keep the first page after initial max-count trimming"
+    )
+    expect(
+      initiallyTrimmedRecords.map(\.id) == [records[4].id, records[3].id],
+      "HistoryStore should enforce max history count during partial initial load"
+    )
+
     let hidden = records[1]
     store.markUsed(hidden.id, now: Date(timeIntervalSince1970: 10))
     let hiddenRecord = try repository.record(id: hidden.id)

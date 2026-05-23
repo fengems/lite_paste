@@ -41,7 +41,7 @@ public final class HistoryStore: ObservableObject {
     self.moveDuplicatesToTop = moveDuplicatesToTop
     self.isLoadedPartially = initialHistory.isPartial
     self.records = initialHistory.records
-    trimHistoryIfNeeded(now: .now, loadFullIfNeeded: false)
+    trimHistoryIfNeeded(now: .now, loadFullIfNeeded: shouldLoadFullForInitialMaintenance())
   }
 
   @discardableResult
@@ -333,6 +333,14 @@ public final class HistoryStore: ObservableObject {
 
     trimExpiredHistory(now: now)
     trimOverflowHistory()
+  }
+
+  private func shouldLoadFullForInitialMaintenance() -> Bool {
+    guard isLoadedPartially else {
+      return false
+    }
+
+    return retentionDays > 0 || allRecordCount() > maxHistoryCount
   }
 
   private func trimOverflowHistory() {
