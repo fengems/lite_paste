@@ -193,6 +193,13 @@ struct SettingsView: View {
         LabeledContent("版本", value: AppMetadata.versionSummary)
         LabeledContent("Bundle ID", value: AppMetadata.bundleIdentifier)
         LabeledContent("最低系统", value: "macOS \(AppMetadata.minimumMacOSVersion)+")
+        LabeledContent("许可证", value: AppMetadata.licenseName)
+
+        Button {
+          NSWorkspace.shared.open(AppMetadata.repositoryURL)
+        } label: {
+          Label("打开项目仓库", systemImage: "arrow.up.right.square")
+        }
       }
     }
     .padding(24)

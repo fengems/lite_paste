@@ -56,6 +56,22 @@ struct ClipboardPanelView: View {
 
   private var emptyState: (systemName: String, title: String, message: String?) {
     if store.allRecordCount() == 0 {
+      if settingsStore.settings.privacyMode {
+        return (
+          "lock.shield",
+          "私密模式已开启",
+          "新的剪贴板内容暂不会保存到历史。"
+        )
+      }
+
+      if settingsStore.settings.enabledTypes.isEmpty {
+        return (
+          "line.3.horizontal.decrease.circle",
+          "没有启用记录类型",
+          "在设置中启用至少一种剪贴板类型后才会保存历史。"
+        )
+      }
+
       return (
         "doc.on.clipboard",
         "暂无剪贴板历史",
@@ -72,6 +88,14 @@ struct ClipboardPanelView: View {
     }
 
     if filter != .all {
+      if filterDisabledBySettings {
+        return (
+          filterEmptyStateIconName,
+          "\(filter.displayName)记录已关闭",
+          "在设置中启用该类型后，新内容会继续进入历史。"
+        )
+      }
+
       return (
         filterEmptyStateIconName,
         "没有\(filter.displayName)记录",
@@ -96,6 +120,21 @@ struct ClipboardPanelView: View {
       "star"
     case .pinned:
       "pin"
+    }
+  }
+
+  private var filterDisabledBySettings: Bool {
+    let enabledTypes = settingsStore.settings.enabledTypes
+
+    switch filter {
+    case .all, .favorites, .pinned:
+      return false
+    case .text:
+      return !enabledTypes.contains(.text)
+    case .images:
+      return !enabledTypes.contains(.image)
+    case .files:
+      return !enabledTypes.contains(.files)
     }
   }
 
