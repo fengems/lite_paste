@@ -2330,6 +2330,10 @@ func checkImportExportRoundTrip() {
     let emptyReplaceHistory = try repository.load()
     expect(emptyReplaceHistory.isEmpty, "Replace import without history should clear existing history")
     expect(
+      !FileManager.default.fileExists(atPath: paths.settingsURL.path),
+      "Replace import without settings should remove existing settings so defaults are used"
+    )
+    expect(
       !FileManager.default.fileExists(atPath: paths.blobsDirectory.path),
       "Replace import without blobs should clear existing blobs"
     )

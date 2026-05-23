@@ -71,7 +71,7 @@ public struct ImportExportService: Sendable {
   private func replaceBackup(from backupURL: URL) throws {
     try replaceBlobDirectory(from: backupURL.appending(path: "Blobs", directoryHint: .isDirectory))
     try replaceHistory(from: backupURL.appending(path: "history.json"))
-    try replaceIfExists(from: backupURL.appending(path: "settings.json"), to: paths.settingsURL)
+    try replaceSettings(from: backupURL.appending(path: "settings.json"))
   }
 
   private func mergeBackup(from backupURL: URL) throws {
@@ -110,6 +110,15 @@ public struct ImportExportService: Sendable {
   private func replaceHistory(from source: URL) throws {
     let records = try loadHistoryIfExists(at: source, rewritingExternalBlobPathsTo: paths.blobsDirectory)
     try currentHistoryRepository().save(records)
+  }
+
+  private func replaceSettings(from source: URL) throws {
+    if FileManager.default.fileExists(atPath: source.path) {
+      try replaceIfExists(from: source, to: paths.settingsURL)
+      return
+    }
+
+    try removeIfExists(paths.settingsURL)
   }
 
   private func replaceBlobDirectory(from source: URL) throws {
@@ -502,9 +511,7 @@ public struct ImportExportService: Sendable {
       return
     }
 
-    if FileManager.default.fileExists(atPath: destination.path) {
-      try FileManager.default.removeItem(at: destination)
-    }
+    try removeIfExists(destination)
 
     try FileManager.default.copyItem(at: source, to: destination)
   }
@@ -522,11 +529,15 @@ public struct ImportExportService: Sendable {
       return
     }
 
-    if FileManager.default.fileExists(atPath: destination.path) {
-      try FileManager.default.removeItem(at: destination)
-    }
+    try removeIfExists(destination)
 
     try FileManager.default.copyItem(at: source, to: destination)
+  }
+
+  private func removeIfExists(_ url: URL) throws {
+    if FileManager.default.fileExists(atPath: url.path) {
+      try FileManager.default.removeItem(at: url)
+    }
   }
 
   private static let timestampFormatter: DateFormatter = {
