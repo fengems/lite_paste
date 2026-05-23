@@ -6,6 +6,7 @@ func runChecks() {
   checkContentHasher()
   checkAppSettingsBackwardCompatibility()
   checkAppSettingsStoreNormalization()
+  checkAppSettingsStoreSaveFailureNotification()
   checkPrivacyFilter()
   checkClipboardTextPayloadBuilder()
   checkClipboardFilePayloadBuilder()
@@ -66,6 +67,10 @@ func checkHistoryChangeNotifications() {
 
 final class NotificationCounter: @unchecked Sendable {
   var count = 0
+}
+
+final class NotificationMessageSink: @unchecked Sendable {
+  var messages: [String] = []
 }
 
 func checkAppSettingsBackwardCompatibility() {
@@ -205,6 +210,43 @@ func checkAppSettingsStoreNormalization() {
     expect(reloaded.settings.retentionDays == 0, "Settings store should persist normalized retention days")
   } catch {
     fatalError("Settings store normalization check failed: \(error)")
+  }
+}
+
+@MainActor
+func checkAppSettingsStoreSaveFailureNotification() {
+  let directory = FileManager.default.temporaryDirectory.appending(
+    path: "LitePasteSettingsSaveFailure-\(UUID().uuidString)",
+    directoryHint: .isDirectory
+  )
+  let parentFile = directory.appending(path: "settings-parent")
+  let url = parentFile.appending(path: "settings.json")
+  let sink = NotificationMessageSink()
+
+  do {
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    try Data("not a directory".utf8).write(to: parentFile, options: .atomic)
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let observer = NotificationCenter.default.addObserver(
+      forName: .litePasteSettingsSaveFailed,
+      object: nil,
+      queue: nil
+    ) { notification in
+      if let message = notification.userInfo?[SettingsNotificationUserInfoKey.errorMessage] as? String {
+        sink.messages.append(message)
+      }
+    }
+    defer {
+      NotificationCenter.default.removeObserver(observer)
+    }
+
+    let store = AppSettingsStore(url: url)
+    store.update { $0.viewMode = .list }
+
+    expect(!sink.messages.isEmpty, "Settings store should notify when settings cannot be saved")
+  } catch {
+    fatalError("Settings save failure notification check failed: \(error)")
   }
 }
 

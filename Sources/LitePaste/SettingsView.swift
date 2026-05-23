@@ -11,6 +11,7 @@ struct SettingsView: View {
   @State private var historyCount: Int?
   @State private var storageSizeText = "正在读取"
   @State private var statusErrorMessage: String?
+  @State private var settingsSaveErrorMessage: String?
 
   var body: some View {
     Form {
@@ -47,6 +48,11 @@ struct SettingsView: View {
 
         if let statusErrorMessage {
           Label(statusErrorMessage, systemImage: "exclamationmark.triangle.fill")
+            .foregroundStyle(.orange)
+        }
+
+        if let settingsSaveErrorMessage {
+          Label(settingsSaveErrorMessage, systemImage: "exclamationmark.triangle.fill")
             .foregroundStyle(.orange)
         }
 
@@ -193,6 +199,9 @@ struct SettingsView: View {
     }
     .onReceive(NotificationCenter.default.publisher(for: .litePasteBackupImported)) { _ in
       refreshStatus()
+    }
+    .onReceive(NotificationCenter.default.publisher(for: .litePasteSettingsSaveFailed)) { notification in
+      handleSettingsSaveFailure(notification)
     }
   }
 
@@ -403,6 +412,12 @@ struct SettingsView: View {
   private func refreshStatus() {
     refreshAccessibilityStatus()
     refreshHistoryStatus()
+  }
+
+  private func handleSettingsSaveFailure(_ notification: Notification) {
+    let message = notification.userInfo?[SettingsNotificationUserInfoKey.errorMessage] as? String ?? "未知错误"
+    settingsSaveErrorMessage = "无法保存设置：\(message)"
+    showAlert(title: "无法保存设置", message: "本次设置变更已在当前运行中生效，但没有写入磁盘。\(message)")
   }
 
   private func refreshHistoryStatus() {

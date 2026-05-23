@@ -42,7 +42,12 @@ public final class AppSettingsStore: ObservableObject {
       let data = try JSONEncoder.litePaste.encode(settings)
       try data.write(to: url, options: .atomic)
     } catch {
-      assertionFailure("Unable to save settings: \(error)")
+      NotificationCenter.default.post(
+        name: .litePasteSettingsSaveFailed,
+        object: self,
+        userInfo: [SettingsNotificationUserInfoKey.errorMessage: error.localizedDescription]
+      )
+      NSLog("Unable to save Lite Paste settings: \(error)")
     }
   }
 
