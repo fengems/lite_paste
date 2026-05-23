@@ -50,7 +50,7 @@ codesign --verify --deep --strict --verbose=2 Build/LitePaste.app
 Scripts/package_release.sh
 ```
 
-完成 `.app` 构建后，可额外执行一次真实运行时采集烟测。该脚本会用临时数据目录启动 Lite Paste，写入一段唯一文本到系统剪贴板，并确认历史数据库捕获成功：
+完成 `.app` 构建后，可额外执行一次真实运行时采集烟测。该脚本会用临时数据目录启动 Lite Paste，写入文本、URL、邮箱和颜色到系统剪贴板，并确认历史数据库捕获和分类成功：
 
 ```bash
 Scripts/smoke_runtime_capture.sh
