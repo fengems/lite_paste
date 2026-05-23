@@ -23,6 +23,13 @@ public struct ImportExportService: Sendable {
       try FileManager.default.removeItem(at: backupURL)
     }
 
+    var didFinishExport = false
+    defer {
+      if !didFinishExport {
+        try? FileManager.default.removeItem(at: backupURL)
+      }
+    }
+
     try FileManager.default.createDirectory(at: backupURL, withIntermediateDirectories: true)
     let backupBlobsDirectory = backupURL.appending(path: "Blobs", directoryHint: .isDirectory)
     try exportHistoryIfExists(to: backupURL.appending(path: "history.json"), blobsDirectory: backupBlobsDirectory)
@@ -32,6 +39,7 @@ public struct ImportExportService: Sendable {
     let manifestData = try JSONEncoder.litePaste.encode(manifest)
     try manifestData.write(to: backupURL.appending(path: "manifest.json"), options: .atomic)
 
+    didFinishExport = true
     return backupURL
   }
 

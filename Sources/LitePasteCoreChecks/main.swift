@@ -2248,6 +2248,7 @@ func checkImportExportRoundTrip() {
       "Export should rewrite preview blob paths into backup directory"
     )
 
+    let backupsBeforeFailedExport = try backupDirectoryNames(in: backupParent)
     let missingExportRecord = ClipboardRecord(
       kind: .image,
       title: "missing export",
@@ -2272,6 +2273,11 @@ func checkImportExportRoundTrip() {
     } catch {
       fatalError("Export should report the missing blob name, got \(error)")
     }
+    let backupsAfterFailedExport = try backupDirectoryNames(in: backupParent)
+    expect(
+      backupsAfterFailedExport == backupsBeforeFailedExport,
+      "Failed export should remove partial backup directories"
+    )
 
     try FileManager.default.removeItem(at: appDirectory)
     try service.importBackup(from: backupURL, mode: .replace)
@@ -2384,6 +2390,13 @@ func checkImportExportRoundTrip() {
   } catch {
     fatalError("Import/export round-trip check failed: \(error)")
   }
+}
+
+func backupDirectoryNames(in directory: URL) throws -> [String] {
+  try FileManager.default
+    .contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+    .map(\.lastPathComponent)
+    .sorted()
 }
 
 func checkLocalBlobStorage() {
