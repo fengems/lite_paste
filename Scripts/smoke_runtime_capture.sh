@@ -24,6 +24,7 @@ TEXT_VALUE="LitePaste runtime text ${STAMP}"
 URL_VALUE="https://litepaste-smoke.example/${STAMP}"
 EMAIL_VALUE="litepaste-smoke-${STAMP}@example.com"
 COLOR_VALUE="#A1B2C3"
+PRIVACY_VALUE="LitePaste privacy smoke ${STAMP}"
 FILE_PATH="${DATA_DIR}/LitePaste Runtime File ${STAMP}.txt"
 HTML_PLAIN_VALUE="LitePaste runtime html ${STAMP}"
 RTF_PLAIN_VALUE="LitePaste runtime rtf ${STAMP}"
@@ -69,6 +70,21 @@ wait_for_history_db() {
   exit 1
 }
 
+write_privacy_mode_setting() {
+  local enabled="$1"
+
+  cat >"${DATA_DIR}/settings.json" <<JSON
+{
+  "privacyMode" : ${enabled}
+}
+JSON
+}
+
+start_app() {
+  LITEPASTE_APPLICATION_SUPPORT_DIR="${DATA_DIR}" "${APP_EXECUTABLE}" >"${APP_LOG}" 2>&1 &
+  APP_PID="$!"
+}
+
 wait_for_capture() {
   local value="$1"
   local kind="$2"
@@ -78,6 +94,32 @@ wait_for_capture() {
   wait_for_sql_capture \
     "${kind} clipboard content: ${value}" \
     "select count(*) from clipboard_records where plain_text = '${value}' and kind = '${kind}';"
+}
+
+assert_privacy_mode_blocks_capture() {
+  settle_pasteboard
+  set_clipboard "text" "${PRIVACY_VALUE}"
+
+  for _ in {1..12}; do
+    assert_app_running
+    sleep 0.25
+
+    if [[ -f "${HISTORY_DB}" ]]; then
+      local match_count
+      match_count="$(
+        sqlite3 -cmd ".timeout 5000" "${HISTORY_DB}" \
+          "select count(*) from clipboard_records where plain_text = '${PRIVACY_VALUE}';" 2>/dev/null || printf '0'
+      )"
+
+      if [[ "${match_count}" != "0" ]]; then
+        echo "Lite Paste captured clipboard content while privacy mode was enabled." >&2
+        sqlite3 -cmd ".timeout 5000" "${HISTORY_DB}" \
+          "select kind, title, plain_text from clipboard_records order by last_copied_at desc limit 10;" >&2 || true
+        cat "${APP_LOG}" >&2 || true
+        exit 1
+      fi
+    fi
+  done
 }
 
 run_clipboard_helper() {
@@ -241,10 +283,15 @@ assert_memory_within_limit() {
   echo "Runtime memory smoke passed: RSS ${rss_kb} KB <= ${MAX_RSS_KB} KB."
 }
 
-LITEPASTE_APPLICATION_SUPPORT_DIR="${DATA_DIR}" "${APP_EXECUTABLE}" >"${APP_LOG}" 2>&1 &
-APP_PID="$!"
-
 snapshot_clipboard
+write_privacy_mode_setting true
+start_app
+wait_for_history_db
+assert_privacy_mode_blocks_capture
+stop_app
+
+write_privacy_mode_setting false
+start_app
 wait_for_history_db
 wait_for_capture "${TEXT_VALUE}" "text"
 wait_for_capture "${URL_VALUE}" "url"
