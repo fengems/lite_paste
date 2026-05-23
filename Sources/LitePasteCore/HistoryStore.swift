@@ -197,6 +197,8 @@ public final class HistoryStore: ObservableObject {
   }
 
   public func updatePinShortcut(_ id: ClipboardRecord.ID, shortcut: String?) {
+    loadFullHistoryIfNeeded()
+
     guard let targetIndex = records.firstIndex(where: { $0.id == id }) else {
       return
     }

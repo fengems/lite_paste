@@ -1209,6 +1209,25 @@ func checkHistoryStorePartialInitialLoad() {
       countStore.unpinnedRecordCount() == 4,
       "HistoryStore should count unpinned records beyond the partial initial page"
     )
+
+    var shortcutRecords = records
+    shortcutRecords[0].isPinned = true
+    shortcutRecords[0].pinShortcut = "command+option+1"
+    let shortcutRepository = SQLiteClipboardHistoryRepository(
+      url: directory.appending(path: "pin-shortcut-history.sqlite3")
+    )
+    try shortcutRepository.save(shortcutRecords)
+    let shortcutStore = HistoryStore(repository: shortcutRepository, initialLoadLimit: 2)
+    shortcutStore.updatePinShortcut(records[4].id, shortcut: "command+option+1")
+    let shortcutUpdatedRecords = try shortcutRepository.load()
+    expect(
+      shortcutUpdatedRecords.first(where: { $0.id == records[4].id })?.pinShortcut == "command+option+1",
+      "HistoryStore should update visible pin shortcuts after partial initial load"
+    )
+    expect(
+      shortcutUpdatedRecords.first(where: { $0.id == records[0].id })?.pinShortcut == nil,
+      "HistoryStore should clear hidden duplicate pin shortcuts after partial initial load"
+    )
   } catch {
     fatalError("HistoryStore partial initial load check failed: \(error)")
   }
