@@ -11,6 +11,7 @@ struct SettingsView: View {
   @State private var historyCount: Int?
   @State private var storageSizeText = "正在读取"
   @State private var statusErrorMessage: String?
+  @State private var historyPersistenceErrorMessage: String?
   @State private var settingsSaveErrorMessage: String?
 
   var body: some View {
@@ -48,6 +49,11 @@ struct SettingsView: View {
 
         if let statusErrorMessage {
           Label(statusErrorMessage, systemImage: "exclamationmark.triangle.fill")
+            .foregroundStyle(.orange)
+        }
+
+        if let historyPersistenceErrorMessage {
+          Label(historyPersistenceErrorMessage, systemImage: "exclamationmark.triangle.fill")
             .foregroundStyle(.orange)
         }
 
@@ -196,6 +202,9 @@ struct SettingsView: View {
     }
     .onReceive(NotificationCenter.default.publisher(for: .litePasteHistoryChanged)) { _ in
       refreshHistoryStatus()
+    }
+    .onReceive(NotificationCenter.default.publisher(for: .litePasteHistoryPersistenceFailed)) { notification in
+      handleHistoryPersistenceFailure(notification)
     }
     .onReceive(NotificationCenter.default.publisher(for: .litePasteBackupImported)) { _ in
       refreshStatus()
@@ -418,6 +427,13 @@ struct SettingsView: View {
     let message = notification.userInfo?[SettingsNotificationUserInfoKey.errorMessage] as? String ?? "未知错误"
     settingsSaveErrorMessage = "无法保存设置：\(message)"
     showAlert(title: "无法保存设置", message: "本次设置变更已在当前运行中生效，但没有写入磁盘。\(message)")
+  }
+
+  private func handleHistoryPersistenceFailure(_ notification: Notification) {
+    let operation = notification.userInfo?[HistoryNotificationUserInfoKey.operation] as? String ?? "保存历史"
+    let message = notification.userInfo?[HistoryNotificationUserInfoKey.errorMessage] as? String ?? "未知错误"
+    historyPersistenceErrorMessage = "\(operation)失败：\(message)"
+    showAlert(title: "\(operation)失败", message: "本次历史变更可能没有写入磁盘。\(message)")
   }
 
   private func refreshHistoryStatus() {

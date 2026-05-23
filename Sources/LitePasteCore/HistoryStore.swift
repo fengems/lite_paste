@@ -420,7 +420,7 @@ public final class HistoryStore: ObservableObject {
       try repository.upsert(record, position: position)
       notifyHistoryChanged()
     } catch {
-      assertionFailure("Unable to upsert clipboard history: \(error)")
+      notifyHistoryPersistenceFailed(operation: "保存历史", error: error)
     }
   }
 
@@ -434,7 +434,7 @@ public final class HistoryStore: ObservableObject {
       try repository.delete(id: id)
       notifyHistoryChanged()
     } catch {
-      assertionFailure("Unable to delete clipboard history: \(error)")
+      notifyHistoryPersistenceFailed(operation: "删除历史", error: error)
     }
   }
 
@@ -448,7 +448,7 @@ public final class HistoryStore: ObservableObject {
       try repository.deleteAll()
       notifyHistoryChanged()
     } catch {
-      assertionFailure("Unable to clear clipboard history: \(error)")
+      notifyHistoryPersistenceFailed(operation: "清空历史", error: error)
     }
   }
 
@@ -460,12 +460,24 @@ public final class HistoryStore: ObservableObject {
       try repository.save(records)
       notifyHistoryChanged()
     } catch {
-      assertionFailure("Unable to save clipboard history: \(error)")
+      notifyHistoryPersistenceFailed(operation: "保存历史", error: error)
     }
   }
 
   private func notifyHistoryChanged() {
     NotificationCenter.default.post(name: .litePasteHistoryChanged, object: nil)
+  }
+
+  private func notifyHistoryPersistenceFailed(operation: String, error: Error) {
+    NotificationCenter.default.post(
+      name: .litePasteHistoryPersistenceFailed,
+      object: self,
+      userInfo: [
+        HistoryNotificationUserInfoKey.operation: operation,
+        HistoryNotificationUserInfoKey.errorMessage: error.localizedDescription
+      ]
+    )
+    NSLog("Unable to persist Lite Paste clipboard history during \(operation): \(error)")
   }
 
   private func loadFullHistoryIfNeeded() {

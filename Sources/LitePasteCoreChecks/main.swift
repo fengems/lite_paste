@@ -15,6 +15,7 @@ func runChecks() {
   checkClipboardCaptureGate()
   checkHistoryStore()
   checkHistoryChangeNotifications()
+  checkHistoryPersistenceFailureNotifications()
   checkHistoryStoreIncrementalPersistence()
   checkHistoryStorePagedQueries()
   checkHistoryStorePartialInitialLoad()
@@ -65,12 +66,58 @@ func checkHistoryChangeNotifications() {
   expect(counter.count >= 3, "HistoryStore should post change notifications for status refreshes")
 }
 
+@MainActor
+func checkHistoryPersistenceFailureNotifications() {
+  let sink = NotificationMessageSink()
+  let observer = NotificationCenter.default.addObserver(
+    forName: .litePasteHistoryPersistenceFailed,
+    object: nil,
+    queue: nil
+  ) { notification in
+    if let message = notification.userInfo?[HistoryNotificationUserInfoKey.errorMessage] as? String {
+      sink.messages.append(message)
+    }
+  }
+  defer {
+    NotificationCenter.default.removeObserver(observer)
+  }
+
+  let store = HistoryStore(records: [], repository: FailingClipboardHistoryRepository())
+  let payload = ClipboardPayload(
+    kind: .text,
+    title: "fail",
+    searchText: "fail",
+    plainText: "fail",
+    pasteboardTypes: ["public.utf8-plain-text"]
+  )
+
+  store.ingest(payload, sourceAppBundleId: nil, sourceAppName: nil)
+  expect(
+    sink.messages.contains("history write failed"),
+    "HistoryStore should notify when history persistence fails"
+  )
+}
+
 final class NotificationCounter: @unchecked Sendable {
   var count = 0
 }
 
 final class NotificationMessageSink: @unchecked Sendable {
   var messages: [String] = []
+}
+
+struct FailingClipboardHistoryRepository: ClipboardHistoryRepository {
+  func load() throws -> [ClipboardRecord] {
+    []
+  }
+
+  func save(_ records: [ClipboardRecord]) throws {
+    throw NSError(
+      domain: "LitePasteChecks",
+      code: 1,
+      userInfo: [NSLocalizedDescriptionKey: "history write failed"]
+    )
+  }
 }
 
 func checkAppSettingsBackwardCompatibility() {
