@@ -57,13 +57,20 @@ final class ClipboardItemActions {
 
   private func composeEmail(_ record: ClipboardRecord) -> ClipboardExternalActionResult {
     guard let value = record.plainText?.trimmingCharacters(in: .whitespacesAndNewlines),
-          let url = URL(string: "mailto:\(value)") else {
+          let url = mailtoURL(for: value) else {
       return .failed(title: "无法发送邮件", message: "这条历史记录没有可用的邮箱地址。")
     }
 
     return NSWorkspace.shared.open(url)
       ? .completed
       : .failed(title: "无法发送邮件", message: "系统无法打开默认邮件客户端。")
+  }
+
+  private func mailtoURL(for value: String) -> URL? {
+    var components = URLComponents()
+    components.scheme = "mailto"
+    components.path = value
+    return components.url
   }
 
   private func showInFinder(_ record: ClipboardRecord) -> ClipboardExternalActionResult {
@@ -103,6 +110,14 @@ final class ClipboardItemActions {
   }
 
   private func fileURLs(from record: ClipboardRecord) -> [URL] {
+    let contentURLs = record.contents
+      .sorted { $0.displayOrder < $1.displayOrder }
+      .compactMap(fileURL)
+
+    if !contentURLs.isEmpty {
+      return contentURLs
+    }
+
     guard let text = record.plainText else {
       return []
     }
@@ -110,6 +125,26 @@ final class ClipboardItemActions {
     return text
       .split(separator: "\n")
       .map { URL(fileURLWithPath: String($0)) }
+  }
+
+  private func fileURL(from snapshot: ClipboardContentSnapshot) -> URL? {
+    guard snapshot.pasteboardType == ClipboardFilePayloadBuilder.fileURLPasteboardType,
+          let data = data(from: snapshot),
+          let path = String(data: data, encoding: .utf8),
+          !path.isEmpty else {
+      return nil
+    }
+
+    return URL(fileURLWithPath: path)
+  }
+
+  private func data(from snapshot: ClipboardContentSnapshot) -> Data? {
+    switch snapshot.storageMode {
+    case .inline:
+      snapshot.inlineData
+    case .external:
+      snapshot.externalFilePath.flatMap { try? Data(contentsOf: URL(fileURLWithPath: $0)) }
+    }
   }
 
   private func exportFilename(for record: ClipboardRecord, sourceURL: URL) -> String {
