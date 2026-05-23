@@ -23,6 +23,9 @@ TEXT_VALUE="LitePaste runtime text ${STAMP}"
 URL_VALUE="https://litepaste-smoke.example/${STAMP}"
 EMAIL_VALUE="litepaste-smoke-${STAMP}@example.com"
 COLOR_VALUE="#A1B2C3"
+FILE_PATH="${DATA_DIR}/LitePaste Runtime File ${STAMP}.txt"
+HTML_PLAIN_VALUE="LitePaste runtime html ${STAMP}"
+RTF_PLAIN_VALUE="LitePaste runtime rtf ${STAMP}"
 PREVIOUS_CLIPBOARD="$(pbpaste 2>/dev/null || true)"
 APP_PID=""
 
@@ -65,12 +68,62 @@ wait_for_capture() {
   local kind="$2"
 
   printf '%s' "${value}" | pbcopy
+  wait_for_sql_capture \
+    "${kind} clipboard content: ${value}" \
+    "select count(*) from clipboard_records where plain_text = '${value}' and kind = '${kind}';"
+}
 
-  for _ in {1..40}; do
+set_rich_clipboard() {
+  local mode="$1"
+  local value="$2"
+
+  swift - "${mode}" "${value}" <<'SWIFT'
+import AppKit
+import Foundation
+
+let mode = CommandLine.arguments[1]
+let value = CommandLine.arguments[2]
+let pasteboard = NSPasteboard.general
+pasteboard.clearContents()
+
+switch mode {
+case "file":
+  let url = URL(fileURLWithPath: value)
+  _ = pasteboard.writeObjects([url as NSURL])
+
+case "image":
+  let pngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADUlEQVR42mP8z8BQDwAFgwJ/lUtN4wAAAABJRU5ErkJggg=="
+  guard let data = Data(base64Encoded: pngBase64) else {
+    fatalError("Invalid embedded PNG data")
+  }
+  pasteboard.setData(data, forType: .png)
+
+case "html":
+  pasteboard.setString(value, forType: .string)
+  let html = "<p><strong>\(value)</strong></p>"
+  pasteboard.setData(Data(html.utf8), forType: .html)
+
+case "rtf":
+  let attributedString = NSAttributedString(
+    string: value,
+    attributes: [.font: NSFont.boldSystemFont(ofSize: 13)]
+  )
+  _ = pasteboard.writeObjects([attributedString])
+
+default:
+  fatalError("Unsupported clipboard mode: \(mode)")
+}
+SWIFT
+}
+
+wait_for_sql_capture() {
+  local description="$1"
+  local sql="$2"
+
+  for _ in {1..60}; do
     if [[ -f "${HISTORY_DB}" ]]; then
       MATCH_COUNT="$(
-        sqlite3 "${HISTORY_DB}" \
-          "select count(*) from clipboard_records where plain_text = '${value}' and kind = '${kind}';"
+        sqlite3 -cmd ".timeout 5000" "${HISTORY_DB}" "${sql}" 2>/dev/null || printf '0'
       )"
 
       if [[ "${MATCH_COUNT}" == "1" ]]; then
@@ -82,8 +135,9 @@ wait_for_capture() {
     sleep 0.25
   done
 
-  echo "Lite Paste did not capture ${kind} clipboard content in time: ${value}" >&2
-  sqlite3 "${HISTORY_DB}" "select kind, title, plain_text from clipboard_records order by last_copied_at desc limit 10;" >&2 || true
+  echo "Lite Paste did not capture ${description} in time." >&2
+  sqlite3 -cmd ".timeout 5000" "${HISTORY_DB}" \
+    "select kind, title, plain_text from clipboard_records order by last_copied_at desc limit 10;" >&2 || true
   cat "${APP_LOG}" >&2 || true
   exit 1
 }
@@ -96,5 +150,26 @@ wait_for_capture "${TEXT_VALUE}" "text"
 wait_for_capture "${URL_VALUE}" "url"
 wait_for_capture "${EMAIL_VALUE}" "email"
 wait_for_capture "${COLOR_VALUE}" "color"
+
+printf '%s' "Lite Paste runtime file" >"${FILE_PATH}"
+set_rich_clipboard "file" "${FILE_PATH}"
+wait_for_sql_capture \
+  "files clipboard content: ${FILE_PATH}" \
+  "select count(*) from clipboard_records where plain_text = '${FILE_PATH}' and kind = 'files';"
+
+set_rich_clipboard "image" ""
+wait_for_sql_capture \
+  "image clipboard content" \
+  "select count(*) from clipboard_records where kind = 'image' and preview_file_path is not null;"
+
+set_rich_clipboard "html" "${HTML_PLAIN_VALUE}"
+wait_for_sql_capture \
+  "html clipboard content: ${HTML_PLAIN_VALUE}" \
+  "select count(*) from clipboard_records where plain_text = '${HTML_PLAIN_VALUE}' and kind = 'html';"
+
+set_rich_clipboard "rtf" "${RTF_PLAIN_VALUE}"
+wait_for_sql_capture \
+  "rtf clipboard content: ${RTF_PLAIN_VALUE}" \
+  "select count(*) from clipboard_records where plain_text = '${RTF_PLAIN_VALUE}' and kind = 'richText';"
 
 echo "Runtime capture smoke passed."
