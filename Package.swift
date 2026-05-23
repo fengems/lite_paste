@@ -10,6 +10,7 @@ let package = Package(
   products: [
     .executable(name: "LitePaste", targets: ["LitePaste"]),
     .executable(name: "LitePasteCoreChecks", targets: ["LitePasteCoreChecks"]),
+    .executable(name: "LitePasteRuntimeRestoreChecks", targets: ["LitePasteRuntimeRestoreChecks"]),
     .library(name: "LitePasteCore", targets: ["LitePasteCore"])
   ],
   targets: [
@@ -19,6 +20,10 @@ let package = Package(
     ),
     .executableTarget(
       name: "LitePasteCoreChecks",
+      dependencies: ["LitePasteCore"]
+    ),
+    .executableTarget(
+      name: "LitePasteRuntimeRestoreChecks",
       dependencies: ["LitePasteCore"]
     ),
     .target(

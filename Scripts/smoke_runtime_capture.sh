@@ -30,15 +30,20 @@ CLIPBOARD_SNAPSHOT="${DATA_DIR}/clipboard-snapshot.json"
 APP_PID=""
 
 cleanup() {
+  stop_app
+  restore_clipboard_snapshot
+  rm -rf "${DATA_DIR}"
+}
+trap cleanup EXIT
+
+stop_app() {
   if [[ -n "${APP_PID}" ]] && kill -0 "${APP_PID}" >/dev/null 2>&1; then
     kill "${APP_PID}" >/dev/null 2>&1 || true
     wait "${APP_PID}" 2>/dev/null || true
   fi
 
-  restore_clipboard_snapshot
-  rm -rf "${DATA_DIR}"
+  APP_PID=""
 }
-trap cleanup EXIT
 
 assert_app_running() {
   if ! kill -0 "${APP_PID}" >/dev/null 2>&1; then
@@ -246,5 +251,16 @@ set_clipboard "html" "${HTML_PLAIN_VALUE}"
 wait_for_sql_capture \
   "html clipboard content: ${HTML_PLAIN_VALUE}" \
   "select count(*) from clipboard_records where plain_text = '${HTML_PLAIN_VALUE}' and kind = 'html';"
+
+stop_app
+swift run LitePasteRuntimeRestoreChecks \
+  "${DATA_DIR}" \
+  "${TEXT_VALUE}" \
+  "${URL_VALUE}" \
+  "${EMAIL_VALUE}" \
+  "${COLOR_VALUE}" \
+  "${FILE_PATH}" \
+  "${HTML_PLAIN_VALUE}" \
+  "${RTF_PLAIN_VALUE}" >/dev/null
 
 echo "Runtime capture smoke passed."
