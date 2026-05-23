@@ -84,12 +84,10 @@ final class ClipboardItemActions {
   }
 
   private func exportImage(_ record: ClipboardRecord) -> ClipboardExternalActionResult {
-    guard let snapshot = record.contents.first(where: { $0.storageMode == .external }),
-          let sourcePath = snapshot.externalFilePath else {
+    guard let sourceURL = imageSourceURL(for: record) else {
       return .failed(title: "无法导出图片", message: "这条历史记录没有可导出的图片文件。")
     }
 
-    let sourceURL = URL(fileURLWithPath: sourcePath)
     guard FileManager.default.fileExists(atPath: sourceURL.path) else {
       return .failed(title: "无法导出图片", message: "图片原始数据已经不存在。")
     }
@@ -107,6 +105,16 @@ final class ClipboardItemActions {
     } catch {
       return .failed(title: "导出图片失败", message: error.localizedDescription)
     }
+  }
+
+  private func imageSourceURL(for record: ClipboardRecord) -> URL? {
+    if let sourcePath = record.contents
+      .first(where: { $0.storageMode == .external && $0.externalFilePath != nil })?
+      .externalFilePath {
+      return URL(fileURLWithPath: sourcePath)
+    }
+
+    return record.previewFilePath.map { URL(fileURLWithPath: $0) }
   }
 
   private func fileURLs(from record: ClipboardRecord) -> [URL] {
