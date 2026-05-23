@@ -803,6 +803,32 @@ func checkPasteboardRestorePlanner() {
     fatalError("Restore planner should create an item plan for rich content")
   }
 
+  let missingRichRecord = ClipboardRecord(
+    kind: .html,
+    title: "Missing HTML",
+    searchText: "Hello",
+    contentHash: "missing-html",
+    plainText: "Hello",
+    contents: [
+      ClipboardContentSnapshot(
+        pasteboardType: "public.html",
+        storageMode: .external,
+        externalFilePath: "/tmp/missing.html",
+        byteSize: 12,
+        displayOrder: 0
+      )
+    ]
+  )
+
+  expect(
+    planner.plan(for: missingRichRecord) == nil,
+    "Restore planner should fail default restore when rich external content is missing"
+  )
+  expect(
+    planner.plan(for: missingRichRecord, asPlainText: true) == .plainText("Hello"),
+    "Restore planner should still allow explicit plain-text restore for missing rich content"
+  )
+
   let missingRecord = ClipboardRecord(
     kind: .image,
     title: "missing",

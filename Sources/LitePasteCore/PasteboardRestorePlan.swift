@@ -42,6 +42,10 @@ public struct PasteboardRestorePlanner: Sendable {
       return itemPlan
     }
 
+    guard record.contents.isEmpty else {
+      return nil
+    }
+
     return plainTextPlan(for: record)
   }
 
@@ -58,10 +62,20 @@ public struct PasteboardRestorePlanner: Sendable {
       return nil
     }
 
-    let contentFileURLs = record.contents
-      .sorted { $0.displayOrder < $1.displayOrder }
-      .compactMap(fileURL)
-    let fileURLs = contentFileURLs.isEmpty ? fileURLs(from: record.plainText) : contentFileURLs
+    if !record.contents.isEmpty {
+      var contentFileURLs: [URL] = []
+      for snapshot in record.contents.sorted(by: { $0.displayOrder < $1.displayOrder }) {
+        guard let url = fileURL(from: snapshot) else {
+          return nil
+        }
+
+        contentFileURLs.append(url)
+      }
+
+      return contentFileURLs.isEmpty ? nil : .fileURLs(contentFileURLs)
+    }
+
+    let fileURLs = fileURLs(from: record.plainText)
 
     guard !fileURLs.isEmpty else {
       return nil
@@ -91,9 +105,14 @@ public struct PasteboardRestorePlanner: Sendable {
   }
 
   private func itemPlan(for record: ClipboardRecord) -> PasteboardRestorePlan? {
-    let items = record.contents
-      .sorted { $0.displayOrder < $1.displayOrder }
-      .compactMap(restoreItem)
+    var items: [PasteboardRestoreItem] = []
+    for snapshot in record.contents.sorted(by: { $0.displayOrder < $1.displayOrder }) {
+      guard let item = restoreItem(from: snapshot) else {
+        return nil
+      }
+
+      items.append(item)
+    }
 
     var restoredItems = items
     if let plainText = record.plainText,
