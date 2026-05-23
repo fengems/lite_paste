@@ -1384,6 +1384,35 @@ func checkHistoryBlobCleanup() {
     deleteStore.delete(deleteRecord.id)
     expect(!FileManager.default.fileExists(atPath: deletePath), "Deleting a record should remove its blob")
 
+    let previewStore = HistoryStore(
+      records: [],
+      repository: InMemoryClipboardHistoryRepository(),
+      blobStorage: blobStorage
+    )
+    let previewContent = try blobStorage.snapshot(
+      data: Data("preview-content".utf8),
+      pasteboardType: "public.data",
+      preferredExtension: "bin",
+      displayOrder: 0
+    )
+    let previewPath = try blobStorage.save(data: Data("preview-only".utf8), preferredExtension: "bin")
+    let previewRecord = previewStore.ingest(
+      ClipboardPayload(
+        kind: .image,
+        title: "preview",
+        searchText: "preview",
+        contentHashBasis: "preview",
+        pasteboardTypes: ["public.data"],
+        contents: [previewContent],
+        previewFilePath: previewPath
+      ),
+      sourceAppBundleId: nil,
+      sourceAppName: nil
+    )
+    previewStore.delete(previewRecord.id)
+    expect(!FileManager.default.fileExists(atPath: previewContent.externalFilePath ?? ""), "Deleting a record should remove content blobs")
+    expect(!FileManager.default.fileExists(atPath: previewPath), "Deleting a record should remove independent preview blobs")
+
     let clearStore = HistoryStore(
       records: [],
       repository: InMemoryClipboardHistoryRepository(),
