@@ -367,8 +367,7 @@ public struct ImportExportService: Sendable {
     let preferredDestinationURL = backupBlobsDirectory.appending(path: sourceURL.lastPathComponent)
 
     guard FileManager.default.fileExists(atPath: sourceURL.path) else {
-      copiedPaths[path] = preferredDestinationURL.path
-      return preferredDestinationURL.path
+      throw BackupError.missingBlob(sourceURL.lastPathComponent)
     }
 
     try FileManager.default.createDirectory(at: backupBlobsDirectory, withIntermediateDirectories: true)

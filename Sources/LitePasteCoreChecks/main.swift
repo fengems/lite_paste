@@ -2248,6 +2248,31 @@ func checkImportExportRoundTrip() {
       "Export should rewrite preview blob paths into backup directory"
     )
 
+    let missingExportRecord = ClipboardRecord(
+      kind: .image,
+      title: "missing export",
+      searchText: "missing export",
+      lastCopiedAt: Date(timeIntervalSince1970: 35),
+      contentHash: "hash-missing-export",
+      contents: [
+        ClipboardContentSnapshot(
+          pasteboardType: "public.data",
+          storageMode: .external,
+          externalFilePath: paths.blobsDirectory.appending(path: "missing-export.bin").path,
+          byteSize: 6,
+          displayOrder: 0
+        )
+      ]
+    )
+    try repository.save([missingExportRecord])
+    do {
+      _ = try service.exportBackup(to: backupParent, now: Date(timeIntervalSince1970: 101))
+      fatalError("Export should fail when referenced blobs are missing")
+    } catch BackupError.missingBlob("missing-export.bin") {
+    } catch {
+      fatalError("Export should report the missing blob name, got \(error)")
+    }
+
     try FileManager.default.removeItem(at: appDirectory)
     try service.importBackup(from: backupURL, mode: .replace)
 
