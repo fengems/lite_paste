@@ -54,7 +54,9 @@ final class PasteboardWriter {
       return .accessibilityPermissionRequired
     }
 
-    targetApplication?.activate(options: [])
+    guard activate(targetApplication) else {
+      return .targetApplicationUnavailable
+    }
 
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
       Self.sendPasteShortcut()
@@ -67,6 +69,15 @@ final class PasteboardWriter {
     }
 
     return .pasted
+  }
+
+  private func activate(_ targetApplication: NSRunningApplication?) -> Bool {
+    guard let targetApplication,
+          !targetApplication.isTerminated else {
+      return false
+    }
+
+    return targetApplication.activate()
   }
 
   private static func sendPasteShortcut() {
@@ -120,4 +131,5 @@ enum PasteActionResult: Equatable {
   case pasted
   case accessibilityPermissionRequired
   case missingContent
+  case targetApplicationUnavailable
 }

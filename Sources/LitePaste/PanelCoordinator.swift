@@ -160,6 +160,11 @@ final class PanelCoordinator {
       showAccessibilityPermissionAlert()
     case .missingContent:
       showMissingContentAlert()
+    case .targetApplicationUnavailable:
+      if closesPanelOnSuccess {
+        hidePanel()
+      }
+      showTargetApplicationUnavailableAlert()
     }
   }
 
@@ -182,6 +187,15 @@ final class PanelCoordinator {
     alert.informativeText = "该历史记录引用的文件或媒体数据已经不存在。你可以删除这条记录，或从备份恢复缺失的 Blobs 数据。"
     alert.addButton(withTitle: "好")
     alert.alertStyle = .warning
+    alert.runModal()
+  }
+
+  private func showTargetApplicationUnavailableAlert() {
+    let alert = NSAlert()
+    alert.messageText = "无法自动粘贴"
+    alert.informativeText = "Lite Paste 已复制该内容，但无法回到原来的目标应用。你可以手动按 ⌘V 粘贴。"
+    alert.addButton(withTitle: "好")
+    alert.alertStyle = .informational
     alert.runModal()
   }
 

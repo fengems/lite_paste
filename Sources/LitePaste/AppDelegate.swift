@@ -364,6 +364,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       showAccessibilityPermissionAlert()
     case .some(.missingContent):
       showMissingContentAlert()
+    case .some(.targetApplicationUnavailable):
+      showTargetApplicationUnavailableAlert()
     case .some(.copied), .some(.pasted), .none:
       break
     }
@@ -386,6 +388,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     showAlert(
       title: "无法恢复该内容",
       message: "该历史记录引用的文件或媒体数据已经不存在。你可以删除这条记录，或从备份恢复缺失的 Blobs 数据。"
+    )
+  }
+
+  private func showTargetApplicationUnavailableAlert() {
+    showAlert(
+      title: "无法自动粘贴",
+      message: "Lite Paste 已复制该内容，但无法回到目标应用。你可以手动按 ⌘V 粘贴。"
     )
   }
 
