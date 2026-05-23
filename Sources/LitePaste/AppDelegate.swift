@@ -75,6 +75,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
     self.statusItem = statusItem
     configureStatusMenu()
+    updateStatusMenuState()
   }
 
   private func configureStatusMenu() {
@@ -254,6 +255,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       registerPanelHotkey(settings.hotkey)
     }
     launchAtLoginController.sync(with: settings.launchAtLogin)
+    updateStatusMenuState()
   }
 
   private func reloadImportedBackup() {
