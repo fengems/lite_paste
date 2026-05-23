@@ -65,9 +65,9 @@ final class BackupCoordinator {
   private func successMessage(for mode: BackupImportMode) -> String {
     switch mode {
     case .merge:
-      "备份已合并导入，历史和设置已刷新。"
+      "备份历史已合并导入。当前已有设置会保留；如果本机没有设置文件，会使用备份中的设置。"
     case .replace:
-      "备份已覆盖导入，历史和设置已刷新。"
+      "备份已覆盖导入，历史、设置和媒体文件已按备份替换；备份缺少设置时会使用默认设置。"
     }
   }
 
