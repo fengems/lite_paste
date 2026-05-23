@@ -39,7 +39,7 @@ final class ClipboardItemActions {
     }
 
     return NSWorkspace.shared.open(url)
-      ? .completed
+      ? .completed(message: "已打开链接")
       : .failed(title: "无法打开链接", message: "系统无法打开：\(value)")
   }
 
@@ -62,7 +62,7 @@ final class ClipboardItemActions {
     }
 
     return NSWorkspace.shared.open(url)
-      ? .completed
+      ? .completed(message: "已打开邮件")
       : .failed(title: "无法发送邮件", message: "系统无法打开默认邮件客户端。")
   }
 
@@ -80,7 +80,7 @@ final class ClipboardItemActions {
     }
 
     NSWorkspace.shared.activateFileViewerSelecting(urls)
-    return .completed
+    return .completed(message: "已在 Finder 显示")
   }
 
   private func exportImage(_ record: ClipboardRecord) -> ClipboardExternalActionResult {
@@ -101,7 +101,7 @@ final class ClipboardItemActions {
     do {
       try FileManager.default.copyItem(at: sourceURL, to: destination)
       NSWorkspace.shared.activateFileViewerSelecting([destination])
-      return .exportedImage(destination)
+      return .completed(message: "图片已导出")
     } catch {
       return .failed(title: "导出图片失败", message: error.localizedDescription)
     }
@@ -215,7 +215,6 @@ enum ClipboardExternalAction {
 }
 
 enum ClipboardExternalActionResult {
-  case completed
-  case exportedImage(URL)
+  case completed(message: String)
   case failed(title: String, message: String)
 }

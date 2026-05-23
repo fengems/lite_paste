@@ -401,14 +401,8 @@ struct ClipboardPanelView: View {
 
   private func handleExternalActionResult(_ result: ClipboardExternalActionResult) {
     switch result {
-    case .completed:
-      break
-    case let .exportedImage(url):
-      showAlert(
-        title: "图片已导出",
-        message: "已保存到“\(url.lastPathComponent)”。",
-        style: .informational
-      )
+    case let .completed(message):
+      presentationState.showActionMessage(message)
     case let .failed(title, message):
       showAlert(title: title, message: message, style: .warning)
     }
