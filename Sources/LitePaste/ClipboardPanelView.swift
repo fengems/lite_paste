@@ -132,6 +132,7 @@ struct ClipboardPanelView: View {
     .onChange(of: presentationState.openRevision) {
       prepareForOpen()
     }
+    .animation(.easeOut(duration: 0.18), value: presentationState.actionMessage)
     .onChange(of: query) {
       resetVisibleRecords()
     }
@@ -201,6 +202,15 @@ struct ClipboardPanelView: View {
       }
 
       Spacer()
+
+      if let actionMessage = presentationState.actionMessage {
+        Label(actionMessage, systemImage: "checkmark.circle.fill")
+          .font(.system(size: 12, weight: .semibold))
+          .foregroundStyle(.green)
+          .lineLimit(1)
+          .fixedSize(horizontal: true, vertical: false)
+          .transition(.opacity.combined(with: .move(edge: .trailing)))
+      }
 
       Text(resultSummary)
         .font(.system(size: 12))

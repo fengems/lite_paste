@@ -148,7 +148,7 @@ final class PanelCoordinator {
   private func handleActionResult(_ result: PasteActionResult, closesPanelOnSuccess: Bool = false) {
     switch result {
     case .copied:
-      break
+      presentationState.showActionMessage("已复制")
     case .pasted:
       if closesPanelOnSuccess {
         hidePanel()
