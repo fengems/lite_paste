@@ -263,4 +263,10 @@ swift run LitePasteRuntimeRestoreChecks \
   "${HTML_PLAIN_VALUE}" \
   "${RTF_PLAIN_VALUE}" >/dev/null
 
+if grep -q "Unable to update Lite Paste launch at login" "${APP_LOG}"; then
+  echo "Lite Paste attempted an unnecessary launch-at-login update during runtime smoke." >&2
+  cat "${APP_LOG}" >&2 || true
+  exit 1
+fi
+
 echo "Runtime capture smoke passed."

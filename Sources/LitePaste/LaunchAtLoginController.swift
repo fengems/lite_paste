@@ -5,6 +5,10 @@ import ServiceManagement
 @MainActor
 final class LaunchAtLoginController {
   func setEnabled(_ enabled: Bool) throws {
+    if isAlreadyInDesiredState(enabled) {
+      return
+    }
+
     if enabled {
       try SMAppService.mainApp.register()
     } else {
@@ -16,8 +20,24 @@ final class LaunchAtLoginController {
     do {
       try setEnabled(enabled)
     } catch {
-      print("Unable to update launch at login: \(error)")
+      NSLog("Unable to update Lite Paste launch at login: \(error)")
+    }
+  }
+
+  private func isAlreadyInDesiredState(_ enabled: Bool) -> Bool {
+    let status = SMAppService.mainApp.status
+
+    if enabled {
+      return status == .enabled
+    }
+
+    switch status {
+    case .notRegistered, .notFound:
+      return true
+    case .enabled, .requiresApproval:
+      return false
+    @unknown default:
+      return false
     }
   }
 }
-
