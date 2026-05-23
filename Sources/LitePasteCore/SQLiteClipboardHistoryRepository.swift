@@ -446,6 +446,8 @@ private final class SQLiteConnection {
       sqlite3_close(database)
       throw SQLiteRepositoryError.openFailed(message)
     }
+
+    sqlite3_busy_timeout(database, 5_000)
   }
 
   deinit {
