@@ -66,6 +66,14 @@ swift run LitePasteCoreChecks
 swift build
 ```
 
+`LitePasteCoreChecks` 支持按清单排查：
+
+```bash
+swift run LitePasteCoreChecks --list
+swift run LitePasteCoreChecks --only history
+swift run LitePasteCoreChecks --only backup/round-trip
+```
+
 本地发布前完整验证：
 
 ```bash
@@ -104,4 +112,4 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 ## 下一步
 
 - 创建并验证完整 Xcode `.app` target。
-- 补充真正的单元测试和 UI 测试。
+- 在完整 Xcode 环境中补充 XCTest/Swift Testing 和 UI 测试 target。

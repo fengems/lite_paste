@@ -51,6 +51,14 @@ codesign --verify --deep --strict --verbose=2 Build/LitePaste.app
 Scripts/package_release.sh
 ```
 
+如需定位某一类核心逻辑，可先列出检查清单，再按分组或单项运行：
+
+```bash
+swift run LitePasteCoreChecks --list
+swift run LitePasteCoreChecks --only history
+swift run LitePasteCoreChecks --only backup/round-trip
+```
+
 如需单独排查运行时链路，可执行真实采集和恢复烟测。该脚本会用临时数据目录启动 Lite Paste，先确认私密模式、记录类型开关和忽略应用不会记录被禁用的剪贴板内容，再写入文本、URL、邮箱、颜色、文件、图片、HTML 和 RTF 到系统剪贴板，确认历史数据库捕获和分类成功，采样常规 RSS 内存占用，再把历史记录逐条恢复到系统剪贴板验证原格式；脚本结束时会尽量恢复原剪贴板内容：
 
 ```bash
