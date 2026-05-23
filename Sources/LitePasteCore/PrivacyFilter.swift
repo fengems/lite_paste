@@ -32,11 +32,7 @@ public struct PrivacyFilter: Sendable {
   }
 
   public static let defaultIgnoredPasteboardTypes: Set<String> = [
-    "com.apple.finder.node",
     "com.apple.is-remote-clipboard",
-    "com.apple.pasteboard.promised-file-url",
-    "com.apple.webarchive",
-    "com.apple.flat-rtfd",
     "com.agilebits.onepassword",
     "org.nspasteboard.ConcealedType",
     "org.nspasteboard.TransientType",

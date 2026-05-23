@@ -42,7 +42,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     self.maxHistoryCount = Self.normalizedMaxHistoryCount(maxHistoryCount)
     self.retentionDays = Self.normalizedRetentionDays(retentionDays)
     self.enabledTypes = enabledTypes
-    self.ignoredPasteboardTypes = ignoredPasteboardTypes
+    self.ignoredPasteboardTypes = Self.normalizedIgnoredPasteboardTypes(ignoredPasteboardTypes)
     self.ignoredApps = ignoredApps
     self.autoPasteMode = autoPasteMode
     self.pastePlainByDefault = pastePlainByDefault
@@ -89,7 +89,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
       try container.decodeIfPresent(Int.self, forKey: .retentionDays) ?? defaults.retentionDays
     )
     enabledTypes = try container.decodeIfPresent(Set<ClipboardKind>.self, forKey: .enabledTypes) ?? defaults.enabledTypes
-    ignoredPasteboardTypes = try container.decodeIfPresent(Set<String>.self, forKey: .ignoredPasteboardTypes) ?? defaults.ignoredPasteboardTypes
+    ignoredPasteboardTypes = Self.normalizedIgnoredPasteboardTypes(
+      try container.decodeIfPresent(Set<String>.self, forKey: .ignoredPasteboardTypes) ?? defaults.ignoredPasteboardTypes
+    )
     ignoredApps = try container.decodeIfPresent(Set<String>.self, forKey: .ignoredApps) ?? defaults.ignoredApps
     autoPasteMode = try container.decodeIfPresent(AutoPasteMode.self, forKey: .autoPasteMode) ?? defaults.autoPasteMode
     pastePlainByDefault = try container.decodeIfPresent(Bool.self, forKey: .pastePlainByDefault) ?? defaults.pastePlainByDefault
@@ -125,6 +127,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     hotkey = Self.normalizedHotkey(hotkey)
     maxHistoryCount = Self.normalizedMaxHistoryCount(maxHistoryCount)
     retentionDays = Self.normalizedRetentionDays(retentionDays)
+    ignoredPasteboardTypes = Self.normalizedIgnoredPasteboardTypes(ignoredPasteboardTypes)
   }
 
   private static func normalizedMaxHistoryCount(_ value: Int) -> Int {
@@ -138,6 +141,24 @@ public struct AppSettings: Codable, Equatable, Sendable {
   private static func normalizedHotkey(_ value: String) -> String {
     PanelHotkeyCatalog.normalized(value) ?? "command+shift+v"
   }
+
+  private static func normalizedIgnoredPasteboardTypes(_ value: Set<String>) -> Set<String> {
+    guard legacyDefaultIgnoredPasteboardTypes.isSubset(of: value) else {
+      return value
+    }
+
+    return value.subtracting(legacyRecordablePasteboardTypes)
+  }
+
+  private static let legacyRecordablePasteboardTypes: Set<String> = [
+    "com.apple.finder.node",
+    "com.apple.pasteboard.promised-file-url",
+    "com.apple.webarchive",
+    "com.apple.flat-rtfd"
+  ]
+
+  private static let legacyDefaultIgnoredPasteboardTypes =
+    PrivacyFilter.defaultIgnoredPasteboardTypes.union(legacyRecordablePasteboardTypes)
 }
 
 public enum ClipboardPanelViewMode: String, Codable, Equatable, Sendable {

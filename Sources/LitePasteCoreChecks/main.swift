@@ -105,6 +105,30 @@ func checkAppSettingsBackwardCompatibility() {
       decoded.ignoredPasteboardTypes.contains("org.example.SecretType"),
       "Settings should preserve ignored pasteboard types"
     )
+    let legacyIgnoredPasteboardTypes = PrivacyFilter.defaultIgnoredPasteboardTypes.union([
+      "com.apple.finder.node",
+      "com.apple.pasteboard.promised-file-url",
+      "com.apple.webarchive",
+      "com.apple.flat-rtfd",
+      "org.example.SecretType"
+    ])
+    let migratedSettings = AppSettings(ignoredPasteboardTypes: legacyIgnoredPasteboardTypes)
+    expect(
+      !migratedSettings.ignoredPasteboardTypes.contains("com.apple.finder.node"),
+      "Settings should migrate legacy ignored types that block file capture"
+    )
+    expect(
+      !migratedSettings.ignoredPasteboardTypes.contains("com.apple.webarchive"),
+      "Settings should migrate legacy ignored types that block HTML capture"
+    )
+    expect(
+      migratedSettings.ignoredPasteboardTypes.contains("org.example.SecretType"),
+      "Settings should preserve custom ignored types during ignored type migration"
+    )
+    expect(
+      migratedSettings.ignoredPasteboardTypes.contains("org.nspasteboard.ConcealedType"),
+      "Settings should preserve privacy ignored types during ignored type migration"
+    )
     expect(
       decoded.panelPosition == PanelPosition.mouseScreenCenter,
       "Settings should preserve panel position"
@@ -277,6 +301,27 @@ func checkPrivacyFilter() {
       pasteboardTypes: ["public.utf8-plain-text"]
     ),
     "Plain text should be recordable"
+  )
+  expect(
+    normalFilter.shouldRecord(
+      sourceAppBundleId: "com.apple.finder",
+      pasteboardTypes: ["public.file-url", "com.apple.finder.node"]
+    ),
+    "Finder file marker types should not block recordable file URLs"
+  )
+  expect(
+    normalFilter.shouldRecord(
+      sourceAppBundleId: "com.apple.Safari",
+      pasteboardTypes: ["public.html", "com.apple.webarchive"]
+    ),
+    "Web archive marker types should not block recordable HTML"
+  )
+  expect(
+    !normalFilter.shouldRecord(
+      sourceAppBundleId: "com.apple.TextEdit",
+      pasteboardTypes: ["public.utf8-plain-text", "org.nspasteboard.ConcealedType"]
+    ),
+    "Concealed pasteboard types should stop recording"
   )
 }
 
