@@ -71,6 +71,7 @@ public final class HistoryStore: ObservableObject {
       }
       persistUpsert(updated, position: moveDuplicatesToTop ? 0 : nil)
       removeExternalFiles(in: payload.contents)
+      notifyHistoryChanged()
       return updated
     }
 
@@ -258,6 +259,7 @@ public final class HistoryStore: ObservableObject {
     }
     persistDelete(id: id)
     removeExternalFiles(in: deleted)
+    notifyHistoryChanged()
   }
 
   public func clearUnpinned() {
@@ -268,6 +270,7 @@ public final class HistoryStore: ObservableObject {
     }
     persistAll()
     removeExternalFiles(in: deleted)
+    notifyHistoryChanged()
   }
 
   public func clearAll() {
@@ -375,6 +378,7 @@ public final class HistoryStore: ObservableObject {
     }
     persistAll()
     removeExternalFiles(in: expired)
+    notifyHistoryChanged()
   }
 
   private func duplicateRecord(contentHash: String) -> ClipboardRecord? {
