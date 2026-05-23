@@ -34,6 +34,7 @@ Lite Paste 是一个原生 macOS 剪贴板管理器，目标是提供接近 Past
 - 本地备份导入导出，导出时只包含历史引用的外部 blob，导入前校验备份清单、设置、历史和外部 blob 完整性，导入后自动刷新运行状态，外部 blob 路径随备份位置重写，合并导入会保留当前设置并规避同名 blob 冲突，覆盖导入会替换或重置设置且带二次确认。
 - 开机启动设置接入。
 - 菜单栏使用项目内绘制的 template 图标，本地 `.app` bundle 打包脚本会生成 AppIcon 并执行 ad-hoc 签名，发布脚本可生成 zip 和 DMG 试用包。
+- 仓库内提供 `Assets/LitePaste.xcassets/AppIcon.appiconset` 作为正式 Xcode target 的 AppIcon 基线，图标可由 `Scripts/generate_app_icon.swift` 重新生成。
 
 ## 本地运行
 
@@ -102,6 +103,5 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 ## 下一步
 
 - 创建并验证完整 Xcode `.app` target。
-- 补正式发布视觉资源。
 - 完善图片、文件和富文本预览细节。
 - 补充真正的单元测试和 UI 测试。

@@ -3,39 +3,44 @@
 import AppKit
 import Foundation
 
-guard CommandLine.arguments.count == 2 else {
-  fputs("Usage: generate_app_icon.swift <output.icns>\n", stderr)
+guard (2...3).contains(CommandLine.arguments.count) else {
+  fputs("Usage: generate_app_icon.swift <output.icns> [output.appiconset]\n", stderr)
   exit(64)
 }
 
 let outputURL = URL(fileURLWithPath: CommandLine.arguments[1])
+let appIconSetURL = CommandLine.arguments.count == 3
+  ? URL(fileURLWithPath: CommandLine.arguments[2])
+  : nil
 let fileManager = FileManager.default
 let iconsetURL = fileManager.temporaryDirectory
   .appendingPathComponent("LitePaste-\(UUID().uuidString).iconset", isDirectory: true)
 
-try fileManager.createDirectory(at: iconsetURL, withIntermediateDirectories: true)
 defer {
   try? fileManager.removeItem(at: iconsetURL)
 }
 
-let variants: [(name: String, pixels: Int)] = [
-  ("icon_16x16.png", 16),
-  ("icon_16x16@2x.png", 32),
-  ("icon_32x32.png", 32),
-  ("icon_32x32@2x.png", 64),
-  ("icon_128x128.png", 128),
-  ("icon_128x128@2x.png", 256),
-  ("icon_256x256.png", 256),
-  ("icon_256x256@2x.png", 512),
-  ("icon_512x512.png", 512),
-  ("icon_512x512@2x.png", 1024)
+struct IconVariant {
+  let name: String
+  let pixels: Int
+  let size: String
+  let scale: String
+}
+
+let variants: [IconVariant] = [
+  IconVariant(name: "icon_16x16.png", pixels: 16, size: "16x16", scale: "1x"),
+  IconVariant(name: "icon_16x16@2x.png", pixels: 32, size: "16x16", scale: "2x"),
+  IconVariant(name: "icon_32x32.png", pixels: 32, size: "32x32", scale: "1x"),
+  IconVariant(name: "icon_32x32@2x.png", pixels: 64, size: "32x32", scale: "2x"),
+  IconVariant(name: "icon_128x128.png", pixels: 128, size: "128x128", scale: "1x"),
+  IconVariant(name: "icon_128x128@2x.png", pixels: 256, size: "128x128", scale: "2x"),
+  IconVariant(name: "icon_256x256.png", pixels: 256, size: "256x256", scale: "1x"),
+  IconVariant(name: "icon_256x256@2x.png", pixels: 512, size: "256x256", scale: "2x"),
+  IconVariant(name: "icon_512x512.png", pixels: 512, size: "512x512", scale: "1x"),
+  IconVariant(name: "icon_512x512@2x.png", pixels: 1024, size: "512x512", scale: "2x")
 ]
 
-for variant in variants {
-  let image = drawIcon(pixels: variant.pixels)
-  let destination = iconsetURL.appendingPathComponent(variant.name)
-  try writePNG(image, to: destination)
-}
+try writeIconset(at: iconsetURL, includeContentsJSON: false)
 
 try? fileManager.removeItem(at: outputURL)
 let process = Process()
@@ -51,6 +56,70 @@ process.waitUntilExit()
 guard process.terminationStatus == 0 else {
   fputs("iconutil failed with status \(process.terminationStatus)\n", stderr)
   exit(process.terminationStatus)
+}
+
+if let appIconSetURL {
+  try writeAssetCatalogRootIfNeeded(containing: appIconSetURL)
+  try writeIconset(at: appIconSetURL, includeContentsJSON: true)
+}
+
+func writeAssetCatalogRootIfNeeded(containing appIconSetURL: URL) throws {
+  let catalogURL = appIconSetURL.deletingLastPathComponent()
+  guard catalogURL.pathExtension == "xcassets" else {
+    return
+  }
+
+  try fileManager.createDirectory(at: catalogURL, withIntermediateDirectories: true)
+  let contentsURL = catalogURL.appendingPathComponent("Contents.json")
+  guard !fileManager.fileExists(atPath: contentsURL.path) else {
+    return
+  }
+
+  let contents: [String: Any] = [
+    "info": [
+      "author": "xcode",
+      "version": 1
+    ]
+  ]
+  let data = try JSONSerialization.data(
+    withJSONObject: contents,
+    options: [.prettyPrinted, .sortedKeys]
+  )
+  try data.write(to: contentsURL, options: .atomic)
+}
+
+func writeIconset(at url: URL, includeContentsJSON: Bool) throws {
+  try? fileManager.removeItem(at: url)
+  try fileManager.createDirectory(at: url, withIntermediateDirectories: true)
+
+  for variant in variants {
+    let image = drawIcon(pixels: variant.pixels)
+    let destination = url.appendingPathComponent(variant.name)
+    try writePNG(image, to: destination)
+  }
+
+  if includeContentsJSON {
+    let images = variants.map { variant in
+      [
+        "filename": variant.name,
+        "idiom": "mac",
+        "scale": variant.scale,
+        "size": variant.size
+      ]
+    }
+    let contents: [String: Any] = [
+      "images": images,
+      "info": [
+        "author": "xcode",
+        "version": 1
+      ]
+    ]
+    let data = try JSONSerialization.data(
+      withJSONObject: contents,
+      options: [.prettyPrinted, .sortedKeys]
+    )
+    try data.write(to: url.appendingPathComponent("Contents.json"), options: .atomic)
+  }
 }
 
 func drawIcon(pixels: Int) -> NSImage {
