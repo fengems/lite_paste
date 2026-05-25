@@ -4,6 +4,14 @@ import Foundation
 import LitePasteCore
 import SwiftUI
 
+final class ClipboardPanelWindow: NSPanel {
+  var usesExactFramePlacement = false
+
+  override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
+    usesExactFramePlacement ? frameRect : super.constrainFrameRect(frameRect, to: screen)
+  }
+}
+
 @MainActor
 final class PanelCoordinator {
   private let store: HistoryStore
@@ -12,12 +20,14 @@ final class PanelCoordinator {
   private let presentationState = PanelPresentationState()
   private var panel: NSPanel?
   private var previousApplication: NSRunningApplication?
+  private var edgePanelThickness: CGFloat = 340
   private var cancellables = Set<AnyCancellable>()
 
   init(store: HistoryStore, writer: PasteboardWriter) {
     self.store = store
     self.writer = writer
     observeAppDeactivation()
+    observePanelSettings()
   }
 
   func toggle(relativeTo statusButton: NSStatusBarButton?) {
@@ -42,8 +52,8 @@ final class PanelCoordinator {
   }
 
   private func makePanel() -> NSPanel {
-    let panel = NSPanel(
-      contentRect: NSRect(x: 0, y: 0, width: 820, height: 560),
+    let panel = ClipboardPanelWindow(
+      contentRect: NSRect(x: 0, y: 0, width: 1120, height: edgePanelThickness),
       styleMask: [.titled, .fullSizeContentView, .nonactivatingPanel],
       backing: .buffered,
       defer: false
@@ -86,6 +96,7 @@ final class PanelCoordinator {
     panel.backgroundColor = .clear
     panel.isOpaque = false
     panel.hasShadow = true
+    panel.isMovableByWindowBackground = false
 
     return panel
   }
@@ -100,29 +111,93 @@ final class PanelCoordinator {
       .store(in: &cancellables)
   }
 
+  private func observePanelSettings() {
+    settingsStore.settingsPublisher
+      .sink { [weak self] _ in
+        Task { @MainActor in
+          guard let self, let panel = self.panel, panel.isVisible else {
+            return
+          }
+          self.position(panel, relativeTo: nil)
+        }
+      }
+      .store(in: &cancellables)
+  }
+
   private func position(_ panel: NSPanel, relativeTo statusButton: NSStatusBarButton?) {
+    let isEdgeAttached = settingsStore.settings.panelPosition.isEdgeAttached
+    panel.isMovableByWindowBackground = !isEdgeAttached
+    (panel as? ClipboardPanelWindow)?.usesExactFramePlacement = isEdgeAttached
+
     switch settingsStore.settings.panelPosition {
-    case .statusItem:
-      positionBelowStatusItem(panel, relativeTo: statusButton)
-    case .mouseScreenCenter:
-      panel.center(in: Self.screenContainingMouse()?.visibleFrame ?? NSScreen.main?.visibleFrame)
+    case .edgeBottom, .edgeTop, .edgeLeft, .edgeRight, .bottomDrawer, .statusItem:
+      positionEdgeAttached(panel, position: settingsStore.settings.panelPosition)
+    case .cursor, .mouseScreenCenter:
+      positionNearMouse(panel)
     }
   }
 
-  private func positionBelowStatusItem(_ panel: NSPanel, relativeTo statusButton: NSStatusBarButton?) {
-    guard let statusButton, let statusWindow = statusButton.window else {
-      panel.center(in: Self.screenContainingMouse()?.visibleFrame ?? NSScreen.main?.visibleFrame)
+  private func positionEdgeAttached(_ panel: NSPanel, position: PanelPosition) {
+    guard let screen = Self.screenContainingMouse() ?? NSScreen.main else {
+      panel.center()
       return
     }
 
-    let buttonFrame = statusButton.convert(statusButton.bounds, to: nil)
-    let screenFrame = statusWindow.convertToScreen(buttonFrame)
-    let visibleFrame = statusWindow.screen?.visibleFrame ?? Self.screenContainingMouse()?.visibleFrame
-    let origin = NSPoint(
-      x: screenFrame.midX - panel.frame.width / 2,
-      y: screenFrame.minY - panel.frame.height - 10
+    panel.setFrame(edgeAttachedFrame(for: position, on: screen).roundedToScreenPoints(), display: true)
+  }
+
+  private func positionNearMouse(_ panel: NSPanel) {
+    guard let screen = Self.screenContainingMouse() ?? NSScreen.main else {
+      panel.center()
+      return
+    }
+
+    let visibleFrame = screen.visibleFrame
+    let size = floatingPanelSize(in: visibleFrame)
+    let mouseLocation = NSEvent.mouseLocation
+    let preferredOrigin = NSPoint(
+      x: mouseLocation.x + 10,
+      y: mouseLocation.y - size.height - 10
     )
-    panel.setFrameOrigin(origin.clamped(panelSize: panel.frame.size, to: visibleFrame))
+    let origin = preferredOrigin.clamped(panelSize: size, to: visibleFrame)
+    panel.setFrame(NSRect(origin: origin, size: size).roundedToScreenPoints(), display: true)
+  }
+
+  private func edgeAttachedFrame(for position: PanelPosition, on screen: NSScreen) -> NSRect {
+    let displayFrame = screen.frame
+    let visibleFrame = screen.visibleFrame
+    let thickness = clampedEdgePanelThickness(for: visibleFrame)
+    switch position {
+    case .edgeTop:
+      return NSRect(x: displayFrame.minX, y: visibleFrame.maxY - thickness, width: displayFrame.width, height: thickness)
+    case .edgeLeft:
+      return NSRect(x: displayFrame.minX, y: visibleFrame.minY, width: sideEdgeWidth(in: visibleFrame), height: visibleFrame.height)
+    case .edgeRight:
+      let width = sideEdgeWidth(in: visibleFrame)
+      return NSRect(x: displayFrame.maxX - width, y: visibleFrame.minY, width: width, height: visibleFrame.height)
+    case .edgeBottom, .bottomDrawer, .statusItem:
+      return NSRect(x: displayFrame.minX, y: visibleFrame.minY, width: displayFrame.width, height: thickness)
+    case .cursor, .mouseScreenCenter:
+      return NSRect(origin: visibleFrame.origin, size: floatingPanelSize(in: visibleFrame))
+    }
+  }
+
+  private func floatingPanelSize(in visibleFrame: NSRect) -> NSSize {
+    let width = min(max(visibleFrame.width * 0.56, min(760, visibleFrame.width)), min(920, visibleFrame.width))
+    let height = min(max(visibleFrame.height * 0.5, min(420, visibleFrame.height)), min(560, visibleFrame.height))
+    return NSSize(width: width, height: height)
+  }
+
+  private func sideEdgeWidth(in visibleFrame: NSRect) -> CGFloat {
+    min(max(visibleFrame.width * 0.38, min(420, visibleFrame.width)), min(760, visibleFrame.width))
+  }
+
+  private func clampedEdgePanelThickness(for visibleFrame: NSRect) -> CGFloat {
+    clampedEdgePanelThickness(edgePanelThickness, for: visibleFrame)
+  }
+
+  private func clampedEdgePanelThickness(_ thickness: CGFloat, for visibleFrame: NSRect) -> CGFloat {
+    min(max(thickness, 260), max(260, visibleFrame.height * 0.62))
   }
 
   private func paste(_ record: ClipboardRecord) {
@@ -204,26 +279,32 @@ final class PanelCoordinator {
   }
 }
 
-private extension NSPanel {
-  func center(in frame: NSRect?) {
-    guard let frame else {
-      center()
-      return
-    }
-
-    setFrameOrigin(
-      NSPoint(
-        x: frame.midX - self.frame.width / 2,
-        y: frame.midY - self.frame.height / 2
-      ).clamped(panelSize: self.frame.size, to: frame)
-    )
-  }
-}
-
 private extension PanelCoordinator {
   static func screenContainingMouse() -> NSScreen? {
     let mouseLocation = NSEvent.mouseLocation
-    return NSScreen.screens.first { $0.frame.contains(mouseLocation) }
+    if let screen = NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) }) {
+      return screen
+    }
+    return NSScreen.screens.min { first, second in
+      first.frame.distanceSquared(to: mouseLocation) < second.frame.distanceSquared(to: mouseLocation)
+    }
+  }
+}
+
+private extension NSRect {
+  func roundedToScreenPoints() -> NSRect {
+    NSRect(
+      x: minX.rounded(.toNearestOrAwayFromZero),
+      y: minY.rounded(.toNearestOrAwayFromZero),
+      width: width.rounded(.toNearestOrAwayFromZero),
+      height: height.rounded(.toNearestOrAwayFromZero)
+    )
+  }
+
+  func distanceSquared(to point: NSPoint) -> CGFloat {
+    let closestX = min(max(point.x, minX), maxX)
+    let closestY = min(max(point.y, minY), maxY)
+    return pow(point.x - closestX, 2) + pow(point.y - closestY, 2)
   }
 }
 

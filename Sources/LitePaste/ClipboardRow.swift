@@ -18,116 +18,144 @@ struct ClipboardRow: View {
   let deleteAction: () -> Void
 
   var body: some View {
-    HStack(spacing: 12) {
+    HStack(spacing: 8) {
+      accentStrip
       thumbnail
-        .frame(width: 34, height: 34)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-
-      VStack(alignment: .leading, spacing: 4) {
-        Text(record.title)
-          .font(.system(size: 14, weight: .medium))
-          .lineLimit(1)
-
-        HStack(spacing: 8) {
-          Text(record.kind.displayName)
-          if let source = record.sourceAppName {
-            Text(source)
-          }
-          if !record.note.isEmpty {
-            Label("备注", systemImage: "note.text")
-          }
-          if let pinShortcut = record.pinShortcut {
-            Label(PinShortcutCatalog.displayName(for: pinShortcut), systemImage: "keyboard")
-          }
-          Text(record.lastCopiedAt, style: .relative)
-        }
-        .font(.system(size: 12))
-        .foregroundStyle(.secondary)
-      }
-
-      Spacer()
-
-      IconButton(
-        systemName: "arrow.turn.down.left",
-        accessibilityLabel: "粘贴",
-        action: {
-          pasteAction(record)
-        }
-      )
-      IconButton(
-        systemName: "textformat",
-        accessibilityLabel: "纯文本粘贴",
-        action: {
-          pastePlainTextAction(record)
-        }
-      )
-      IconButton(
-        systemName: "doc.on.doc",
-        accessibilityLabel: "复制",
-        action: {
-          copyAction(record)
-        }
-      )
-      IconButton(
-        systemName: "doc.plaintext",
-        accessibilityLabel: "复制纯文本",
-        action: {
-          copyPlainTextAction(record)
-        }
-      )
-      if let externalAction {
-        IconButton(
-          systemName: externalAction.iconName,
-          accessibilityLabel: externalAction.accessibilityLabel,
-          action: {
-            performExternalAction(externalAction)
-          }
-        )
-      }
-      IconButton(
-        systemName: record.note.isEmpty ? "note.text.badge.plus" : "note.text",
-        accessibilityLabel: "编辑备注",
-        action: editNote
-      )
-      IconButton(
-        systemName: record.isPinned ? "pin.fill" : "pin",
-        accessibilityLabel: "置顶",
-        action: togglePinned
-      )
-      if record.isPinned {
-        IconButton(
-          systemName: "keyboard",
-          accessibilityLabel: "设置快捷键",
-          action: editPinShortcut
-        )
-      }
-      IconButton(
-        systemName: record.isFavorite ? "star.fill" : "star",
-        accessibilityLabel: "收藏",
-        action: toggleFavorite
-      )
-      IconButton(
-        systemName: "trash",
-        accessibilityLabel: "删除",
-        action: deleteAction
-      )
+      titleBlock
+      Spacer(minLength: 8)
+      quickActions
     }
-    .padding(.horizontal, 12)
-    .padding(.vertical, 10)
-    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
-    .overlay(
-      RoundedRectangle(cornerRadius: 8)
-        .stroke(isSelected ? Color.accentColor.opacity(0.9) : .clear, lineWidth: 2)
-    )
-    .shadow(color: isSelected ? Color.accentColor.opacity(0.18) : .clear, radius: 8)
+    .padding(.horizontal, 9)
+    .padding(.vertical, 6)
+    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: ClipboardPanelMetrics.compactCornerRadius))
+    .overlay(selectionStroke)
+    .contentShape(RoundedRectangle(cornerRadius: ClipboardPanelMetrics.compactCornerRadius))
     .onTapGesture {
       primaryAction(record)
     }
   }
 
-  @ViewBuilder
+  private var accentStrip: some View {
+    RoundedRectangle(cornerRadius: 2)
+      .fill(record.kind.accentColor)
+      .frame(width: 4, height: 34)
+  }
+
   private var thumbnail: some View {
     ClipboardContentPreview(record: record, style: .thumbnail)
+      .frame(width: 34, height: 34)
+      .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 8))
+      .clipShape(RoundedRectangle(cornerRadius: 8))
+  }
+
+  private var titleBlock: some View {
+    VStack(alignment: .leading, spacing: 3) {
+      Text(record.title)
+        .font(.system(size: 13, weight: .semibold))
+        .lineLimit(1)
+
+      HStack(spacing: 6) {
+        Text(record.kind.displayName)
+          .foregroundStyle(record.kind.accentColor)
+        if let source = record.sourceAppName {
+          Text(source)
+        }
+        if !record.note.isEmpty {
+          Label("备注", systemImage: "note.text")
+        }
+        if let pinShortcut = record.pinShortcut {
+          Label(PinShortcutCatalog.displayName(for: pinShortcut), systemImage: "keyboard")
+        }
+        Text(record.lastCopiedAt, style: .relative)
+      }
+      .font(.system(size: 11, weight: .medium))
+      .foregroundStyle(.secondary)
+      .lineLimit(1)
+    }
+  }
+
+  private var quickActions: some View {
+    HStack(spacing: 5) {
+      IconButton(
+        systemName: "arrow.turn.down.left",
+        accessibilityLabel: "粘贴",
+        tint: record.kind.accentColor
+      ) {
+        pasteAction(record)
+      }
+      IconButton(
+        systemName: "doc.on.doc",
+        accessibilityLabel: "复制",
+        tint: record.kind.accentColor
+      ) {
+        copyAction(record)
+      }
+      IconButton(
+        systemName: record.isPinned ? "pin.fill" : "pin",
+        accessibilityLabel: "置顶",
+        isActive: record.isPinned,
+        tint: .purple,
+        action: togglePinned
+      )
+      IconButton(
+        systemName: record.isFavorite ? "star.fill" : "star",
+        accessibilityLabel: "收藏",
+        isActive: record.isFavorite,
+        tint: .yellow,
+        action: toggleFavorite
+      )
+      actionMenu
+    }
+  }
+
+  private var actionMenu: some View {
+    Menu {
+      Button {
+        pastePlainTextAction(record)
+      } label: {
+        Label("纯文本粘贴", systemImage: "textformat")
+      }
+
+      Button {
+        copyPlainTextAction(record)
+      } label: {
+        Label("复制纯文本", systemImage: "doc.plaintext")
+      }
+
+      if let externalAction {
+        Button {
+          performExternalAction(externalAction)
+        } label: {
+          Label(externalAction.accessibilityLabel, systemImage: externalAction.iconName)
+        }
+      }
+
+      Button(action: editNote) {
+        Label(record.note.isEmpty ? "添加备注" : "编辑备注", systemImage: "note.text")
+      }
+
+      if record.isPinned {
+        Button(action: editPinShortcut) {
+          Label("设置快捷键", systemImage: "keyboard")
+        }
+      }
+
+      Button(role: .destructive, action: deleteAction) {
+        Label("删除", systemImage: "trash")
+      }
+    } label: {
+      Image(systemName: "ellipsis")
+        .font(.system(size: 13, weight: .semibold))
+        .frame(width: 26, height: 26)
+        .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 7))
+    }
+    .menuStyle(.borderlessButton)
+    .fixedSize()
+    .accessibilityLabel("更多操作")
+  }
+
+  private var selectionStroke: some View {
+    RoundedRectangle(cornerRadius: ClipboardPanelMetrics.compactCornerRadius)
+      .stroke(isSelected ? record.kind.accentColor.opacity(0.95) : Color.clear, lineWidth: 2)
   }
 }

@@ -16,8 +16,8 @@ struct ClipboardPanelView: View {
   let primaryPasteAction: (ClipboardRecord) -> Void
   let closeAction: () -> Void
 
-  @State private var itemActions = ClipboardItemActions()
   @ObservedObject private var settingsStore = AppSettingsStore.shared
+  @State private var itemActions = ClipboardItemActions()
   @State private var query = ""
   @State private var filter: ClipboardFilter = .all
   @State private var sort: ClipboardHistorySort = .pinnedThenRecent
@@ -27,11 +27,7 @@ struct ClipboardPanelView: View {
   @FocusState private var searchFieldFocused: Bool
 
   private var queryRequest: ClipboardHistoryQuery {
-    ClipboardHistoryQuery(
-      text: query,
-      filter: filter,
-      sort: sort
-    )
+    ClipboardHistoryQuery(text: query, filter: filter, sort: sort)
   }
 
   private var currentPage: ClipboardHistoryPage {
@@ -42,136 +38,17 @@ struct ClipboardPanelView: View {
     currentPage.records
   }
 
-  private var resultSummary: String {
-    guard currentPage.totalCount > 0 else {
-      return "0 条"
-    }
-
-    if currentPage.hasMore {
-      return "显示 \(records.count) / \(currentPage.totalCount) 条"
-    }
-
-    return "\(currentPage.totalCount) 条"
-  }
-
-  private var emptyState: (systemName: String, title: String, message: String?) {
-    if store.allRecordCount() == 0 {
-      if settingsStore.settings.privacyMode {
-        return (
-          "lock.shield",
-          "私密模式已开启",
-          "新的剪贴板内容暂不会保存到历史。"
-        )
-      }
-
-      if settingsStore.settings.enabledTypes.isEmpty {
-        return (
-          "line.3.horizontal.decrease.circle",
-          "没有启用记录类型",
-          "在设置中启用至少一种剪贴板类型后才会保存历史。"
-        )
-      }
-
-      return (
-        "doc.on.clipboard",
-        "暂无剪贴板历史",
-        "复制文本、图片、文件或链接后会显示在这里。"
-      )
-    }
-
-    if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-      return (
-        "magnifyingglass",
-        "没有匹配结果",
-        "试试其他关键词，或切换筛选类型。"
-      )
-    }
-
-    if filter != .all {
-      if filterDisabledBySettings {
-        return (
-          filterEmptyStateIconName,
-          "\(filter.displayName)记录已关闭",
-          "在设置中启用该类型后，新内容会继续进入历史。"
-        )
-      }
-
-      return (
-        filterEmptyStateIconName,
-        "没有\(filter.displayName)记录",
-        "切换到全部，或复制对应类型的内容。"
-      )
-    }
-
-    return ("tray", "没有可显示的记录", nil)
-  }
-
-  private var filterEmptyStateIconName: String {
-    switch filter {
-    case .all:
-      "tray"
-    case .text:
-      "text.alignleft"
-    case .images:
-      "photo"
-    case .files:
-      "folder"
-    case .favorites:
-      "star"
-    case .pinned:
-      "pin"
-    }
-  }
-
-  private var filterDisabledBySettings: Bool {
-    let enabledTypes = settingsStore.settings.enabledTypes
-
-    switch filter {
-    case .all, .favorites, .pinned:
-      return false
-    case .text:
-      return !enabledTypes.contains(.text)
-    case .images:
-      return !enabledTypes.contains(.image)
-    case .files:
-      return !enabledTypes.contains(.files)
-    }
-  }
-
   var body: some View {
     ZStack {
       VisualEffectBackground(material: .hudWindow, blendingMode: .behindWindow)
-
-      VStack(spacing: 16) {
-        header
-        filters
-
-        if records.isEmpty {
-          EmptyHistoryView(
-            systemName: emptyState.systemName,
-            title: emptyState.title,
-            message: emptyState.message
-          )
-        } else {
-          content
-        }
-      }
-      .padding(20)
+      panelContent
     }
-    .frame(minWidth: 720, minHeight: 460)
-    .background(
-      PanelKeyboardBridge { event in
-        handleKeyDown(event)
-      }
-      .frame(width: 0, height: 0)
-    )
-    .onAppear {
-      normalizeSelection()
-    }
+    .frame(minWidth: 420, minHeight: 260)
+    .background(keyboardBridge)
+    .onAppear(perform: prepareForOpen)
     .onChange(of: presentationState.openRevision) {
       prepareForOpen()
     }
-    .animation(.easeOut(duration: 0.18), value: presentationState.actionMessage)
     .onChange(of: query) {
       resetVisibleRecords()
     }
@@ -184,194 +61,315 @@ struct ClipboardPanelView: View {
     .onChange(of: records.map(\.id)) {
       normalizeSelection()
     }
+    .animation(.easeOut(duration: 0.18), value: presentationState.actionMessage)
   }
 
-  private var header: some View {
-    HStack(spacing: 12) {
-      Image(systemName: "doc.on.clipboard")
-        .font(.system(size: 20, weight: .semibold))
-        .foregroundStyle(.primary)
+  private var panelContent: some View {
+    VStack(spacing: 8) {
+      topToolbar
+      contentArea
+    }
+    .padding(.horizontal, ClipboardPanelMetrics.drawerHorizontalPadding)
+    .padding(.vertical, ClipboardPanelMetrics.drawerVerticalPadding)
+    .clipShape(RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cornerRadius))
+    .overlay(
+      RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cornerRadius)
+        .stroke(Color.white.opacity(0.16), lineWidth: 1)
+    )
+  }
 
-      TextField("搜索", text: $query)
-        .textFieldStyle(.plain)
-        .font(.system(size: 16))
-        .padding(.vertical, 10)
-        .padding(.horizontal, 12)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
-        .focused($searchFieldFocused)
-
-      Picker("", selection: $viewMode) {
-        Image(systemName: "rectangle.grid.2x2").tag(ClipboardPanelViewMode.card)
-        Image(systemName: "list.bullet").tag(ClipboardPanelViewMode.list)
-      }
-      .pickerStyle(.segmented)
-      .frame(width: 92)
-      .onChange(of: viewMode) {
-        persistViewMode()
-      }
-
-      IconButton(
-        systemName: "trash.slash",
-        accessibilityLabel: "清空未置顶",
-        action: confirmClearUnpinned
-      )
-
-      IconButton(
-        systemName: "trash",
-        accessibilityLabel: "清空全部",
-        action: confirmClearAll
-      )
+  private var topToolbar: some View {
+    ViewThatFits(in: .horizontal) {
+      toolbarLine
+      compactToolbar
     }
   }
 
-  private var filters: some View {
+  private var toolbarLine: some View {
     HStack(spacing: 8) {
-      ForEach(ClipboardFilter.allCases) { option in
-        Button {
-          filter = option
-        } label: {
-          Text(option.displayName)
-            .font(.system(size: 13, weight: filter == option ? .semibold : .regular))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .background(filter == option ? .regularMaterial : .thinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-        }
-        .buttonStyle(.plain)
-      }
+      searchBox
+        .frame(minWidth: 180, idealWidth: 240, maxWidth: 300)
 
-      Spacer()
-
-      if let actionMessage = presentationState.actionMessage {
-        Label(actionMessage, systemImage: "checkmark.circle.fill")
-          .font(.system(size: 12, weight: .semibold))
-          .foregroundStyle(.green)
-          .lineLimit(1)
-          .fixedSize(horizontal: true, vertical: false)
-          .transition(.opacity.combined(with: .move(edge: .trailing)))
-      }
+      filterScroller
 
       Text(resultSummary)
-        .font(.system(size: 12))
+        .font(.system(size: 12, weight: .medium))
         .foregroundStyle(.secondary)
         .lineLimit(1)
-        .fixedSize(horizontal: true, vertical: false)
+        .fixedSize()
 
-      Picker("", selection: $sort) {
-        Label("置顶", systemImage: "pin").tag(ClipboardHistorySort.pinnedThenRecent)
-        Label("最近", systemImage: "clock").tag(ClipboardHistorySort.recent)
-        Label("常用", systemImage: "number").tag(ClipboardHistorySort.mostUsed)
+      if let actionMessage = presentationState.actionMessage {
+        PanelStatusBadge(message: actionMessage)
       }
-      .pickerStyle(.segmented)
-      .frame(width: 180)
+
+      viewModePicker
+      sortPicker
+      headerActions
     }
+  }
+
+  private var compactToolbar: some View {
+    VStack(spacing: 7) {
+      HStack(spacing: 8) {
+        searchBox
+
+        if let actionMessage = presentationState.actionMessage {
+          PanelStatusBadge(message: actionMessage)
+        }
+
+        viewModePicker
+        headerActions
+      }
+
+      HStack(spacing: 8) {
+        filterScroller
+        sortPicker
+
+        Text(resultSummary)
+          .font(.system(size: 12, weight: .medium))
+          .foregroundStyle(.secondary)
+          .lineLimit(1)
+          .fixedSize()
+      }
+    }
+  }
+
+  private var filterScroller: some View {
+    ScrollView(.horizontal, showsIndicators: false) {
+      HStack(spacing: 6) {
+        ForEach(ClipboardFilter.allCases) { option in
+          ClipboardFilterChip(filter: option, isSelected: filter == option) {
+            filter = option
+          }
+        }
+      }
+    }
+    .frame(minWidth: 180, maxWidth: .infinity)
+  }
+
+  private var viewModePicker: some View {
+    Picker("", selection: $viewMode) {
+      Image(systemName: "rectangle.grid.2x2").tag(ClipboardPanelViewMode.card)
+      Image(systemName: "list.bullet").tag(ClipboardPanelViewMode.list)
+    }
+    .pickerStyle(.segmented)
+    .frame(width: 82)
+    .onChange(of: viewMode) {
+      persistViewMode()
+    }
+  }
+
+  private var sortPicker: some View {
+    Picker("", selection: $sort) {
+      Label("最近", systemImage: "clock").tag(ClipboardHistorySort.recent)
+      Label("常用", systemImage: "number").tag(ClipboardHistorySort.mostUsed)
+      Label("置顶", systemImage: "pin").tag(ClipboardHistorySort.pinnedThenRecent)
+    }
+    .pickerStyle(.segmented)
+    .frame(width: 166)
+  }
+
+  private var headerActions: some View {
+    HStack(spacing: 6) {
+      IconButton(systemName: "trash.slash", accessibilityLabel: "清空未置顶", action: confirmClearUnpinned)
+      IconButton(systemName: "trash", accessibilityLabel: "清空全部", action: confirmClearAll)
+      IconButton(systemName: "xmark", accessibilityLabel: "关闭", action: closeAction)
+    }
+  }
+
+  private var searchBox: some View {
+    HStack(spacing: 8) {
+      Image(systemName: "magnifyingglass")
+        .font(.system(size: 12, weight: .semibold))
+        .foregroundStyle(.secondary)
+
+      TextField("搜索剪贴板", text: $query)
+        .textFieldStyle(.plain)
+        .font(.system(size: 13))
+        .focused($searchFieldFocused)
+
+      if !query.isEmpty {
+        Button {
+          query = ""
+        } label: {
+          Image(systemName: "xmark.circle.fill")
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("清空搜索")
+      }
+    }
+    .padding(.horizontal, 10)
+    .padding(.vertical, 7)
+    .frame(maxWidth: .infinity, minHeight: 32)
+    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
   }
 
   @ViewBuilder
-  private var content: some View {
-    switch viewMode {
-    case .card:
-      cardContent
-    case .list:
-      listContent
+  private var contentArea: some View {
+    if records.isEmpty {
+      EmptyHistoryView(
+        systemName: emptyState.systemName,
+        title: emptyState.title,
+        message: emptyState.message
+      )
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 12))
+    } else {
+      switch viewMode {
+      case .card:
+        cardContent
+      case .list:
+        listContent
+      }
     }
   }
 
   private var cardContent: some View {
     ScrollView(.horizontal) {
-      LazyHStack(alignment: .top, spacing: 12) {
+      LazyHStack(alignment: .top, spacing: 10) {
         ForEach(records) { record in
-          ClipboardCard(
-            record: record,
-            isSelected: selectedRecordID == record.id,
-            primaryAction: primaryAction,
-            copyAction: copyAction,
-            copyPlainTextAction: copyPlainTextAction,
-            pasteAction: pasteAction,
-            pastePlainTextAction: pastePlainTextAction,
-            externalAction: itemActions.primaryExternalAction(for: record),
-            performExternalAction: {
-              handleExternalActionResult(itemActions.perform($0, for: record))
-            },
-            editNote: {
-              editNote(record)
-            },
-            editPinShortcut: {
-              editPinShortcut(record)
-            }
-          ) {
-            store.toggleFavorite(record.id)
-          } togglePinned: {
-            store.togglePinned(record.id)
-          } deleteAction: {
-            confirmDelete(record)
-          }
+          card(for: record)
         }
 
         if currentPage.hasMore {
           loadMoreButton
-            .frame(width: 180, height: 220)
+            .frame(width: 150, height: 160)
         }
       }
-      .padding(.vertical, 4)
+      .padding(.vertical, 1)
     }
+    .frame(minHeight: 166)
   }
 
   private var listContent: some View {
     ScrollView {
-      LazyVStack(spacing: 8) {
+      LazyVStack(spacing: 6) {
         ForEach(records) { record in
-          ClipboardRow(
-            record: record,
-            isSelected: selectedRecordID == record.id,
-            primaryAction: primaryAction,
-            copyAction: copyAction,
-            copyPlainTextAction: copyPlainTextAction,
-            pasteAction: pasteAction,
-            pastePlainTextAction: pastePlainTextAction,
-            externalAction: itemActions.primaryExternalAction(for: record),
-            performExternalAction: {
-              handleExternalActionResult(itemActions.perform($0, for: record))
-            },
-            editNote: {
-              editNote(record)
-            },
-            editPinShortcut: {
-              editPinShortcut(record)
-            }
-          ) {
-            store.toggleFavorite(record.id)
-          } togglePinned: {
-            store.togglePinned(record.id)
-          } deleteAction: {
-            confirmDelete(record)
-          }
+          row(for: record)
         }
 
         if currentPage.hasMore {
           loadMoreButton
         }
       }
-      .padding(.vertical, 4)
+      .padding(.vertical, 1)
     }
   }
 
   private var loadMoreButton: some View {
-    Button {
-      loadMoreRecords()
-    } label: {
-      Label("加载更多", systemImage: "chevron.down")
-        .font(.system(size: 13, weight: .semibold))
-        .frame(maxWidth: .infinity, minHeight: 44)
+    Button(action: loadMoreRecords) {
+      VStack(spacing: 8) {
+        Image(systemName: "chevron.down.circle")
+          .font(.system(size: 22, weight: .semibold))
+        Text("加载更多")
+          .font(.system(size: 12, weight: .semibold))
+      }
+      .frame(maxWidth: .infinity, minHeight: 44)
     }
     .buttonStyle(.plain)
     .padding(.horizontal, 12)
-    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+  }
+
+  private func card(for record: ClipboardRecord) -> some View {
+    ClipboardCard(
+      record: record,
+      isSelected: selectedRecordID == record.id,
+      primaryAction: primaryAction,
+      copyAction: copyAction,
+      copyPlainTextAction: copyPlainTextAction,
+      pasteAction: pasteAction,
+      pastePlainTextAction: pastePlainTextAction,
+      externalAction: itemActions.primaryExternalAction(for: record),
+      performExternalAction: { handleExternalActionResult(itemActions.perform($0, for: record)) },
+      editNote: { editNote(record) },
+      editPinShortcut: { editPinShortcut(record) },
+      toggleFavorite: { store.toggleFavorite(record.id) },
+      togglePinned: { store.togglePinned(record.id) },
+      deleteAction: { confirmDelete(record) }
+    )
+  }
+
+  private func row(for record: ClipboardRecord) -> some View {
+    ClipboardRow(
+      record: record,
+      isSelected: selectedRecordID == record.id,
+      primaryAction: primaryAction,
+      copyAction: copyAction,
+      copyPlainTextAction: copyPlainTextAction,
+      pasteAction: pasteAction,
+      pastePlainTextAction: pastePlainTextAction,
+      externalAction: itemActions.primaryExternalAction(for: record),
+      performExternalAction: { handleExternalActionResult(itemActions.perform($0, for: record)) },
+      editNote: { editNote(record) },
+      editPinShortcut: { editPinShortcut(record) },
+      toggleFavorite: { store.toggleFavorite(record.id) },
+      togglePinned: { store.togglePinned(record.id) },
+      deleteAction: { confirmDelete(record) }
+    )
+  }
+
+  private var resultSummary: String {
+    guard currentPage.totalCount > 0 else {
+      return "0 条"
+    }
+    return currentPage.hasMore ? "显示 \(records.count) / \(currentPage.totalCount) 条" : "\(currentPage.totalCount) 条"
+  }
+
+  private var emptyState: (systemName: String, title: String, message: String?) {
+    if store.allRecordCount() == 0 {
+      if settingsStore.settings.privacyMode {
+        return ("lock.shield", "私密模式已开启", "新的剪贴板内容暂不会保存到历史。")
+      }
+      if settingsStore.settings.enabledTypes.isEmpty {
+        return ("line.3.horizontal.decrease.circle", "没有启用记录类型", "在设置中启用至少一种剪贴板类型后才会保存历史。")
+      }
+      return ("doc.on.clipboard", "暂无剪贴板历史", "复制文本、图片、文件或链接后会显示在这里。")
+    }
+
+    if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+      return ("magnifyingglass", "没有匹配结果", "试试其他关键词，或切换筛选类型。")
+    }
+
+    if filter != .all {
+      if filterDisabledBySettings {
+        return (filter.iconName, "\(filter.displayName)记录已关闭", "在设置中启用该类型后，新内容会继续进入历史。")
+      }
+      return (filter.iconName, "没有\(filter.displayName)记录", "切换到全部，或复制对应类型的内容。")
+    }
+
+    return ("tray", "没有可显示的记录", nil)
+  }
+
+  private var filterDisabledBySettings: Bool {
+    let enabledTypes = settingsStore.settings.enabledTypes
+    switch filter {
+    case .all, .favorites, .pinned:
+      return false
+    case .text:
+      return enabledTypes.intersection([.text, .richText, .html]).isEmpty
+    case .images:
+      return !enabledTypes.contains(.image)
+    case .files:
+      return !enabledTypes.contains(.files)
+    case .links:
+      return enabledTypes.intersection([.url, .email]).isEmpty
+    case .colors:
+      return !enabledTypes.contains(.color)
+    }
+  }
+
+  private var keyboardBridge: some View {
+    PanelKeyboardBridge { event in
+      handleKeyDown(event)
+    }
+    .frame(width: 0, height: 0)
   }
 
   private func primaryAction(_ record: ClipboardRecord) {
     selectedRecordID = record.id
-
     switch settingsStore.settings.autoPasteMode {
     case .copyOnly:
       primaryCopyAction(record)
@@ -385,15 +383,7 @@ struct ClipboardPanelView: View {
     guard count > 0 else {
       return
     }
-
-    let alert = NSAlert()
-    alert.messageText = "清空未置顶历史？"
-    alert.informativeText = "将删除 \(count) 条未置顶记录，置顶记录会保留。此操作无法撤销。"
-    alert.addButton(withTitle: "清空")
-    alert.addButton(withTitle: "取消")
-    alert.alertStyle = .warning
-
-    if alert.runModal() == .alertFirstButtonReturn {
+    if confirm(title: "清空未置顶历史？", message: "将删除 \(count) 条未置顶记录，置顶记录会保留。此操作无法撤销。") {
       store.clearUnpinned()
     }
   }
@@ -403,38 +393,32 @@ struct ClipboardPanelView: View {
     guard count > 0 else {
       return
     }
-
-    let alert = NSAlert()
-    alert.messageText = "清空全部历史？"
-    alert.informativeText = "将删除全部 \(count) 条剪贴板历史，包含置顶记录。此操作无法撤销。"
-    alert.addButton(withTitle: "清空")
-    alert.addButton(withTitle: "取消")
-    alert.alertStyle = .warning
-
-    if alert.runModal() == .alertFirstButtonReturn {
+    if confirm(title: "清空全部历史？", message: "将删除全部 \(count) 条剪贴板历史，包含置顶记录。此操作无法撤销。") {
       store.clearAll()
     }
   }
 
   private func confirmDelete(_ record: ClipboardRecord) {
-    let alert = NSAlert()
-    alert.messageText = "删除这条历史？"
-    alert.informativeText = "“\(record.title)”会从剪贴板历史中移除。此操作无法撤销。"
-    alert.addButton(withTitle: "删除")
-    alert.addButton(withTitle: "取消")
-    alert.alertStyle = .warning
-
-    if alert.runModal() == .alertFirstButtonReturn {
+    if confirm(title: "删除这条历史？", message: "“\(record.title)”会从剪贴板历史中移除。此操作无法撤销。") {
       store.delete(record.id)
       normalizeSelection()
     }
+  }
+
+  private func confirm(title: String, message: String) -> Bool {
+    let alert = NSAlert()
+    alert.messageText = title
+    alert.informativeText = message
+    alert.addButton(withTitle: "确认")
+    alert.addButton(withTitle: "取消")
+    alert.alertStyle = .warning
+    return alert.runModal() == .alertFirstButtonReturn
   }
 
   private func editNote(_ record: ClipboardRecord) {
     guard let note = NoteEditor.edit(record: record) else {
       return
     }
-
     store.updateNote(record.id, note: note)
   }
 
@@ -448,39 +432,29 @@ struct ClipboardPanelView: View {
   }
 
   private func editPinShortcut(_ record: ClipboardRecord) {
-    let result = PinShortcutEditor.edit(
-      record: record,
-      usedShortcuts: store.usedPinShortcuts(excluding: record.id)
-    )
-
+    let result = PinShortcutEditor.edit(record: record, usedShortcuts: store.usedPinShortcuts(excluding: record.id))
     if case let .save(shortcut) = result {
       store.updatePinShortcut(record.id, shortcut: shortcut)
     }
   }
 
   private func handleKeyDown(_ event: NSEvent) -> Bool {
-    let significantModifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
-    let commandOnly = significantModifiers == .command
+    let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
+    let commandOnly = modifiers == .command
 
     if commandOnly, event.charactersIgnoringModifiers?.lowercased() == "c" {
       return copySelected()
     }
-
-    if significantModifiers == [.command, .shift],
-       event.charactersIgnoringModifiers?.lowercased() == "c" {
+    if modifiers == [.command, .shift], event.charactersIgnoringModifiers?.lowercased() == "c" {
       return copySelected(asPlainText: true)
     }
-
     if commandOnly, event.keyCode == 51 {
       return deleteSelected()
     }
-
-    if significantModifiers == [.command, .shift],
-       [36, 76].contains(event.keyCode) {
+    if modifiers == [.command, .shift], [36, 76].contains(event.keyCode) {
       return pasteSelected(asPlainText: true)
     }
-
-    guard significantModifiers.isEmpty else {
+    guard modifiers.isEmpty else {
       return false
     }
 
@@ -507,12 +481,7 @@ struct ClipboardPanelView: View {
     guard let record = selectedRecord else {
       return false
     }
-
-    if asPlainText {
-      copyPlainTextAction(record)
-    } else {
-      copyAction(record)
-    }
+    asPlainText ? copyPlainTextAction(record) : copyAction(record)
     return true
   }
 
@@ -520,12 +489,7 @@ struct ClipboardPanelView: View {
     guard let record = selectedRecord else {
       return false
     }
-
-    if asPlainText {
-      pastePlainTextAction(record)
-    } else {
-      primaryAction(record)
-    }
+    asPlainText ? pastePlainTextAction(record) : primaryAction(record)
     return true
   }
 
@@ -533,7 +497,6 @@ struct ClipboardPanelView: View {
     guard let record = selectedRecord else {
       return false
     }
-
     confirmDelete(record)
     return true
   }
@@ -543,15 +506,12 @@ struct ClipboardPanelView: View {
       selectedRecordID = nil
       return
     }
-
     let currentIndex = records.firstIndex { $0.id == selectedRecordID } ?? 0
     if offset > 0, currentIndex == records.count - 1, currentPage.hasMore {
       loadMoreRecords()
     }
-
-    let expandedRecords = records
-    let nextIndex = min(max(currentIndex + offset, 0), expandedRecords.count - 1)
-    selectedRecordID = expandedRecords[nextIndex].id
+    let nextIndex = min(max(currentIndex + offset, 0), records.count - 1)
+    selectedRecordID = records[nextIndex].id
   }
 
   private func normalizeSelection() {
@@ -559,12 +519,14 @@ struct ClipboardPanelView: View {
       selectedRecordID = nil
       return
     }
-
     if let selectedRecordID, records.contains(where: { $0.id == selectedRecordID }) {
       return
     }
-
     selectedRecordID = records[0].id
+  }
+
+  private var selectedRecord: ClipboardRecord? {
+    records.first { $0.id == selectedRecordID }
   }
 
   private func prepareForOpen() {
@@ -582,10 +544,6 @@ struct ClipboardPanelView: View {
     normalizeSelection()
   }
 
-  private var selectedRecord: ClipboardRecord? {
-    records.first { $0.id == selectedRecordID }
-  }
-
   private func resetVisibleRecords() {
     visibleRecordLimit = Self.initialVisibleRecordLimit
     normalizeSelection()
@@ -599,7 +557,6 @@ struct ClipboardPanelView: View {
     guard settingsStore.settings.viewMode != viewMode else {
       return
     }
-
     settingsStore.update { $0.viewMode = viewMode }
   }
 
