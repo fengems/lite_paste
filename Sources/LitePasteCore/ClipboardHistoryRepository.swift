@@ -21,6 +21,10 @@ public protocol ClipboardHistoryIncrementalRepository: ClipboardHistoryRepositor
   func deleteAll() throws
 }
 
+public protocol ClipboardHistoryUsageRepository: ClipboardHistoryRepository {
+  func markUsed(id: ClipboardRecord.ID, at date: Date, position: Int?) throws
+}
+
 public struct JSONClipboardHistoryRepository: ClipboardHistoryRepository {
   private let url: URL
 

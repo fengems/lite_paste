@@ -5,6 +5,8 @@ public enum ClipboardFilter: String, CaseIterable, Identifiable, Sendable {
   case text
   case images
   case files
+  case links
+  case colors
   case favorites
   case pinned
 
@@ -20,6 +22,10 @@ public enum ClipboardFilter: String, CaseIterable, Identifiable, Sendable {
       "图片"
     case .files:
       "文件"
+    case .links:
+      "链接"
+    case .colors:
+      "颜色"
     case .favorites:
       "收藏"
     case .pinned:
@@ -37,6 +43,10 @@ public enum ClipboardFilter: String, CaseIterable, Identifiable, Sendable {
       record.kind == .image
     case .files:
       record.kind == .files
+    case .links:
+      [.url, .email].contains(record.kind)
+    case .colors:
+      record.kind == .color
     case .favorites:
       record.isFavorite
     case .pinned:
@@ -44,4 +54,3 @@ public enum ClipboardFilter: String, CaseIterable, Identifiable, Sendable {
     }
   }
 }
-

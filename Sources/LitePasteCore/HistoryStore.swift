@@ -236,10 +236,40 @@ public final class HistoryStore: ObservableObject {
   }
 
   public func markUsed(_ id: ClipboardRecord.ID, now: Date = .now) {
-    update(id) { record in
-      record.lastUsedAt = now
-      record.copyCount += 1
+    if let index = records.firstIndex(where: { $0.id == id }) {
+      var record = records[index]
+      updateUsageMetadata(&record, now: now)
+
+      applyControlledMutation {
+        records.remove(at: index)
+        records.insert(record, at: 0)
+      }
+      persistMarkUsed(id, at: now, fallbackRecord: record)
+      return
     }
+
+    if let repository = repository as? any ClipboardHistoryUsageRepository {
+      do {
+        try repository.markUsed(id: id, at: now, position: 0)
+        notifyHistoryChanged()
+      } catch {
+        notifyHistoryPersistenceFailed(operation: "更新使用记录", error: error)
+      }
+      return
+    }
+
+    guard var record = record(id: id) else {
+      return
+    }
+
+    updateUsageMetadata(&record, now: now)
+    persistUpsert(record, position: 0)
+  }
+
+  private func updateUsageMetadata(_ record: inout ClipboardRecord, now: Date) {
+    record.lastUsedAt = now
+    record.lastCopiedAt = now
+    record.copyCount += 1
   }
 
   public func updateNote(_ id: ClipboardRecord.ID, note: String) {
@@ -431,6 +461,20 @@ public final class HistoryStore: ObservableObject {
       notifyHistoryChanged()
     } catch {
       notifyHistoryPersistenceFailed(operation: "保存历史", error: error)
+    }
+  }
+
+  private func persistMarkUsed(_ id: ClipboardRecord.ID, at date: Date, fallbackRecord: ClipboardRecord) {
+    guard let repository = repository as? any ClipboardHistoryUsageRepository else {
+      persistUpsert(fallbackRecord, position: 0)
+      return
+    }
+
+    do {
+      try repository.markUsed(id: id, at: date, position: 0)
+      notifyHistoryChanged()
+    } catch {
+      notifyHistoryPersistenceFailed(operation: "更新使用记录", error: error)
     }
   }
 

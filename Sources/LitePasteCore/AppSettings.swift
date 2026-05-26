@@ -15,13 +15,14 @@ public struct AppSettings: Codable, Equatable, Sendable {
   public var moveDuplicatesToTop: Bool
   public var clearSearchOnOpen: Bool
   public var focusSearchOnOpen: Bool
+  public var coverMenuBarWhenEdgeAttached: Bool
   public var privacyMode: Bool
   public var launchAtLogin: Bool
 
   public init(
     hotkey: String = "command+shift+v",
     viewMode: ClipboardPanelViewMode = .card,
-    panelPosition: PanelPosition = .statusItem,
+    panelPosition: PanelPosition = .edgeBottom,
     maxHistoryCount: Int = 1_000,
     retentionDays: Int = 0,
     enabledTypes: Set<ClipboardKind> = Set(ClipboardKind.allCases),
@@ -33,12 +34,13 @@ public struct AppSettings: Codable, Equatable, Sendable {
     moveDuplicatesToTop: Bool = true,
     clearSearchOnOpen: Bool = true,
     focusSearchOnOpen: Bool = true,
+    coverMenuBarWhenEdgeAttached: Bool = true,
     privacyMode: Bool = false,
     launchAtLogin: Bool = false
   ) {
     self.hotkey = Self.normalizedHotkey(hotkey)
     self.viewMode = viewMode
-    self.panelPosition = panelPosition
+    self.panelPosition = Self.normalizedPanelPosition(panelPosition)
     self.maxHistoryCount = Self.normalizedMaxHistoryCount(maxHistoryCount)
     self.retentionDays = Self.normalizedRetentionDays(retentionDays)
     self.enabledTypes = enabledTypes
@@ -50,6 +52,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     self.moveDuplicatesToTop = moveDuplicatesToTop
     self.clearSearchOnOpen = clearSearchOnOpen
     self.focusSearchOnOpen = focusSearchOnOpen
+    self.coverMenuBarWhenEdgeAttached = coverMenuBarWhenEdgeAttached
     self.privacyMode = privacyMode
     self.launchAtLogin = launchAtLogin
   }
@@ -69,6 +72,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     case moveDuplicatesToTop
     case clearSearchOnOpen
     case focusSearchOnOpen
+    case coverMenuBarWhenEdgeAttached
     case privacyMode
     case launchAtLogin
   }
@@ -81,7 +85,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
       try container.decodeIfPresent(String.self, forKey: .hotkey) ?? defaults.hotkey
     )
     viewMode = try container.decodeIfPresent(ClipboardPanelViewMode.self, forKey: .viewMode) ?? defaults.viewMode
-    panelPosition = try container.decodeIfPresent(PanelPosition.self, forKey: .panelPosition) ?? defaults.panelPosition
+    panelPosition = Self.normalizedPanelPosition(
+      try container.decodeIfPresent(PanelPosition.self, forKey: .panelPosition) ?? defaults.panelPosition
+    )
     maxHistoryCount = Self.normalizedMaxHistoryCount(
       try container.decodeIfPresent(Int.self, forKey: .maxHistoryCount) ?? defaults.maxHistoryCount
     )
@@ -99,6 +105,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
     moveDuplicatesToTop = try container.decodeIfPresent(Bool.self, forKey: .moveDuplicatesToTop) ?? defaults.moveDuplicatesToTop
     clearSearchOnOpen = try container.decodeIfPresent(Bool.self, forKey: .clearSearchOnOpen) ?? defaults.clearSearchOnOpen
     focusSearchOnOpen = try container.decodeIfPresent(Bool.self, forKey: .focusSearchOnOpen) ?? defaults.focusSearchOnOpen
+    coverMenuBarWhenEdgeAttached =
+      try container.decodeIfPresent(Bool.self, forKey: .coverMenuBarWhenEdgeAttached) ??
+      defaults.coverMenuBarWhenEdgeAttached
     privacyMode = try container.decodeIfPresent(Bool.self, forKey: .privacyMode) ?? defaults.privacyMode
     launchAtLogin = try container.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? defaults.launchAtLogin
   }
@@ -119,12 +128,14 @@ public struct AppSettings: Codable, Equatable, Sendable {
     try container.encode(moveDuplicatesToTop, forKey: .moveDuplicatesToTop)
     try container.encode(clearSearchOnOpen, forKey: .clearSearchOnOpen)
     try container.encode(focusSearchOnOpen, forKey: .focusSearchOnOpen)
+    try container.encode(coverMenuBarWhenEdgeAttached, forKey: .coverMenuBarWhenEdgeAttached)
     try container.encode(privacyMode, forKey: .privacyMode)
     try container.encode(launchAtLogin, forKey: .launchAtLogin)
   }
 
   public mutating func normalize() {
     hotkey = Self.normalizedHotkey(hotkey)
+    panelPosition = Self.normalizedPanelPosition(panelPosition)
     maxHistoryCount = Self.normalizedMaxHistoryCount(maxHistoryCount)
     retentionDays = Self.normalizedRetentionDays(retentionDays)
     ignoredPasteboardTypes = Self.normalizedIgnoredPasteboardTypes(ignoredPasteboardTypes)
@@ -140,6 +151,17 @@ public struct AppSettings: Codable, Equatable, Sendable {
 
   private static func normalizedHotkey(_ value: String) -> String {
     PanelHotkeyCatalog.normalized(value) ?? "command+shift+v"
+  }
+
+  private static func normalizedPanelPosition(_ value: PanelPosition) -> PanelPosition {
+    switch value {
+    case .statusItem, .bottomDrawer:
+      .edgeBottom
+    case .mouseScreenCenter:
+      .cursor
+    case .edgeBottom, .edgeTop, .edgeLeft, .edgeRight, .cursor:
+      value
+    }
   }
 
   private static func normalizedIgnoredPasteboardTypes(_ value: Set<String>) -> Set<String> {
@@ -167,8 +189,18 @@ public enum ClipboardPanelViewMode: String, Codable, Equatable, Sendable {
 }
 
 public enum PanelPosition: String, Codable, Equatable, Sendable, CaseIterable, Identifiable {
+  case edgeBottom
+  case edgeTop
+  case edgeLeft
+  case edgeRight
+  case cursor
+  case bottomDrawer
   case statusItem
   case mouseScreenCenter
+
+  public static var allCases: [PanelPosition] {
+    [.edgeBottom, .edgeTop, .edgeLeft, .edgeRight, .cursor]
+  }
 
   public var id: String {
     rawValue
@@ -176,10 +208,40 @@ public enum PanelPosition: String, Codable, Equatable, Sendable, CaseIterable, I
 
   public var displayName: String {
     switch self {
+    case .edgeBottom:
+      "靠下"
+    case .edgeTop:
+      "靠上"
+    case .edgeLeft:
+      "靠左"
+    case .edgeRight:
+      "靠右"
+    case .cursor:
+      "跟随鼠标指针"
+    case .bottomDrawer:
+      "底部抽屉"
     case .statusItem:
       "菜单栏下方"
     case .mouseScreenCenter:
       "鼠标所在屏幕居中"
+    }
+  }
+
+  public var isEdgeAttached: Bool {
+    switch self {
+    case .edgeBottom, .edgeTop, .edgeLeft, .edgeRight, .bottomDrawer, .statusItem:
+      true
+    case .cursor, .mouseScreenCenter:
+      false
+    }
+  }
+
+  public var isVerticalEdge: Bool {
+    switch self {
+    case .edgeLeft, .edgeRight:
+      true
+    case .edgeBottom, .edgeTop, .cursor, .bottomDrawer, .statusItem, .mouseScreenCenter:
+      false
     }
   }
 }

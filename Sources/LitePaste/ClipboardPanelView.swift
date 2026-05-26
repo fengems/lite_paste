@@ -41,9 +41,10 @@ struct ClipboardPanelView: View {
   var body: some View {
     ZStack {
       VisualEffectBackground(material: .hudWindow, blendingMode: .behindWindow)
+        .ignoresSafeArea()
       panelContent
     }
-    .frame(minWidth: 420, minHeight: 260)
+    .frame(minWidth: 420, minHeight: ClipboardPanelMetrics.edgePanelThickness)
     .background(keyboardBridge)
     .onAppear(perform: prepareForOpen)
     .onChange(of: presentationState.openRevision) {
@@ -65,12 +66,13 @@ struct ClipboardPanelView: View {
   }
 
   private var panelContent: some View {
-    VStack(spacing: 8) {
+    VStack(spacing: ClipboardPanelMetrics.panelContentSpacing) {
       topToolbar
       contentArea
     }
     .padding(.horizontal, ClipboardPanelMetrics.drawerHorizontalPadding)
     .padding(.vertical, ClipboardPanelMetrics.drawerVerticalPadding)
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     .clipShape(RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cornerRadius))
     .overlay(
       RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cornerRadius)
@@ -227,34 +229,95 @@ struct ClipboardPanelView: View {
   }
 
   private var cardContent: some View {
-    ScrollView(.horizontal) {
-      LazyHStack(alignment: .top, spacing: 10) {
-        ForEach(records) { record in
-          card(for: record)
-        }
+    ScrollViewReader { proxy in
+      ScrollView {
+        LazyVGrid(columns: cardGridColumns, alignment: .leading, spacing: 10) {
+          ForEach(records) { record in
+            card(for: record)
+              .id(record.id)
+          }
 
-        if currentPage.hasMore {
-          loadMoreButton
-            .frame(width: 150, height: 160)
+          if currentPage.hasMore {
+            loadMoreButton
+              .frame(maxWidth: .infinity, minHeight: ClipboardPanelMetrics.cardHeight)
+          }
         }
+        .padding(.top, ClipboardPanelMetrics.cardContentTopPadding)
+        .padding(.bottom, ClipboardPanelMetrics.cardContentBottomPadding)
       }
-      .padding(.vertical, 1)
+      .scrollIndicators(.hidden)
+      .frame(
+        maxWidth: .infinity,
+        minHeight: cardContentMinimumHeight,
+        maxHeight: cardContentMaximumHeight,
+        alignment: .topLeading
+      )
+      .onChange(of: selectedRecordID) { _, recordID in
+        scrollToSelectedRecord(recordID, proxy: proxy, anchor: .center)
+      }
+      .onChange(of: presentationState.openRevision) {
+        scrollToSelectedRecord(selectedRecordID, proxy: proxy, anchor: .top)
+      }
     }
-    .frame(minHeight: 166)
+  }
+
+  private var cardContentMinimumHeight: CGFloat {
+    cardContentUsesSingleRowHeight ? ClipboardPanelMetrics.cardContentHeight : 0
+  }
+
+  private var cardContentMaximumHeight: CGFloat? {
+    cardContentUsesSingleRowHeight ? ClipboardPanelMetrics.cardContentHeight : .infinity
+  }
+
+  private var cardContentUsesSingleRowHeight: Bool {
+    switch settingsStore.settings.panelPosition {
+    case .edgeBottom, .edgeTop, .bottomDrawer, .statusItem:
+      true
+    case .edgeLeft, .edgeRight, .cursor, .mouseScreenCenter:
+      false
+    }
+  }
+
+  private var cardGridColumns: [GridItem] {
+    Array(
+      repeating: GridItem(.flexible(), spacing: 10),
+      count: cardGridColumnCount
+    )
+  }
+
+  private var cardGridColumnCount: Int {
+    switch settingsStore.settings.panelPosition {
+    case .edgeLeft, .edgeRight:
+      return 2
+    case .edgeBottom, .edgeTop, .bottomDrawer, .statusItem:
+      return 6
+    case .cursor, .mouseScreenCenter:
+      return 3
+    }
   }
 
   private var listContent: some View {
-    ScrollView {
-      LazyVStack(spacing: 6) {
-        ForEach(records) { record in
-          row(for: record)
-        }
+    ScrollViewReader { proxy in
+      ScrollView {
+        LazyVStack(spacing: 6) {
+          ForEach(records) { record in
+            row(for: record)
+              .id(record.id)
+          }
 
-        if currentPage.hasMore {
-          loadMoreButton
+          if currentPage.hasMore {
+            loadMoreButton
+          }
         }
+        .padding(.vertical, 1)
       }
-      .padding(.vertical, 1)
+      .scrollIndicators(.hidden)
+      .onChange(of: selectedRecordID) { _, recordID in
+        scrollToSelectedRecord(recordID, proxy: proxy, anchor: .center)
+      }
+      .onChange(of: presentationState.openRevision) {
+        scrollToSelectedRecord(selectedRecordID, proxy: proxy, anchor: .top)
+      }
     }
   }
 
@@ -466,11 +529,17 @@ struct ClipboardPanelView: View {
       return pasteSelected()
     case 117:
       return deleteSelected()
-    case 123, 126:
+    case 123:
       selectRelative(-1)
       return true
-    case 124, 125:
+    case 124:
       selectRelative(1)
+      return true
+    case 126:
+      selectRelative(verticalSelectionOffset(direction: -1))
+      return true
+    case 125:
+      selectRelative(verticalSelectionOffset(direction: 1))
       return true
     default:
       return false
@@ -489,7 +558,7 @@ struct ClipboardPanelView: View {
     guard let record = selectedRecord else {
       return false
     }
-    asPlainText ? pastePlainTextAction(record) : primaryAction(record)
+    asPlainText ? pastePlainTextAction(record) : pasteAction(record)
     return true
   }
 
@@ -512,6 +581,13 @@ struct ClipboardPanelView: View {
     }
     let nextIndex = min(max(currentIndex + offset, 0), records.count - 1)
     selectedRecordID = records[nextIndex].id
+  }
+
+  private func verticalSelectionOffset(direction: Int) -> Int {
+    guard viewMode == .card else {
+      return direction
+    }
+    return direction * cardGridColumnCount
   }
 
   private func normalizeSelection() {
@@ -541,7 +617,7 @@ struct ClipboardPanelView: View {
         searchFieldFocused = true
       }
     }
-    normalizeSelection()
+    selectFirstRecord()
   }
 
   private func resetVisibleRecords() {
@@ -549,8 +625,25 @@ struct ClipboardPanelView: View {
     normalizeSelection()
   }
 
+  private func selectFirstRecord() {
+    selectedRecordID = records.first?.id
+  }
+
   private func loadMoreRecords() {
     visibleRecordLimit += Self.recordPageSize
+  }
+
+  private func scrollToSelectedRecord(
+    _ recordID: ClipboardRecord.ID?,
+    proxy: ScrollViewProxy,
+    anchor: UnitPoint
+  ) {
+    guard let recordID else {
+      return
+    }
+    withAnimation(.easeOut(duration: 0.16)) {
+      proxy.scrollTo(recordID, anchor: anchor)
+    }
   }
 
   private func persistViewMode() {

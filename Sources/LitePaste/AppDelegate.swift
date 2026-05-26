@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import LitePasteCore
+import SwiftUI
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -19,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var monitor: ClipboardMonitor?
   private var writer: PasteboardWriter?
   private var panelCoordinator: PanelCoordinator?
+  private var settingsWindow: NSWindow?
   private var hotkeyController: GlobalHotkeyController?
   private var pinnedHotkeyController: PinnedHotkeyController?
   private var registeredPanelHotkey: String?
@@ -309,8 +311,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   @objc private func openSettings() {
-    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+    let window = settingsWindow ?? makeSettingsWindow()
+    settingsWindow = window
     NSApp.activate(ignoringOtherApps: true)
+    window.makeKeyAndOrderFront(nil)
   }
 
   @objc private func quit() {
@@ -319,6 +323,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   private func togglePanel() {
     panelCoordinator?.toggle(relativeTo: statusItem?.button)
+  }
+
+  private func makeSettingsWindow() -> NSWindow {
+    let hostingController = NSHostingController(rootView: SettingsView())
+    let window = NSWindow(
+      contentRect: NSRect(x: 0, y: 0, width: 560, height: 720),
+      styleMask: [.titled, .closable, .miniaturizable, .resizable],
+      backing: .buffered,
+      defer: false
+    )
+    window.title = "Lite Paste 设置"
+    window.contentViewController = hostingController
+    window.isReleasedWhenClosed = false
+    window.center()
+    return window
   }
 
   private func updateStatusMenuState() {

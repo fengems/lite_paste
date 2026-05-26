@@ -46,38 +46,7 @@ private struct FileClipboardPreview: View {
 
     switch style {
     case .card:
-      VStack(alignment: .leading, spacing: 10) {
-        HStack(spacing: -6) {
-          ForEach(Array(items.prefix(3).enumerated()), id: \.offset) { _, item in
-            fileIcon(for: item, size: 40)
-          }
-
-          if items.count > 3 {
-            Text("+\(items.count - 3)")
-              .font(.system(size: 12, weight: .semibold))
-              .frame(width: 40, height: 40)
-              .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
-          }
-        }
-
-        VStack(alignment: .leading, spacing: 4) {
-          Text(fileCountText(for: items))
-            .font(.system(size: 15, weight: .semibold))
-          Text(fileDetailText(for: items))
-            .font(.system(size: 12))
-            .foregroundStyle(.secondary)
-            .lineLimit(2)
-
-          if let metadata = fileMetadataText(for: items) {
-            Text(metadata)
-              .font(.system(size: 11))
-              .foregroundStyle(.tertiary)
-              .lineLimit(1)
-          }
-        }
-
-        Spacer(minLength: 0)
-      }
+      fileGrid(for: items)
       .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
     case .thumbnail:
@@ -105,6 +74,28 @@ private struct FileClipboardPreview: View {
       }
   }
 
+  private func fileGrid(for items: [FilePreviewItem]) -> some View {
+    let visibleItems = items.count > 4 ? Array(items.prefix(3)) : Array(items.prefix(4))
+
+    return LazyVGrid(
+      columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 2),
+      alignment: .leading,
+      spacing: 6
+    ) {
+      ForEach(visibleItems, id: \.url) { item in
+        fileIcon(for: item, size: 50)
+      }
+
+      if items.count > visibleItems.count {
+        Text("+\(items.count - visibleItems.count)")
+          .font(.system(size: 13, weight: .semibold))
+          .foregroundStyle(.secondary)
+          .frame(width: 50, height: 50)
+          .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 8))
+      }
+    }
+  }
+
   private var fileURLs: [URL] {
     record.contents
       .sorted { $0.displayOrder < $1.displayOrder }
@@ -122,61 +113,18 @@ private struct FileClipboardPreview: View {
     fileURLs.map(FilePreviewItem.init(url:))
   }
 
-  private func fileCountText(for items: [FilePreviewItem]) -> String {
-    let missingCount = items.filter { !$0.exists }.count
-    guard missingCount > 0 else {
-      return "\(items.count) 个文件"
-    }
-    return "\(items.count) 个文件 · \(missingCount) 个已移动或删除"
-  }
-
-  private func fileDetailText(for items: [FilePreviewItem]) -> String {
-    let names = items
-      .prefix(4)
-      .map { item in
-        item.exists ? item.url.lastPathComponent : "\(item.url.lastPathComponent)（缺失）"
-      }
-      .joined(separator: ", ")
-    return names.isEmpty ? record.title : names
-  }
-
-  private func fileMetadataText(for items: [FilePreviewItem]) -> String? {
-    guard let firstExisting = items.first(where: \.exists) else {
-      return nil
-    }
-
-    var parts: [String] = []
-    if let typeDescription = firstExisting.typeDescription {
-      parts.append(typeDescription)
-    }
-    if let byteSize = firstExisting.byteSize {
-      parts.append(ByteCountFormatter.string(fromByteCount: byteSize, countStyle: .file))
-    }
-
-    return parts.isEmpty ? nil : parts.joined(separator: " · ")
-  }
 }
 
 private struct FilePreviewItem {
   let url: URL
   let exists: Bool
   let isDirectory: Bool
-  let typeDescription: String?
-  let byteSize: Int64?
 
   init(url: URL) {
     self.url = url
     var isDirectoryValue: ObjCBool = false
     exists = FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectoryValue)
     isDirectory = isDirectoryValue.boolValue
-
-    let resourceValues = try? url.resourceValues(forKeys: [
-      .localizedTypeDescriptionKey,
-      .fileSizeKey,
-      .totalFileSizeKey
-    ])
-    typeDescription = resourceValues?.localizedTypeDescription
-    byteSize = Int64(resourceValues?.totalFileSize ?? resourceValues?.fileSize ?? 0)
   }
 }
 
@@ -278,35 +226,10 @@ private struct RichClipboardPreview: View {
   var body: some View {
     switch style {
     case .card:
-      VStack(alignment: .leading, spacing: 7) {
-        HStack(spacing: 6) {
-          Label(record.kind.displayName, systemImage: record.kind.previewIconName)
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(.secondary)
-
-          Spacer(minLength: 0)
-
-          if richAttributedStringFromSnapshots() == nil {
-            Image(systemName: "exclamationmark.circle.fill")
-              .font(.system(size: 12, weight: .semibold))
-              .foregroundStyle(.orange)
-          }
-        }
-
-        Text(previewAttributedText)
-          .font(.system(size: 13))
-          .lineLimit(4)
-          .padding(9)
-          .frame(maxWidth: .infinity, alignment: .topLeading)
-          .background(Color(nsColor: .textBackgroundColor).opacity(0.72), in: RoundedRectangle(cornerRadius: 7))
-          .overlay(
-            RoundedRectangle(cornerRadius: 7)
-              .stroke(Color.primary.opacity(0.08), lineWidth: 1)
-          )
-
-        Spacer(minLength: 0)
-      }
-      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+      Text(previewAttributedText)
+        .font(.system(size: 14))
+        .lineLimit(6)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
     case .thumbnail:
       Image(systemName: record.kind.previewIconName)
@@ -371,9 +294,9 @@ private struct FallbackClipboardPreview: View {
   var body: some View {
     switch style {
     case .card:
-      Text(record.title)
-        .font(.system(size: 17, weight: .semibold))
-        .lineLimit(5)
+      Text(previewText)
+        .font(.system(size: 14))
+        .lineLimit(7)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
     case .thumbnail:
@@ -381,6 +304,11 @@ private struct FallbackClipboardPreview: View {
         .font(.system(size: 16, weight: .semibold))
         .foregroundStyle(.secondary)
     }
+  }
+
+  private var previewText: String {
+    let trimmed = (record.plainText ?? record.title).trimmingCharacters(in: .whitespacesAndNewlines)
+    return trimmed.isEmpty ? record.title : trimmed
   }
 }
 

@@ -5,8 +5,17 @@ enum ClipboardPanelMetrics {
   static let cornerRadius: CGFloat = 12
   static let cardCornerRadius: CGFloat = 8
   static let compactCornerRadius: CGFloat = 8
+  static let cardWidth: CGFloat = 260
+  static let cardHeight: CGFloat = 184
+  static let cardContentTopPadding: CGFloat = 1
+  static let cardContentBottomPadding: CGFloat = 16
+  static let cardContentHeight: CGFloat = cardHeight + cardContentTopPadding + cardContentBottomPadding
+  static let toolbarHeightAllowance: CGFloat = 46
   static let drawerHorizontalPadding: CGFloat = 10
   static let drawerVerticalPadding: CGFloat = 10
+  static let panelContentSpacing: CGFloat = 8
+  static let edgeScreenPadding: CGFloat = cardContentBottomPadding
+  static let edgePanelThickness: CGFloat = cardContentHeight + toolbarHeightAllowance + panelContentSpacing + drawerVerticalPadding * 2
 }
 
 struct ClipboardFilterChip: View {

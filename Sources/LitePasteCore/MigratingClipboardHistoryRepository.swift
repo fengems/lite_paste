@@ -1,6 +1,6 @@
 import Foundation
 
-public struct MigratingClipboardHistoryRepository: ClipboardHistoryIncrementalRepository, ClipboardHistoryLookupRepository, ClipboardHistoryQueryingRepository {
+public struct MigratingClipboardHistoryRepository: ClipboardHistoryIncrementalRepository, ClipboardHistoryLookupRepository, ClipboardHistoryQueryingRepository, ClipboardHistoryUsageRepository {
   private let primary: any ClipboardHistoryRepository
   private let legacy: any ClipboardHistoryRepository
   private let legacyURL: URL
@@ -119,6 +119,31 @@ public struct MigratingClipboardHistoryRepository: ClipboardHistoryIncrementalRe
     }
 
     try save([])
+  }
+
+  public func markUsed(id: ClipboardRecord.ID, at date: Date, position: Int? = nil) throws {
+    try migrateLegacyHistoryIfNeeded()
+
+    if let primary = primary as? any ClipboardHistoryUsageRepository {
+      try primary.markUsed(id: id, at: date, position: position)
+      try removeLegacyHistoryIfNeeded()
+      return
+    }
+
+    var records = try load()
+    guard let index = records.firstIndex(where: { $0.id == id }) else {
+      return
+    }
+    var record = records.remove(at: index)
+    record.lastUsedAt = date
+    record.lastCopiedAt = date
+    record.copyCount += 1
+    if let position {
+      records.insert(record, at: min(max(position, 0), records.count))
+    } else {
+      records.append(record)
+    }
+    try save(records)
   }
 
   private func migrateLegacyHistoryIfNeeded() throws {

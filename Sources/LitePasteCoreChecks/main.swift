@@ -329,25 +329,27 @@ func checkAppSettingsBackwardCompatibility() {
   do {
     let settings = try JSONDecoder.litePaste.decode(AppSettings.self, from: data)
     expect(settings.viewMode == ClipboardPanelViewMode.list, "Settings should decode existing view mode string")
-    expect(settings.panelPosition == .statusItem, "Settings should default panelPosition for old files")
+    expect(settings.panelPosition == .edgeBottom, "Settings should default panelPosition to bottom edge for old files")
     expect(PanelHotkeyCatalog.displayName(for: settings.hotkey) == "⌘⇧V", "Panel hotkey should have display name")
     expect(settings.clearSearchOnOpen, "Settings should default clearSearchOnOpen for old files")
     expect(settings.maxHistoryCount == 1_000, "Settings should default maxHistoryCount for old files")
     expect(!settings.restoreClipboardAfterPaste, "Settings should default restoreClipboardAfterPaste for old files")
     expect(settings.moveDuplicatesToTop, "Settings should default moveDuplicatesToTop for old files")
     expect(settings.focusSearchOnOpen, "Settings should default focusSearchOnOpen for old files")
+    expect(settings.coverMenuBarWhenEdgeAttached, "Settings should default menu bar coverage to on for old files")
     expect(
       settings.ignoredApps.contains("com.1password.1password"),
       "Settings should default ignoredApps for old files"
     )
 
     let custom = AppSettings(
-      panelPosition: .mouseScreenCenter,
+      panelPosition: .cursor,
       ignoredPasteboardTypes: ["org.example.SecretType"],
       ignoredApps: ["com.example.SecretApp"],
       restoreClipboardAfterPaste: true,
       moveDuplicatesToTop: false,
-      focusSearchOnOpen: false
+      focusSearchOnOpen: false,
+      coverMenuBarWhenEdgeAttached: true
     )
     let encoded = try JSONEncoder.litePaste.encode(custom)
     let decoded = try JSONDecoder.litePaste.decode(AppSettings.self, from: encoded)
@@ -385,7 +387,7 @@ func checkAppSettingsBackwardCompatibility() {
       "Settings should preserve privacy ignored types during ignored type migration"
     )
     expect(
-      decoded.panelPosition == PanelPosition.mouseScreenCenter,
+      decoded.panelPosition == PanelPosition.cursor,
       "Settings should preserve panel position"
     )
     expect(
@@ -400,6 +402,10 @@ func checkAppSettingsBackwardCompatibility() {
       !decoded.focusSearchOnOpen,
       "Settings should preserve search focus behavior"
     )
+    expect(
+      decoded.coverMenuBarWhenEdgeAttached,
+      "Settings should preserve menu bar coverage behavior"
+    )
 
     let invalidData = Data(#"{"hotkey":"command+shift+x","maxHistoryCount":0,"retentionDays":-12}"#.utf8)
     let invalidSettings = try JSONDecoder.litePaste.decode(AppSettings.self, from: invalidData)
@@ -411,6 +417,14 @@ func checkAppSettingsBackwardCompatibility() {
     expect(invalidInit.hotkey == "command+shift+v", "Settings init should normalize panel hotkey")
     expect(invalidInit.maxHistoryCount == 1, "Settings init should normalize max history count")
     expect(invalidInit.retentionDays == 0, "Settings init should normalize retention days")
+    expect(
+      AppSettings(panelPosition: .statusItem).panelPosition == .edgeBottom,
+      "Settings init should migrate legacy status item position"
+    )
+    expect(
+      AppSettings(panelPosition: .mouseScreenCenter).panelPosition == .cursor,
+      "Settings init should migrate legacy mouse center position"
+    )
 
     expect(
       AppSettings(hotkey: " Command + Option + Space ").hotkey == "command+option+space",
@@ -1162,7 +1176,7 @@ func checkHistoryStore() {
   )
 
   let first = store.ingest(hello, sourceAppBundleId: nil, sourceAppName: nil)
-  _ = store.ingest(world, sourceAppBundleId: nil, sourceAppName: nil)
+  let second = store.ingest(world, sourceAppBundleId: nil, sourceAppName: nil)
   let duplicate = store.ingest(hello, sourceAppBundleId: nil, sourceAppName: nil)
 
   expect(store.records.count == 2, "HistoryStore should deduplicate records")
@@ -1189,7 +1203,15 @@ func checkHistoryStore() {
   store.markUsed(first.id, now: Date(timeIntervalSince1970: 42))
   let usedFirst = store.records.first { $0.id == first.id }
   expect(usedFirst?.lastUsedAt == Date(timeIntervalSince1970: 42), "Marking a record used should update last used time")
+  expect(usedFirst?.lastCopiedAt == Date(timeIntervalSince1970: 42), "Marking a record used should refresh copied time")
   expect(usedFirst?.copyCount == 3, "Marking a record used should increment copy count for most-used sorting")
+
+  store.markUsed(second.id, now: Date(timeIntervalSince1970: 43))
+  expect(store.records.first?.id == second.id, "Marking a record used should move it to the top")
+  expect(
+    store.filteredRecords(ClipboardHistoryQuery(sort: .recent)).first?.id == second.id,
+    "Recently used records should sort first in recent queries"
+  )
 
   let secondShortcut = store.ingest(
     ClipboardPayload(
@@ -1355,6 +1377,7 @@ func checkHistoryStoreIncrementalPersistence() {
   partialStore.markUsed(hidden.id, now: Date(timeIntervalSince1970: 7))
   let hiddenRecord = repository.records.first { $0.id == hidden.id }
   expect(hiddenRecord?.lastUsedAt == Date(timeIntervalSince1970: 7), "HistoryStore should update repository records that are not loaded in memory")
+  expect(hiddenRecord?.lastCopiedAt == Date(timeIntervalSince1970: 7), "HistoryStore should refresh hidden repository record copied time when marked used")
   expect(hiddenRecord?.copyCount == 2, "HistoryStore should increment hidden repository record copy count when marked used")
 }
 
@@ -1479,10 +1502,14 @@ func checkHistoryStorePartialInitialLoad() {
       hiddenRecord?.lastUsedAt == Date(timeIntervalSince1970: 10),
       "HistoryStore partial initial load should update hidden repository records"
     )
+    expect(
+      hiddenRecord?.lastCopiedAt == Date(timeIntervalSince1970: 10),
+      "HistoryStore partial initial load should refresh hidden repository copied time"
+    )
 
     store.updateMaxHistoryCount(2)
     let trimmed = try repository.load()
-    expect(trimmed.map(\.id) == [records[4].id, records[3].id], "HistoryStore should load full history before max-count trimming")
+    expect(trimmed.map(\.id) == [hidden.id, records[4].id], "HistoryStore should keep recently used records when trimming")
 
     let clearRepository = SQLiteClipboardHistoryRepository(
       url: directory.appending(path: "clear-history.sqlite3")
@@ -1844,7 +1871,21 @@ func checkHistoryQueryEngine() {
     copyCount: 9,
     contentHash: "files"
   )
-  let records = [old, pinned, popular]
+  let link = ClipboardRecord(
+    kind: .url,
+    title: "link",
+    searchText: "https://example.com",
+    lastCopiedAt: Date(timeIntervalSince1970: 3),
+    contentHash: "link"
+  )
+  let color = ClipboardRecord(
+    kind: .color,
+    title: "#22C55E",
+    searchText: "#22C55E",
+    lastCopiedAt: Date(timeIntervalSince1970: 4),
+    contentHash: "color"
+  )
+  let records = [old, pinned, popular, link, color]
 
   let defaultResults = engine.execute(ClipboardHistoryQuery(), records: records)
   expect(defaultResults.first?.id == pinned.id, "Pinned records should sort before recent records")
@@ -1857,6 +1898,12 @@ func checkHistoryQueryEngine() {
 
   let fileResults = engine.execute(ClipboardHistoryQuery(filter: .files), records: records)
   expect(fileResults.count == 1 && fileResults.first?.id == popular.id, "Filter should match files")
+
+  let linkResults = engine.execute(ClipboardHistoryQuery(filter: .links), records: records)
+  expect(linkResults.count == 1 && linkResults.first?.id == link.id, "Filter should match links")
+
+  let colorResults = engine.execute(ClipboardHistoryQuery(filter: .colors), records: records)
+  expect(colorResults.count == 1 && colorResults.first?.id == color.id, "Filter should match colors")
 
   let popularResults = engine.execute(
     ClipboardHistoryQuery(sort: .mostUsed),
@@ -2062,6 +2109,17 @@ func checkSQLiteHistoryQueryAndMaintenance() {
         copyCount: 3,
         contentHash: "query-url",
         plainText: "https://example.com"
+      ),
+      ClipboardRecord(
+        id: UUID(uuidString: "00000000-0000-0000-0000-000000000105")!,
+        kind: .color,
+        title: "#22C55E",
+        searchText: "#22C55E RGB(34, 197, 94)",
+        createdAt: Date(timeIntervalSince1970: 9),
+        lastCopiedAt: Date(timeIntervalSince1970: 9),
+        copyCount: 1,
+        contentHash: "query-color",
+        plainText: "#22C55E"
       )
     ]
 
@@ -2074,6 +2132,8 @@ func checkSQLiteHistoryQueryAndMaintenance() {
       ClipboardHistoryQuery(text: "100%_literal"),
       ClipboardHistoryQuery(filter: .files),
       ClipboardHistoryQuery(filter: .text),
+      ClipboardHistoryQuery(filter: .links),
+      ClipboardHistoryQuery(filter: .colors),
       ClipboardHistoryQuery(filter: .favorites, sort: .mostUsed),
       ClipboardHistoryQuery(sort: .mostUsed)
     ]

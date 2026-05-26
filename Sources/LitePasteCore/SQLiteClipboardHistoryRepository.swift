@@ -1,7 +1,7 @@
 import Foundation
 import SQLite3
 
-public struct SQLiteClipboardHistoryRepository: ClipboardHistoryIncrementalRepository, ClipboardHistoryLookupRepository, ClipboardHistoryQueryingRepository {
+public struct SQLiteClipboardHistoryRepository: ClipboardHistoryIncrementalRepository, ClipboardHistoryLookupRepository, ClipboardHistoryQueryingRepository, ClipboardHistoryUsageRepository {
   private let url: URL
   private static let selectColumns = """
     id, kind, title, search_text, note, source_app_bundle_id, source_app_name,
@@ -153,6 +153,32 @@ public struct SQLiteClipboardHistoryRepository: ClipboardHistoryIncrementalRepos
     try connection.execute("DELETE FROM clipboard_records")
   }
 
+  public func markUsed(id: ClipboardRecord.ID, at date: Date, position: Int? = nil) throws {
+    let connection = try SQLiteConnection(url: url)
+    try connection.ensureSchema()
+    let currentPosition = try nextPosition(for: id, in: connection)
+    let resolvedPosition = max(position ?? currentPosition, 0)
+    if let position, position >= 0 {
+      try shiftPositionsIfNeeded(from: position, excluding: id, in: connection)
+    }
+
+    let statement = try connection.prepare("""
+      UPDATE clipboard_records
+      SET last_copied_at = ?, last_used_at = ?, copy_count = copy_count + 1, position = ?
+      WHERE id = ?
+      """)
+    defer { sqlite3_finalize(statement) }
+
+    sqlite3_bind_double(statement, 1, date.timeIntervalSince1970)
+    sqlite3_bind_double(statement, 2, date.timeIntervalSince1970)
+    sqlite3_bind_int64(statement, 3, Int64(resolvedPosition))
+    Self.bindText(id.uuidString, at: 4, to: statement)
+
+    guard sqlite3_step(statement) == SQLITE_DONE else {
+      throw SQLiteRepositoryError.operationFailed(connection.errorMessage)
+    }
+  }
+
   public func performMaintenance() throws {
     let connection = try SQLiteConnection(url: url)
     try connection.ensureSchema()
@@ -242,6 +268,10 @@ public struct SQLiteClipboardHistoryRepository: ClipboardHistoryIncrementalRepos
       SQLiteQueryRequest(sql: "kind = 'image'", bindings: [])
     case .files:
       SQLiteQueryRequest(sql: "kind = 'files'", bindings: [])
+    case .links:
+      SQLiteQueryRequest(sql: "kind IN ('url', 'email')", bindings: [])
+    case .colors:
+      SQLiteQueryRequest(sql: "kind = 'color'", bindings: [])
     case .favorites:
       SQLiteQueryRequest(sql: "is_favorite = 1", bindings: [])
     case .pinned:

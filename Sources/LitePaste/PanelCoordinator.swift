@@ -7,6 +7,10 @@ import SwiftUI
 final class ClipboardPanelWindow: NSPanel {
   var usesExactFramePlacement = false
 
+  override var canBecomeKey: Bool {
+    true
+  }
+
   override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
     usesExactFramePlacement ? frameRect : super.constrainFrameRect(frameRect, to: screen)
   }
@@ -20,7 +24,7 @@ final class PanelCoordinator {
   private let presentationState = PanelPresentationState()
   private var panel: NSPanel?
   private var previousApplication: NSRunningApplication?
-  private var edgePanelThickness: CGFloat = 340
+  private var edgePanelThickness: CGFloat = ClipboardPanelMetrics.edgePanelThickness
   private var cancellables = Set<AnyCancellable>()
 
   init(store: HistoryStore, writer: PasteboardWriter) {
@@ -54,7 +58,7 @@ final class PanelCoordinator {
   private func makePanel() -> NSPanel {
     let panel = ClipboardPanelWindow(
       contentRect: NSRect(x: 0, y: 0, width: 1120, height: edgePanelThickness),
-      styleMask: [.titled, .fullSizeContentView, .nonactivatingPanel],
+      styleMask: [.borderless, .nonactivatingPanel],
       backing: .buffered,
       defer: false
     )
@@ -89,7 +93,7 @@ final class PanelCoordinator {
     panel.titleVisibility = .hidden
     panel.titlebarAppearsTransparent = true
     panel.isFloatingPanel = true
-    panel.level = .floating
+    applyPanelLevel(panel)
     panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
     panel.isReleasedWhenClosed = false
     panel.contentViewController = hostingController
@@ -128,6 +132,7 @@ final class PanelCoordinator {
     let isEdgeAttached = settingsStore.settings.panelPosition.isEdgeAttached
     panel.isMovableByWindowBackground = !isEdgeAttached
     (panel as? ClipboardPanelWindow)?.usesExactFramePlacement = isEdgeAttached
+    applyPanelLevel(panel)
 
     switch settingsStore.settings.panelPosition {
     case .edgeBottom, .edgeTop, .edgeLeft, .edgeRight, .bottomDrawer, .statusItem:
@@ -166,17 +171,37 @@ final class PanelCoordinator {
   private func edgeAttachedFrame(for position: PanelPosition, on screen: NSScreen) -> NSRect {
     let displayFrame = screen.frame
     let visibleFrame = screen.visibleFrame
+    let coversMenuBar = settingsStore.settings.coverMenuBarWhenEdgeAttached
+    let screenPadding = ClipboardPanelMetrics.edgeScreenPadding
     let thickness = clampedEdgePanelThickness(for: visibleFrame)
     switch position {
     case .edgeTop:
-      return NSRect(x: displayFrame.minX, y: visibleFrame.maxY - thickness, width: displayFrame.width, height: thickness)
+      let maxY = coversMenuBar ? displayFrame.maxY : visibleFrame.maxY
+      return NSRect(x: displayFrame.minX, y: maxY - thickness, width: displayFrame.width, height: thickness)
     case .edgeLeft:
-      return NSRect(x: displayFrame.minX, y: visibleFrame.minY, width: sideEdgeWidth(in: visibleFrame), height: visibleFrame.height)
+      let maxY = coversMenuBar ? displayFrame.maxY : visibleFrame.maxY
+      return NSRect(
+        x: displayFrame.minX,
+        y: visibleFrame.minY,
+        width: sideEdgeWidth(in: visibleFrame),
+        height: maxY - visibleFrame.minY
+      )
     case .edgeRight:
       let width = sideEdgeWidth(in: visibleFrame)
-      return NSRect(x: displayFrame.maxX - width, y: visibleFrame.minY, width: width, height: visibleFrame.height)
+      let maxY = coversMenuBar ? displayFrame.maxY : visibleFrame.maxY
+      return NSRect(
+        x: displayFrame.maxX - width,
+        y: visibleFrame.minY,
+        width: width,
+        height: maxY - visibleFrame.minY
+      )
     case .edgeBottom, .bottomDrawer, .statusItem:
-      return NSRect(x: displayFrame.minX, y: visibleFrame.minY, width: displayFrame.width, height: thickness)
+      return NSRect(
+        x: displayFrame.minX,
+        y: visibleFrame.minY + screenPadding,
+        width: displayFrame.width,
+        height: min(thickness, max(0, visibleFrame.height - screenPadding))
+      )
     case .cursor, .mouseScreenCenter:
       return NSRect(origin: visibleFrame.origin, size: floatingPanelSize(in: visibleFrame))
     }
@@ -192,12 +217,17 @@ final class PanelCoordinator {
     min(max(visibleFrame.width * 0.38, min(420, visibleFrame.width)), min(760, visibleFrame.width))
   }
 
+  private func applyPanelLevel(_ panel: NSPanel) {
+    panel.level = settingsStore.settings.coverMenuBarWhenEdgeAttached ? .screenSaver : .floating
+  }
+
   private func clampedEdgePanelThickness(for visibleFrame: NSRect) -> CGFloat {
     clampedEdgePanelThickness(edgePanelThickness, for: visibleFrame)
   }
 
   private func clampedEdgePanelThickness(_ thickness: CGFloat, for visibleFrame: NSRect) -> CGFloat {
-    min(max(thickness, 260), max(260, visibleFrame.height * 0.62))
+    let minimumThickness = ClipboardPanelMetrics.edgePanelThickness
+    return min(max(thickness, minimumThickness), max(minimumThickness, visibleFrame.height * 0.62))
   }
 
   private func paste(_ record: ClipboardRecord) {

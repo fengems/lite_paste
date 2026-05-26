@@ -7,33 +7,20 @@ struct ClipboardPreviewImage: View {
 
   var body: some View {
     if let image = NSImage(contentsOfFile: path) {
-      Image(nsImage: image)
-        .resizable()
-        .scaledToFill()
-        .overlay(alignment: .bottomTrailing) {
-          if style == .card, let sizeText = imageSizeText(for: image) {
-            Text(sizeText)
-              .font(.system(size: 11, weight: .medium))
-              .foregroundStyle(.white)
-              .padding(.horizontal, 7)
-              .padding(.vertical, 4)
-              .background(.black.opacity(0.42), in: Capsule())
-              .padding(7)
-          }
-        }
+      switch style {
+      case .card:
+        Image(nsImage: image)
+          .resizable()
+          .scaledToFit()
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
+      case .thumbnail:
+        Image(nsImage: image)
+          .resizable()
+          .scaledToFill()
+      }
     } else {
       MissingImagePreview(style: style)
     }
-  }
-
-  private func imageSizeText(for image: NSImage) -> String? {
-    let width = Int(image.size.width.rounded())
-    let height = Int(image.size.height.rounded())
-    guard width > 0, height > 0 else {
-      return nil
-    }
-
-    return "\(width)x\(height)"
   }
 }
 

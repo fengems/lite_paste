@@ -3,6 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIGURATION="${CONFIGURATION:-release}"
+LOCAL_CODESIGN_IDENTITY="LitePaste Local Code Signing"
+CODESIGN_IDENTITY="${CODESIGN_IDENTITY:-}"
 PRODUCT_NAME="LitePaste"
 APP_DISPLAY_NAME="Lite Paste"
 APP_BUNDLE_NAME="${PRODUCT_NAME}.app"
@@ -16,6 +18,14 @@ INFO_PLIST_DESTINATION="${CONTENTS_DIR}/Info.plist"
 ICON_DESTINATION="${RESOURCES_DIR}/AppIcon.icns"
 
 cd "${ROOT_DIR}"
+
+if [[ -z "${CODESIGN_IDENTITY}" ]]; then
+  if security find-identity -v -p codesigning 2>/dev/null | grep -Fq "\"${LOCAL_CODESIGN_IDENTITY}\""; then
+    CODESIGN_IDENTITY="${LOCAL_CODESIGN_IDENTITY}"
+  else
+    CODESIGN_IDENTITY="-"
+  fi
+fi
 
 swift build -c "${CONFIGURATION}" --product "${PRODUCT_NAME}"
 
@@ -36,8 +46,9 @@ if command -v plutil >/dev/null 2>&1; then
 fi
 
 if command -v codesign >/dev/null 2>&1; then
-  codesign --force --sign - "${APP_DIR}" >/dev/null
+  codesign --force --sign "${CODESIGN_IDENTITY}" "${APP_DIR}" >/dev/null
 fi
 
 echo "Built ${APP_DISPLAY_NAME} at ${APP_DIR}"
+echo "Signed with: ${CODESIGN_IDENTITY}"
 echo "Open with: open ${APP_DIR}"

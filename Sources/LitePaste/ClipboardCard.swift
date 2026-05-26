@@ -1,3 +1,4 @@
+import AppKit
 import LitePasteCore
 import SwiftUI
 
@@ -18,16 +19,15 @@ struct ClipboardCard: View {
   let deleteAction: () -> Void
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
+    VStack(alignment: .leading, spacing: 9) {
       header
       preview
-      footer
     }
     .padding(10)
-    .frame(width: 194, height: 160)
-    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cardCornerRadius))
+    .frame(maxWidth: .infinity, minHeight: ClipboardPanelMetrics.cardHeight, maxHeight: ClipboardPanelMetrics.cardHeight)
+    .background(cardBackground)
     .overlay(selectionStroke)
-    .shadow(color: shadowColor, radius: isSelected ? 12 : 4, y: isSelected ? 5 : 2)
+    .shadow(color: shadowColor, radius: isSelected ? 14 : 4, y: isSelected ? 6 : 2)
     .contentShape(RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cardCornerRadius))
     .onTapGesture {
       primaryAction(record)
@@ -35,13 +35,15 @@ struct ClipboardCard: View {
   }
 
   private var header: some View {
-    HStack(spacing: 6) {
-      Label(sourceTitle, systemImage: record.kind.previewIconName)
+    HStack(spacing: 7) {
+      SourceAppIcon(record: record)
+
+      Text(contentSummary)
         .font(.system(size: 12, weight: .semibold))
-        .foregroundStyle(record.kind.accentColor)
+        .foregroundStyle(.primary)
         .lineLimit(1)
 
-      Text(record.lastCopiedAt, style: .relative)
+      Text(relativeTimeText)
         .font(.system(size: 11, weight: .medium))
         .foregroundStyle(.secondary)
         .lineLimit(1)
@@ -53,60 +55,35 @@ struct ClipboardCard: View {
         accessibilityLabel: "收藏",
         isActive: record.isFavorite,
         tint: .yellow,
+        size: 22,
+        iconSize: 11,
+        cornerRadius: 6,
         action: toggleFavorite
       )
+
+      actionMenu
     }
   }
 
   private var preview: some View {
     ClipboardContentPreview(record: record, style: .card)
-      .padding(8)
-      .frame(maxWidth: .infinity, minHeight: 76, maxHeight: 76, alignment: .topLeading)
-      .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
-      .clipShape(RoundedRectangle(cornerRadius: 10))
-  }
-
-  private var footer: some View {
-    HStack(spacing: 6) {
-      Label(record.kind.displayName, systemImage: record.kind.previewIconName)
-        .font(.system(size: 11, weight: .semibold))
-        .foregroundStyle(record.kind.accentColor)
-        .padding(.horizontal, 7)
-        .padding(.vertical, 4)
-        .background(record.kind.accentColor.opacity(0.12), in: Capsule())
-        .lineLimit(1)
-
-      if let pinShortcut = record.pinShortcut {
-        Text(PinShortcutCatalog.displayName(for: pinShortcut))
-          .font(.system(size: 11, weight: .semibold))
-          .foregroundStyle(.secondary)
-          .padding(.horizontal, 6)
-          .padding(.vertical, 4)
-          .background(Color.primary.opacity(0.055), in: Capsule())
-      }
-
-      Spacer(minLength: 0)
-
-      IconButton(
-        systemName: "arrow.turn.down.left",
-        accessibilityLabel: "粘贴",
-        tint: record.kind.accentColor
-      ) {
-        pasteAction(record)
-      }
-      IconButton(
-        systemName: "doc.on.doc",
-        accessibilityLabel: "复制",
-        tint: record.kind.accentColor
-      ) {
-        copyAction(record)
-      }
-      actionMenu
-    }
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
   }
 
   private var actionMenu: some View {
     Menu {
+      Button {
+        pasteAction(record)
+      } label: {
+        Label("粘贴", systemImage: "arrow.turn.down.left")
+      }
+
+      Button {
+        copyAction(record)
+      } label: {
+        Label("复制", systemImage: "doc.on.doc")
+      }
+
       Button {
         pastePlainTextAction(record)
       } label: {
@@ -148,9 +125,9 @@ struct ClipboardCard: View {
       }
     } label: {
       Image(systemName: "ellipsis")
-        .font(.system(size: 13, weight: .semibold))
-        .frame(width: 26, height: 26)
-        .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 7))
+        .font(.system(size: 11, weight: .semibold))
+        .frame(width: 22, height: 22)
+        .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 6))
         .contentShape(Rectangle())
     }
     .menuStyle(.borderlessButton)
@@ -158,19 +135,93 @@ struct ClipboardCard: View {
     .accessibilityLabel("更多操作")
   }
 
-  private var sourceTitle: String {
-    record.sourceAppName ?? "Lite Paste"
+  private var contentSummary: String {
+    switch record.kind {
+    case .text:
+      return "纯文本"
+    case .files:
+      return "\(max(record.contents.count, 1)) 个文件"
+    case .image:
+      return "图片"
+    case .richText:
+      return "富文本"
+    case .html:
+      return "HTML"
+    case .url:
+      return "链接"
+    case .email:
+      return "邮箱"
+    case .color:
+      return "颜色"
+    case .unknown:
+      return "未知"
+    }
+  }
+
+  private var relativeTimeText: String {
+    let elapsedSeconds = max(0, Date().timeIntervalSince(record.lastCopiedAt))
+    if elapsedSeconds < 60 {
+      return "刚刚"
+    }
+    let elapsedMinutes = Int(elapsedSeconds / 60)
+    if elapsedMinutes < 60 {
+      return "\(elapsedMinutes) 分钟前"
+    }
+    let elapsedHours = Int(elapsedSeconds / 3600)
+    if elapsedHours < 24 {
+      return "\(elapsedHours) 小时前"
+    }
+    let elapsedDays = Int(elapsedSeconds / 86_400)
+    return "\(elapsedDays) 天前"
   }
 
   private var selectionStroke: some View {
     RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cardCornerRadius)
       .stroke(
-        isSelected ? record.kind.accentColor.opacity(0.95) : Color.primary.opacity(0.08),
-        lineWidth: isSelected ? 2 : 1
+        isSelected ? record.kind.accentColor.opacity(0.98) : Color.primary.opacity(0.08),
+        lineWidth: isSelected ? 2.5 : 1
       )
   }
 
+  private var cardBackground: some View {
+    RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cardCornerRadius)
+      .fill(.regularMaterial)
+      .overlay {
+        RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cardCornerRadius)
+          .fill(isSelected ? record.kind.accentColor.opacity(0.11) : Color.clear)
+      }
+  }
+
   private var shadowColor: Color {
-    isSelected ? record.kind.accentColor.opacity(0.22) : Color.black.opacity(0.08)
+    isSelected ? record.kind.accentColor.opacity(0.30) : Color.black.opacity(0.08)
+  }
+}
+
+private struct SourceAppIcon: View {
+  let record: ClipboardRecord
+
+  var body: some View {
+    Group {
+      if let image = appIcon {
+        Image(nsImage: image)
+          .resizable()
+          .scaledToFit()
+      } else {
+        Image(systemName: record.kind.previewIconName)
+          .font(.system(size: 12, weight: .semibold))
+          .foregroundStyle(record.kind.accentColor)
+      }
+    }
+    .frame(width: 20, height: 20)
+    .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 5))
+    .accessibilityLabel(record.sourceAppName ?? "来源应用")
+  }
+
+  private var appIcon: NSImage? {
+    guard let bundleId = record.sourceAppBundleId,
+          let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
+      return nil
+    }
+    return NSWorkspace.shared.icon(forFile: url.path)
   }
 }

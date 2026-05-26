@@ -30,11 +30,19 @@ struct SettingsView: View {
           Text("列表").tag(ClipboardPanelViewMode.list)
         }
 
-        Picker("面板位置", selection: panelPosition) {
+        Picker("剪贴板位置", selection: panelPosition) {
           ForEach(PanelPosition.allCases) { position in
             Text(position.displayName).tag(position)
           }
         }
+        Text(panelPositionDescription)
+          .font(.caption)
+          .foregroundStyle(.secondary)
+
+        Toggle("贴边时覆盖菜单栏", isOn: coverMenuBarWhenEdgeAttached)
+        Text("开启后，靠上、靠左和靠右会尝试覆盖系统菜单栏区域。")
+          .font(.caption)
+          .foregroundStyle(.secondary)
 
         Toggle("打开面板时清空搜索", isOn: clearSearchOnOpen)
         Toggle("打开面板时聚焦搜索", isOn: focusSearchOnOpen)
@@ -274,6 +282,14 @@ struct SettingsView: View {
     }
   }
 
+  private var coverMenuBarWhenEdgeAttached: Binding<Bool> {
+    Binding {
+      store.settings.coverMenuBarWhenEdgeAttached
+    } set: { value in
+      store.update { $0.coverMenuBarWhenEdgeAttached = value }
+    }
+  }
+
   private var moveDuplicatesToTop: Binding<Bool> {
     Binding {
       store.settings.moveDuplicatesToTop
@@ -295,6 +311,25 @@ struct SettingsView: View {
       store.settings.panelPosition
     } set: { value in
       store.update { $0.panelPosition = value }
+    }
+  }
+
+  private var panelPositionDescription: String {
+    switch store.settings.panelPosition {
+    case .edgeBottom:
+      "面板贴紧当前鼠标所在屏幕的底部和左右边缘。"
+    case .edgeTop:
+      "面板贴紧当前鼠标所在屏幕的顶部和左右边缘。"
+    case .edgeLeft:
+      "面板贴紧当前鼠标所在屏幕的左侧、顶部和底部。"
+    case .edgeRight:
+      "面板贴紧当前鼠标所在屏幕的右侧、顶部和底部。"
+    case .cursor:
+      "面板优先出现在鼠标右下角，空间不足时自动移动到完整可见的位置。"
+    case .bottomDrawer, .statusItem:
+      "旧版位置会自动迁移为靠下。"
+    case .mouseScreenCenter:
+      "旧版居中位置会自动迁移为跟随鼠标指针。"
     }
   }
 

@@ -27,8 +27,9 @@ struct ClipboardRow: View {
     }
     .padding(.horizontal, 9)
     .padding(.vertical, 6)
-    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: ClipboardPanelMetrics.compactCornerRadius))
+    .background(rowBackground)
     .overlay(selectionStroke)
+    .shadow(color: isSelected ? record.kind.accentColor.opacity(0.18) : .clear, radius: 8, y: 3)
     .contentShape(RoundedRectangle(cornerRadius: ClipboardPanelMetrics.compactCornerRadius))
     .onTapGesture {
       primaryAction(record)
@@ -156,6 +157,15 @@ struct ClipboardRow: View {
 
   private var selectionStroke: some View {
     RoundedRectangle(cornerRadius: ClipboardPanelMetrics.compactCornerRadius)
-      .stroke(isSelected ? record.kind.accentColor.opacity(0.95) : Color.clear, lineWidth: 2)
+      .stroke(isSelected ? record.kind.accentColor.opacity(0.98) : Color.clear, lineWidth: 2)
+  }
+
+  private var rowBackground: some View {
+    RoundedRectangle(cornerRadius: ClipboardPanelMetrics.compactCornerRadius)
+      .fill(.regularMaterial)
+      .overlay {
+        RoundedRectangle(cornerRadius: ClipboardPanelMetrics.compactCornerRadius)
+          .fill(isSelected ? record.kind.accentColor.opacity(0.10) : Color.clear)
+      }
   }
 }
