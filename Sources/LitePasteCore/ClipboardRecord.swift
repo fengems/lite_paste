@@ -20,6 +20,27 @@ public struct ClipboardRecord: Identifiable, Codable, Equatable, Sendable {
   public var contents: [ClipboardContentSnapshot]
   public var previewFilePath: String?
 
+  private enum CodingKeys: String, CodingKey {
+    case id
+    case kind
+    case title
+    case searchText
+    case note
+    case sourceAppBundleId
+    case sourceAppName
+    case createdAt
+    case lastCopiedAt
+    case lastUsedAt
+    case copyCount
+    case isFavorite
+    case isPinned
+    case pinShortcut
+    case contentHash
+    case plainText
+    case contents
+    case previewFilePath
+  }
+
   public init(
     id: UUID = UUID(),
     kind: ClipboardKind,
@@ -58,5 +79,27 @@ public struct ClipboardRecord: Identifiable, Codable, Equatable, Sendable {
     self.plainText = plainText
     self.contents = contents
     self.previewFilePath = previewFilePath
+  }
+
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    id = try container.decode(UUID.self, forKey: .id)
+    kind = try container.decode(ClipboardKind.self, forKey: .kind)
+    title = try container.decode(String.self, forKey: .title)
+    searchText = try container.decode(String.self, forKey: .searchText)
+    note = try container.decodeIfPresent(String.self, forKey: .note) ?? ""
+    sourceAppBundleId = try container.decodeIfPresent(String.self, forKey: .sourceAppBundleId)
+    sourceAppName = try container.decodeIfPresent(String.self, forKey: .sourceAppName)
+    createdAt = try container.decode(Date.self, forKey: .createdAt)
+    lastCopiedAt = try container.decode(Date.self, forKey: .lastCopiedAt)
+    lastUsedAt = try container.decodeIfPresent(Date.self, forKey: .lastUsedAt)
+    copyCount = try container.decodeIfPresent(Int.self, forKey: .copyCount) ?? 1
+    isFavorite = try container.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
+    isPinned = try container.decodeIfPresent(Bool.self, forKey: .isPinned) ?? false
+    pinShortcut = try container.decodeIfPresent(String.self, forKey: .pinShortcut)
+    contentHash = try container.decode(String.self, forKey: .contentHash)
+    plainText = try container.decodeIfPresent(String.self, forKey: .plainText)
+    contents = try container.decodeIfPresent([ClipboardContentSnapshot].self, forKey: .contents) ?? []
+    previewFilePath = try container.decodeIfPresent(String.self, forKey: .previewFilePath)
   }
 }

@@ -172,7 +172,6 @@ final class PanelCoordinator {
     let displayFrame = screen.frame
     let visibleFrame = screen.visibleFrame
     let coversMenuBar = settingsStore.settings.coverMenuBarWhenEdgeAttached
-    let screenPadding = ClipboardPanelMetrics.edgeScreenPadding
     let thickness = clampedEdgePanelThickness(for: visibleFrame)
     switch position {
     case .edgeTop:
@@ -198,9 +197,9 @@ final class PanelCoordinator {
     case .edgeBottom, .bottomDrawer, .statusItem:
       return NSRect(
         x: displayFrame.minX,
-        y: visibleFrame.minY + screenPadding,
+        y: visibleFrame.minY,
         width: displayFrame.width,
-        height: min(thickness, max(0, visibleFrame.height - screenPadding))
+        height: thickness
       )
     case .cursor, .mouseScreenCenter:
       return NSRect(origin: visibleFrame.origin, size: floatingPanelSize(in: visibleFrame))

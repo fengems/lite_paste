@@ -67,7 +67,7 @@ struct ClipboardRow: View {
         if let pinShortcut = record.pinShortcut {
           Label(PinShortcutCatalog.displayName(for: pinShortcut), systemImage: "keyboard")
         }
-        Text(record.lastCopiedAt, style: .relative)
+        Text(record.panelRelativeTimeText)
       }
       .font(.system(size: 11, weight: .medium))
       .foregroundStyle(.secondary)

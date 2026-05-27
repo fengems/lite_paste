@@ -14,7 +14,6 @@ enum ClipboardPanelMetrics {
   static let drawerHorizontalPadding: CGFloat = 10
   static let drawerVerticalPadding: CGFloat = 10
   static let panelContentSpacing: CGFloat = 8
-  static let edgeScreenPadding: CGFloat = cardContentBottomPadding
   static let edgePanelThickness: CGFloat = cardContentHeight + toolbarHeightAllowance + panelContentSpacing + drawerVerticalPadding * 2
 }
 

@@ -19,15 +19,18 @@ struct ClipboardCard: View {
   let deleteAction: () -> Void
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 9) {
-      header
-      preview
+    ZStack(alignment: .leading) {
+      cardBackground
+
+      VStack(alignment: .leading, spacing: 9) {
+        header
+        preview
+      }
+      .padding(10)
     }
-    .padding(10)
     .frame(maxWidth: .infinity, minHeight: ClipboardPanelMetrics.cardHeight, maxHeight: ClipboardPanelMetrics.cardHeight)
-    .background(cardBackground)
     .overlay(selectionStroke)
-    .shadow(color: shadowColor, radius: isSelected ? 14 : 4, y: isSelected ? 6 : 2)
+    .shadow(color: Color.black.opacity(0.08), radius: 4, y: 2)
     .contentShape(RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cardCornerRadius))
     .onTapGesture {
       primaryAction(record)
@@ -43,7 +46,7 @@ struct ClipboardCard: View {
         .foregroundStyle(.primary)
         .lineLimit(1)
 
-      Text(relativeTimeText)
+      Text(record.panelRelativeTimeText)
         .font(.system(size: 11, weight: .medium))
         .foregroundStyle(.secondary)
         .lineLimit(1)
@@ -158,28 +161,11 @@ struct ClipboardCard: View {
     }
   }
 
-  private var relativeTimeText: String {
-    let elapsedSeconds = max(0, Date().timeIntervalSince(record.lastCopiedAt))
-    if elapsedSeconds < 60 {
-      return "刚刚"
-    }
-    let elapsedMinutes = Int(elapsedSeconds / 60)
-    if elapsedMinutes < 60 {
-      return "\(elapsedMinutes) 分钟前"
-    }
-    let elapsedHours = Int(elapsedSeconds / 3600)
-    if elapsedHours < 24 {
-      return "\(elapsedHours) 小时前"
-    }
-    let elapsedDays = Int(elapsedSeconds / 86_400)
-    return "\(elapsedDays) 天前"
-  }
-
   private var selectionStroke: some View {
     RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cardCornerRadius)
-      .stroke(
-        isSelected ? record.kind.accentColor.opacity(0.98) : Color.primary.opacity(0.08),
-        lineWidth: isSelected ? 2.5 : 1
+      .strokeBorder(
+        Color.primary.opacity(isSelected ? 0.14 : 0.08),
+        lineWidth: 1
       )
   }
 
@@ -187,13 +173,35 @@ struct ClipboardCard: View {
     RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cardCornerRadius)
       .fill(.regularMaterial)
       .overlay {
-        RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cardCornerRadius)
-          .fill(isSelected ? record.kind.accentColor.opacity(0.11) : Color.clear)
+        selectedGlassSurface
       }
   }
 
-  private var shadowColor: Color {
-    isSelected ? record.kind.accentColor.opacity(0.30) : Color.black.opacity(0.08)
+  @ViewBuilder
+  private var selectedGlassSurface: some View {
+    if isSelected {
+      if #available(macOS 26.0, *) {
+        RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cardCornerRadius)
+          .fill(Color.white.opacity(0.001))
+          .glassEffect(
+            Glass.regular
+              .tint(record.kind.accentColor.opacity(0.16))
+              .interactive(false),
+            in: RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cardCornerRadius)
+          )
+      } else {
+        ZStack {
+          RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cardCornerRadius)
+            .fill(.thinMaterial)
+            .opacity(0.72)
+
+          RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cardCornerRadius)
+            .fill(record.kind.accentColor.opacity(0.08))
+        }
+      }
+    } else {
+      Color.clear
+    }
   }
 }
 

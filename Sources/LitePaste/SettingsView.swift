@@ -475,6 +475,9 @@ struct SettingsView: View {
     let operation = notification.userInfo?[HistoryNotificationUserInfoKey.operation] as? String ?? "保存历史"
     let message = notification.userInfo?[HistoryNotificationUserInfoKey.errorMessage] as? String ?? "未知错误"
     historyPersistenceErrorMessage = "\(operation)失败：\(message)"
+    guard operation != "更新使用记录" else {
+      return
+    }
     showAlert(title: "\(operation)失败", message: "本次历史变更可能没有写入磁盘。\(message)")
   }
 
