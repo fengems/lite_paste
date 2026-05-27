@@ -162,45 +162,48 @@ struct ClipboardCard: View {
   }
 
   private var selectionStroke: some View {
-    RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cardCornerRadius)
+    cardShape
       .strokeBorder(
-        Color.primary.opacity(isSelected ? 0.14 : 0.08),
+        Color.primary.opacity(isSelected ? 0.18 : 0.08),
         lineWidth: 1
       )
   }
 
-  private var cardBackground: some View {
+  private var cardShape: RoundedRectangle {
     RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cardCornerRadius)
-      .fill(.regularMaterial)
-      .overlay {
-        selectedGlassSurface
-      }
   }
 
   @ViewBuilder
-  private var selectedGlassSurface: some View {
+  private var cardBackground: some View {
     if isSelected {
-      if #available(macOS 26.0, *) {
-        RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cardCornerRadius)
+      selectedCardBackground
+    } else {
+      cardShape.fill(.regularMaterial)
+    }
+  }
+
+  @ViewBuilder
+  private var selectedCardBackground: some View {
+    if #available(macOS 26.0, *) {
+      GlassEffectContainer(spacing: 0) {
+        cardShape
           .fill(Color.white.opacity(0.001))
           .glassEffect(
             Glass.regular
-              .tint(record.kind.accentColor.opacity(0.16))
-              .interactive(false),
-            in: RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cardCornerRadius)
+              .tint(record.kind.accentColor.opacity(0.18))
+              .interactive(),
+            in: cardShape
           )
-      } else {
-        ZStack {
-          RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cardCornerRadius)
-            .fill(.thinMaterial)
-            .opacity(0.72)
-
-          RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cardCornerRadius)
-            .fill(record.kind.accentColor.opacity(0.08))
-        }
       }
     } else {
-      Color.clear
+      ZStack {
+        cardShape
+          .fill(.thinMaterial)
+          .opacity(0.72)
+
+        cardShape
+          .fill(record.kind.accentColor.opacity(0.08))
+      }
     }
   }
 }
