@@ -331,14 +331,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private func makeSettingsWindow() -> NSWindow {
     let hostingController = NSHostingController(rootView: SettingsView())
     let window = NSWindow(
-      contentRect: NSRect(x: 0, y: 0, width: 920, height: 640),
+      contentRect: NSRect(x: 0, y: 0, width: 860, height: 600),
       styleMask: [.titled, .closable, .miniaturizable, .resizable],
       backing: .buffered,
       defer: false
     )
     window.title = "Lite Paste 设置"
     window.contentViewController = hostingController
-    window.minSize = NSSize(width: 860, height: 600)
+    window.minSize = NSSize(width: 780, height: 560)
+    window.backgroundColor = .windowBackgroundColor
+    window.isOpaque = true
     window.isReleasedWhenClosed = false
     window.center()
     return window

@@ -14,15 +14,15 @@ struct EditableStringList: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
       Text(title)
-        .font(.system(size: 14, weight: .semibold))
+        .font(.system(size: 13, weight: .semibold))
 
       HStack(spacing: 8) {
         TextField(placeholder, text: $draft)
           .textFieldStyle(.plain)
-          .font(.system(size: 13))
-          .padding(.horizontal, 10)
-          .frame(height: 30)
-          .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 8))
+          .font(.system(size: 12))
+          .padding(.horizontal, 9)
+          .frame(height: 32)
+          .background(SettingsSurface.fieldBackground, in: RoundedRectangle(cornerRadius: 8))
           .onSubmit(addDraft)
 
         Button {
@@ -31,6 +31,7 @@ struct EditableStringList: View {
           Image(systemName: "plus")
         }
         .buttonStyle(.bordered)
+        .controlSize(SettingsControlMetrics.actionButtonControlSize)
         .disabled(normalizedDraft.isEmpty)
         .accessibilityLabel("添加")
       }
@@ -44,7 +45,7 @@ struct EditableStringList: View {
           ForEach(sortedValues, id: \.self) { value in
             HStack(spacing: 8) {
               Text(value)
-                .font(.system(size: 12, design: .monospaced))
+                .font(.system(size: 11, design: .monospaced))
                 .lineLimit(1)
 
               Spacer()
@@ -57,9 +58,9 @@ struct EditableStringList: View {
               .buttonStyle(.plain)
               .accessibilityLabel("删除")
             }
-            .padding(.horizontal, 10)
-            .frame(height: 28)
-            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 7))
+            .padding(.horizontal, 9)
+            .frame(height: 26)
+            .background(SettingsSurface.fieldBackground, in: RoundedRectangle(cornerRadius: 7))
           }
         }
       }

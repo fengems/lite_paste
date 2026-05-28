@@ -25,7 +25,8 @@ struct ClipboardSettingsPage: View {
           }
           .labelsHidden()
           .pickerStyle(.menu)
-          .frame(width: 160)
+          .controlSize(.regular)
+          .frame(width: SettingsControlMetrics.menuWidth, alignment: .trailing)
         }
 
         SettingsDivider()
@@ -37,7 +38,8 @@ struct ClipboardSettingsPage: View {
           }
           .labelsHidden()
           .pickerStyle(.segmented)
-          .frame(width: 150)
+          .controlSize(.regular)
+          .frame(width: SettingsControlMetrics.segmentedWidth, alignment: .trailing)
         }
 
         SettingsDivider()
@@ -73,7 +75,8 @@ struct ClipboardSettingsPage: View {
           }
           .labelsHidden()
           .pickerStyle(.menu)
-          .frame(width: 150)
+          .controlSize(.regular)
+          .frame(width: SettingsControlMetrics.menuWidth, alignment: .trailing)
         }
 
         SettingsDivider()
@@ -107,8 +110,6 @@ struct ClipboardSettingsPage: View {
 struct HistorySettingsPage: View {
   @Binding var maxHistoryCount: Int
   @Binding var retentionDays: Int
-  let maxHistoryCountValueText: String
-  let retentionDaysValueText: String
   let recordableKinds: [ClipboardKind]
   let enabledTypeBinding: (ClipboardKind) -> Binding<Bool>
   @Binding var privacyMode: Bool
@@ -136,19 +137,23 @@ struct HistorySettingsPage: View {
   private var historySettingsCard: some View {
     SettingsSectionCard(title: "历史设置") {
       SettingsRow(title: "最大历史数量", detail: "超过数量后会自动清理旧记录。") {
-        stepperValue(text: maxHistoryCountValueText) {
-          Stepper("", value: $maxHistoryCount, in: 50...10_000, step: 50)
-            .labelsHidden()
-        }
+        SettingsNumberStepperField(
+          value: $maxHistoryCount,
+          range: 50...10_000,
+          step: 50,
+          unit: "条"
+        )
       }
 
       SettingsDivider()
 
-      SettingsRow(title: "历史保留", detail: "设为永久时不会按天数清理。") {
-        stepperValue(text: retentionDaysValueText) {
-          Stepper("", value: $retentionDays, in: 0...365, step: 1)
-            .labelsHidden()
-        }
+      SettingsRow(title: "历史保留", detail: "输入 0 表示永久，不会按天数清理。") {
+        SettingsNumberStepperField(
+          value: $retentionDays,
+          range: 0...365,
+          step: 1,
+          unit: "天"
+        )
       }
     }
   }
@@ -232,18 +237,85 @@ struct HistorySettingsPage: View {
     }
   }
 
-  private func stepperValue<Content: View>(
-    text: String,
-    @ViewBuilder content: () -> Content
-  ) -> some View {
-    HStack(spacing: 10) {
-      Text(text)
-        .font(.system(size: 13, weight: .medium, design: .monospaced))
-        .foregroundStyle(.secondary)
-        .frame(width: 82, alignment: .trailing)
+}
 
-      content()
+private struct SettingsNumberStepperField: View {
+  @Binding var value: Int
+  let range: ClosedRange<Int>
+  let step: Int
+  let unit: String
+  @State private var draftText = ""
+  @FocusState private var isFocused: Bool
+
+  var body: some View {
+    HStack(spacing: 8) {
+      TextField("", text: $draftText)
+        .font(.system(size: 12, weight: .medium, design: .monospaced))
+        .multilineTextAlignment(.trailing)
+        .textFieldStyle(.plain)
+        .focused($isFocused)
+        .frame(width: 58, height: 24)
+        .padding(.horizontal, 7)
+        .background(SettingsSurface.fieldBackground, in: RoundedRectangle(cornerRadius: 6))
+        .onSubmit(commitDraft)
+        .onAppear(perform: syncDraft)
+        .onChange(of: draftText) { _, newText in
+          keepDigitsOnly(newText)
+        }
+        .onChange(of: isFocused) { _, focused in
+          if focused {
+            syncDraft()
+          } else {
+            commitDraft()
+          }
+        }
+        .onChange(of: value) {
+          syncDraft()
+        }
+
+      Text(unit)
+        .font(.system(size: 12, weight: .medium))
+        .foregroundStyle(.secondary)
+        .frame(width: 14, alignment: .leading)
+
+      Stepper("", value: clampedValue, in: range, step: step)
+        .labelsHidden()
+        .controlSize(.small)
     }
+    .frame(maxWidth: .infinity, alignment: .trailing)
+  }
+
+  private var clampedValue: Binding<Int> {
+    Binding {
+      clamp(value)
+    } set: { newValue in
+      value = clamp(newValue)
+    }
+  }
+
+  private func keepDigitsOnly(_ text: String) {
+    let filtered = text.filter(\.isNumber)
+    if filtered != text {
+      draftText = String(filtered)
+    }
+  }
+
+  private func commitDraft() {
+    guard let parsedValue = Int(draftText) else {
+      syncDraft()
+      return
+    }
+
+    value = clamp(parsedValue)
+    syncDraft()
+  }
+
+  private func syncDraft() {
+    draftText = "\(clamp(value))"
+  }
+
+  private func clamp(_ candidate: Int) -> Int {
+    min(max(candidate, range.lowerBound), range.upperBound)
   }
 }
 
@@ -329,7 +401,8 @@ struct HotkeySettingsPage: View {
           }
           .labelsHidden()
           .pickerStyle(.menu)
-          .frame(width: 170)
+          .controlSize(.regular)
+          .frame(width: SettingsControlMetrics.menuWidth, alignment: .trailing)
         }
       }
 

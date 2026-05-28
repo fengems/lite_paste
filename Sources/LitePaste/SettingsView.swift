@@ -18,18 +18,18 @@ struct SettingsView: View {
   var body: some View {
     HStack(spacing: 0) {
       sidebar
-      Divider()
+      SettingsVerticalDivider()
       detailPane
     }
     .frame(
-      minWidth: 860,
-      idealWidth: 920,
+      minWidth: 780,
+      idealWidth: 860,
       maxWidth: .infinity,
-      minHeight: 600,
-      idealHeight: 640,
+      minHeight: 560,
+      idealHeight: 600,
       maxHeight: .infinity
     )
-    .background(SettingsSurface.contentBackground)
+    .background(SettingsSurface.windowBackground)
     .onAppear {
       refreshStatus()
     }
@@ -60,21 +60,21 @@ struct SettingsView: View {
 
       Spacer()
     }
-    .padding(.horizontal, 14)
-    .padding(.vertical, 22)
-    .frame(width: 230)
+    .padding(.horizontal, 10)
+    .padding(.vertical, 16)
+    .frame(width: 198)
     .frame(maxHeight: .infinity, alignment: .topLeading)
     .background(SettingsSurface.sidebarBackground)
   }
 
   private var detailPane: some View {
     ScrollView {
-      VStack(alignment: .leading, spacing: 22) {
+      VStack(alignment: .leading, spacing: 16) {
         SettingsPageHeader(page: selectedPage)
         selectedPageContent
       }
-      .padding(.horizontal, 28)
-      .padding(.vertical, 26)
+      .padding(.horizontal, 22)
+      .padding(.vertical, 20)
       .frame(maxWidth: .infinity, alignment: .topLeading)
     }
     .scrollIndicators(.visible)
@@ -117,8 +117,6 @@ struct SettingsView: View {
     HistorySettingsPage(
       maxHistoryCount: maxHistoryCount,
       retentionDays: retentionDays,
-      maxHistoryCountValueText: "\(store.settings.maxHistoryCount) 条",
-      retentionDaysValueText: retentionDaysValueText,
       recordableKinds: recordableKinds,
       enabledTypeBinding: enabledTypeBinding,
       privacyMode: privacyMode,
@@ -289,18 +287,6 @@ struct SettingsView: View {
     } set: { value in
       store.update { $0.retentionDays = value }
     }
-  }
-
-  private var retentionDaysLabel: String {
-    if store.settings.retentionDays == 0 {
-      "历史保留: 永久"
-    } else {
-      "历史保留: \(store.settings.retentionDays) 天"
-    }
-  }
-
-  private var retentionDaysValueText: String {
-    store.settings.retentionDays == 0 ? "永久" : "\(store.settings.retentionDays) 天"
   }
 
   private var privacyMode: Binding<Bool> {

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 enum SettingsPage: String, CaseIterable, Identifiable {
@@ -48,11 +49,42 @@ enum SettingsPage: String, CaseIterable, Identifiable {
 }
 
 enum SettingsSurface {
-  static let contentBackground = Color(nsColor: .windowBackgroundColor)
-  static let sidebarBackground = Color(nsColor: .underPageBackgroundColor)
-  static let cardBackground = Color(nsColor: .controlBackgroundColor).opacity(0.72)
-  static let rowHover = Color.primary.opacity(0.04)
-  static let border = Color.primary.opacity(0.09)
+  static let windowBackground = dynamicColor(
+    light: NSColor(calibratedWhite: 0.99, alpha: 1),
+    dark: NSColor(calibratedWhite: 0.145, alpha: 1)
+  )
+  static let sidebarBackground = dynamicColor(
+    light: NSColor(calibratedWhite: 0.985, alpha: 1),
+    dark: NSColor(calibratedWhite: 0.13, alpha: 1)
+  )
+  static let cardBackground = dynamicColor(
+    light: NSColor(calibratedWhite: 0.965, alpha: 1),
+    dark: NSColor(calibratedWhite: 0.165, alpha: 1)
+  )
+  static let fieldBackground = dynamicColor(
+    light: NSColor(calibratedWhite: 0.925, alpha: 1),
+    dark: NSColor(calibratedWhite: 0.195, alpha: 1)
+  )
+  static let selectedSidebarBackground = Color(nsColor: .selectedContentBackgroundColor)
+  static let separator = dynamicColor(
+    light: NSColor(calibratedWhite: 0.875, alpha: 1),
+    dark: NSColor(calibratedWhite: 0.22, alpha: 1)
+  )
+  static let border = separator.opacity(0.48)
+
+  private static func dynamicColor(light: NSColor, dark: NSColor) -> Color {
+    Color(nsColor: NSColor(name: nil) { appearance in
+      let mode = appearance.bestMatch(from: [.darkAqua, .aqua])
+      return mode == .darkAqua ? dark : light
+    })
+  }
+}
+
+enum SettingsControlMetrics {
+  static let columnWidth: CGFloat = 176
+  static let menuWidth: CGFloat = columnWidth
+  static let segmentedWidth: CGFloat = columnWidth
+  static let actionButtonControlSize: ControlSize = .large
 }
 
 struct SettingsSidebarButton: View {
@@ -64,24 +96,41 @@ struct SettingsSidebarButton: View {
     Button(action: action) {
       HStack(spacing: 12) {
         Image(systemName: page.systemImage)
-          .font(.system(size: 17, weight: .semibold))
-          .frame(width: 22)
+          .font(.system(size: 13, weight: .semibold))
+          .frame(width: 17)
 
         Text(page.title)
-          .font(.system(size: 15, weight: .semibold))
+          .font(.system(size: 13, weight: .semibold))
 
         Spacer(minLength: 0)
       }
-      .foregroundStyle(isSelected ? Color.white : Color.primary.opacity(0.72))
-      .padding(.horizontal, 14)
-      .frame(height: 46)
-      .background(
-        RoundedRectangle(cornerRadius: 10)
-          .fill(isSelected ? Color.accentColor : Color.clear)
-      )
-      .contentShape(RoundedRectangle(cornerRadius: 10))
+      .foregroundStyle(isSelected ? Color.white : Color.primary)
+      .padding(.horizontal, 10)
+      .frame(height: 36)
+      .background(sidebarBackground)
+      .overlay(sidebarBorder)
+      .contentShape(RoundedRectangle(cornerRadius: 8))
     }
     .buttonStyle(.plain)
+  }
+
+  @ViewBuilder
+  private var sidebarBackground: some View {
+    if isSelected {
+      RoundedRectangle(cornerRadius: 8)
+        .fill(SettingsSurface.selectedSidebarBackground)
+    } else {
+      RoundedRectangle(cornerRadius: 8)
+        .fill(Color.clear)
+    }
+  }
+
+  @ViewBuilder
+  private var sidebarBorder: some View {
+    if isSelected {
+      RoundedRectangle(cornerRadius: 8)
+        .stroke(Color.white.opacity(0.10), lineWidth: 1)
+    }
   }
 }
 
@@ -89,13 +138,13 @@ struct SettingsPageHeader: View {
   let page: SettingsPage
 
   var body: some View {
-    HStack(spacing: 12) {
+    HStack(spacing: 9) {
       Image(systemName: page.systemImage)
-        .font(.system(size: 20, weight: .semibold))
+        .font(.system(size: 16, weight: .semibold))
         .foregroundStyle(Color.accentColor)
 
       Text(page.title)
-        .font(.system(size: 24, weight: .bold))
+        .font(.system(size: 18, weight: .bold))
         .foregroundStyle(.primary)
     }
   }
@@ -105,7 +154,7 @@ struct SettingsPageStack<Content: View>: View {
   @ViewBuilder var content: Content
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 22) {
+    VStack(alignment: .leading, spacing: 16) {
       content
     }
   }
@@ -116,18 +165,19 @@ struct SettingsSectionCard<Content: View>: View {
   @ViewBuilder var content: Content
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 10) {
+    VStack(alignment: .leading, spacing: 8) {
       Text(title)
-        .font(.system(size: 16, weight: .bold))
+        .font(.system(size: 14, weight: .bold))
         .foregroundStyle(.primary)
         .padding(.leading, 2)
 
       VStack(spacing: 0) {
         content
       }
-      .background(SettingsSurface.cardBackground, in: RoundedRectangle(cornerRadius: 12))
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(SettingsSurface.cardBackground, in: RoundedRectangle(cornerRadius: 14))
       .overlay(
-        RoundedRectangle(cornerRadius: 12)
+        RoundedRectangle(cornerRadius: 14)
           .stroke(SettingsSurface.border, lineWidth: 1)
       )
     }
@@ -147,28 +197,30 @@ struct SettingsRow<Control: View>: View {
   }
 
   var body: some View {
-    HStack(alignment: .center, spacing: 18) {
-      VStack(alignment: .leading, spacing: 5) {
+    HStack(alignment: .center, spacing: 14) {
+      VStack(alignment: .leading, spacing: 4) {
         Text(title)
-          .font(.system(size: 14, weight: .semibold))
+          .font(.system(size: 13, weight: .semibold))
           .foregroundStyle(.primary)
 
         if let detail {
           Text(detail)
-            .font(.system(size: 12))
+            .font(.system(size: 11))
             .foregroundStyle(.secondary)
             .lineLimit(2)
         }
       }
+      .frame(maxWidth: .infinity, alignment: .leading)
 
-      Spacer(minLength: 20)
+      Spacer(minLength: 16)
 
       control
-        .controlSize(.regular)
+        .frame(width: SettingsControlMetrics.columnWidth, alignment: .trailing)
     }
-    .padding(.horizontal, 16)
-    .padding(.vertical, 14)
-    .frame(minHeight: 58)
+    .padding(.horizontal, 14)
+    .padding(.vertical, 10)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .frame(minHeight: 48)
   }
 }
 
@@ -182,6 +234,7 @@ struct SettingsSwitchRow: View {
       Toggle("", isOn: $isOn)
         .labelsHidden()
         .toggleStyle(.switch)
+        .controlSize(.small)
     }
   }
 }
@@ -193,27 +246,28 @@ struct SettingsInfoRow: View {
   var tint: Color = .secondary
 
   var body: some View {
-    HStack(spacing: 12) {
+    HStack(spacing: 10) {
       Text(title)
-        .font(.system(size: 14, weight: .semibold))
+        .font(.system(size: 13, weight: .semibold))
         .foregroundStyle(.primary)
 
-      Spacer(minLength: 20)
+      Spacer(minLength: 16)
 
       if let systemImage {
         Image(systemName: systemImage)
+          .font(.system(size: 12, weight: .semibold))
           .foregroundStyle(tint)
       }
 
       Text(value)
-        .font(.system(size: 13, weight: .medium))
+        .font(.system(size: 12, weight: .medium))
         .foregroundStyle(.secondary)
         .lineLimit(1)
         .truncationMode(.middle)
     }
-    .padding(.horizontal, 16)
-    .padding(.vertical, 14)
-    .frame(minHeight: 52)
+    .padding(.horizontal, 14)
+    .padding(.vertical, 10)
+    .frame(minHeight: 46)
   }
 }
 
@@ -222,11 +276,11 @@ struct SettingsWarningRow: View {
 
   var body: some View {
     Label(message, systemImage: "exclamationmark.triangle.fill")
-      .font(.system(size: 13, weight: .medium))
+      .font(.system(size: 12, weight: .medium))
       .foregroundStyle(.orange)
       .lineLimit(2)
-      .padding(.horizontal, 16)
-      .padding(.vertical, 14)
+      .padding(.horizontal, 14)
+      .padding(.vertical, 10)
       .frame(maxWidth: .infinity, alignment: .leading)
   }
 }
@@ -235,20 +289,29 @@ struct SettingsActionRow<Content: View>: View {
   @ViewBuilder var content: Content
 
   var body: some View {
-    HStack(spacing: 10) {
+    HStack(spacing: 12) {
       content
     }
     .buttonStyle(.bordered)
-    .controlSize(.regular)
-    .padding(.horizontal, 16)
-    .padding(.vertical, 14)
+    .controlSize(SettingsControlMetrics.actionButtonControlSize)
+    .padding(.horizontal, 14)
+    .padding(.vertical, 12)
     .frame(maxWidth: .infinity, alignment: .leading)
   }
 }
 
 struct SettingsDivider: View {
   var body: some View {
-    Divider()
-      .opacity(0.65)
+    Rectangle()
+      .fill(SettingsSurface.separator.opacity(0.68))
+      .frame(height: 1)
+  }
+}
+
+struct SettingsVerticalDivider: View {
+  var body: some View {
+    Rectangle()
+      .fill(SettingsSurface.separator.opacity(0.82))
+      .frame(width: 1)
   }
 }
