@@ -19,6 +19,7 @@ func allChecks() -> [CheckCase] {
     CheckCase(group: "settings", name: "backward-compatibility", run: checkAppSettingsBackwardCompatibility),
     CheckCase(group: "settings", name: "normalization", run: checkAppSettingsStoreNormalization),
     CheckCase(group: "settings", name: "save-failure-notification", run: checkAppSettingsStoreSaveFailureNotification),
+    CheckCase(group: "permissions", name: "guide-state", run: checkPermissionGuideState),
     CheckCase(group: "privacy", name: "filter", run: checkPrivacyFilter),
     CheckCase(group: "capture", name: "text-payload-builder", run: checkClipboardTextPayloadBuilder),
     CheckCase(group: "capture", name: "file-payload-builder", run: checkClipboardFilePayloadBuilder),
@@ -512,6 +513,39 @@ func checkAppSettingsStoreSaveFailureNotification() {
   } catch {
     fatalError("Settings save failure notification check failed: \(error)")
   }
+}
+
+func checkPermissionGuideState() {
+  var state = PermissionGuideState()
+
+  expect(
+    state.missingItems(accessibilityTrusted: true).isEmpty,
+    "Permission guide should not report missing items when accessibility is trusted"
+  )
+  expect(
+    state.missingItems(accessibilityTrusted: false) == [.accessibility],
+    "Permission guide should report accessibility when it is not trusted"
+  )
+  expect(
+    !state.shouldPresent(accessibilityTrusted: true),
+    "Permission guide should not present when all required permissions are trusted"
+  )
+  expect(
+    state.shouldPresent(accessibilityTrusted: false),
+    "Permission guide should present when required permissions are missing"
+  )
+
+  state.dismissForSession()
+  expect(
+    !state.shouldPresent(accessibilityTrusted: false),
+    "Permission guide should not present again after being dismissed for the current session"
+  )
+
+  let freshState = PermissionGuideState()
+  expect(
+    freshState.shouldPresent(accessibilityTrusted: false),
+    "Permission guide dismissal should not persist across fresh sessions"
+  )
 }
 
 func expect(_ condition: @autoclosure () -> Bool, _ message: String) {

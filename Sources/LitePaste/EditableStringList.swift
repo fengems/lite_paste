@@ -12,13 +12,17 @@ struct EditableStringList: View {
   }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
+    VStack(alignment: .leading, spacing: 10) {
       Text(title)
-        .font(.headline)
+        .font(.system(size: 14, weight: .semibold))
 
       HStack(spacing: 8) {
         TextField(placeholder, text: $draft)
-          .textFieldStyle(.roundedBorder)
+          .textFieldStyle(.plain)
+          .font(.system(size: 13))
+          .padding(.horizontal, 10)
+          .frame(height: 30)
+          .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 8))
           .onSubmit(addDraft)
 
         Button {
@@ -36,23 +40,27 @@ struct EditableStringList: View {
           .font(.caption)
           .foregroundStyle(.secondary)
       } else {
-        ForEach(sortedValues, id: \.self) { value in
-          HStack(spacing: 8) {
-            Text(value)
-              .font(.system(.caption, design: .monospaced))
-              .lineLimit(1)
+        VStack(spacing: 6) {
+          ForEach(sortedValues, id: \.self) { value in
+            HStack(spacing: 8) {
+              Text(value)
+                .font(.system(size: 12, design: .monospaced))
+                .lineLimit(1)
 
-            Spacer()
+              Spacer()
 
-            Button {
-              values.remove(value)
-            } label: {
-              Image(systemName: "minus.circle")
+              Button {
+                values.remove(value)
+              } label: {
+                Image(systemName: "minus.circle")
+              }
+              .buttonStyle(.plain)
+              .accessibilityLabel("删除")
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("删除")
+            .padding(.horizontal, 10)
+            .frame(height: 28)
+            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 7))
           }
-          .padding(.vertical, 2)
         }
       }
     }
@@ -72,4 +80,3 @@ struct EditableStringList: View {
     draft = ""
   }
 }
-

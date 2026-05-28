@@ -21,11 +21,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var writer: PasteboardWriter?
   private var panelCoordinator: PanelCoordinator?
   private var settingsWindow: NSWindow?
+  private var permissionGuideWindow: NSWindow?
   private var hotkeyController: GlobalHotkeyController?
   private var pinnedHotkeyController: PinnedHotkeyController?
   private var registeredPanelHotkey: String?
   private var isRevertingPanelHotkey = false
   private var pinnedHotkeyIssueSignature: String?
+  private var permissionGuideState = PermissionGuideState()
   private let clipboardWriteTracker = ClipboardWriteTracker()
   private let launchAtLoginController = LaunchAtLoginController()
   private let activeApplicationTracker = ActiveApplicationTracker.shared
@@ -59,6 +61,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     launchAtLoginController.sync(with: settingsStore.settings.launchAtLogin)
     activeApplicationTracker.start()
     monitor.start()
+    presentPermissionGuideIfNeeded()
   }
 
   func applicationWillTerminate(_ notification: Notification) {
@@ -328,16 +331,64 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private func makeSettingsWindow() -> NSWindow {
     let hostingController = NSHostingController(rootView: SettingsView())
     let window = NSWindow(
-      contentRect: NSRect(x: 0, y: 0, width: 560, height: 720),
+      contentRect: NSRect(x: 0, y: 0, width: 920, height: 640),
       styleMask: [.titled, .closable, .miniaturizable, .resizable],
       backing: .buffered,
       defer: false
     )
     window.title = "Lite Paste 设置"
     window.contentViewController = hostingController
+    window.minSize = NSSize(width: 860, height: 600)
     window.isReleasedWhenClosed = false
     window.center()
     return window
+  }
+
+  private func presentPermissionGuideIfNeeded() {
+    let accessibilityTrusted = AccessibilityPermissionController.isTrusted
+    guard permissionGuideState.shouldPresent(accessibilityTrusted: accessibilityTrusted) else {
+      if accessibilityTrusted {
+        closePermissionGuideWindow()
+      }
+      return
+    }
+
+    let window = permissionGuideWindow ?? makePermissionGuideWindow()
+    permissionGuideWindow = window
+    NSApp.activate(ignoringOtherApps: true)
+    window.makeKeyAndOrderFront(nil)
+  }
+
+  private func makePermissionGuideWindow() -> NSWindow {
+    let hostingController = NSHostingController(
+      rootView: PermissionGuideView(
+        isAccessibilityTrusted: { AccessibilityPermissionController.isTrusted },
+        requestPermission: { AccessibilityPermissionController.requestPermission() },
+        openSystemSettings: { AccessibilityPermissionController.openSystemSettings() },
+        dismissForSession: { [weak self] in
+          self?.permissionGuideState.dismissForSession()
+          self?.closePermissionGuideWindow()
+        },
+        completeGuide: { [weak self] in
+          self?.closePermissionGuideWindow()
+        }
+      )
+    )
+    let window = NSWindow(
+      contentRect: NSRect(x: 0, y: 0, width: 520, height: 300),
+      styleMask: [.titled, .closable],
+      backing: .buffered,
+      defer: false
+    )
+    window.title = "Lite Paste 权限设置"
+    window.contentViewController = hostingController
+    window.isReleasedWhenClosed = false
+    window.center()
+    return window
+  }
+
+  private func closePermissionGuideWindow() {
+    permissionGuideWindow?.orderOut(nil)
   }
 
   private func updateStatusMenuState() {

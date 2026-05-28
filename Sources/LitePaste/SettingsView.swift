@@ -13,205 +13,23 @@ struct SettingsView: View {
   @State private var statusErrorMessage: String?
   @State private var historyPersistenceErrorMessage: String?
   @State private var settingsSaveErrorMessage: String?
+  @State private var selectedPage: SettingsPage = .clipboard
 
   var body: some View {
-    Form {
-      Section("通用") {
-        Toggle("开机启动", isOn: launchAtLogin)
-
-        Picker("打开面板快捷键", selection: panelHotkey) {
-          ForEach(PanelHotkeyCatalog.hotkeys, id: \.self) { hotkey in
-            Text(PanelHotkeyCatalog.displayName(for: hotkey)).tag(hotkey)
-          }
-        }
-
-        Picker("默认视图", selection: viewMode) {
-          Text("卡片").tag(ClipboardPanelViewMode.card)
-          Text("列表").tag(ClipboardPanelViewMode.list)
-        }
-
-        Picker("剪贴板位置", selection: panelPosition) {
-          ForEach(PanelPosition.allCases) { position in
-            Text(position.displayName).tag(position)
-          }
-        }
-        Text(panelPositionDescription)
-          .font(.caption)
-          .foregroundStyle(.secondary)
-
-        Toggle("贴边时覆盖菜单栏", isOn: coverMenuBarWhenEdgeAttached)
-        Text("开启后，靠上、靠左和靠右会尝试覆盖系统菜单栏区域。")
-          .font(.caption)
-          .foregroundStyle(.secondary)
-
-        Toggle("打开面板时清空搜索", isOn: clearSearchOnOpen)
-        Toggle("打开面板时聚焦搜索", isOn: focusSearchOnOpen)
-      }
-
-      Section("状态") {
-        LabeledContent("剪贴板记录", value: recordingStatusTitle)
-        LabeledContent("自动粘贴", value: accessibilityTrusted ? "可用" : "需要辅助功能权限")
-        LabeledContent("最近应用", value: currentApplicationTitle)
-        LabeledContent("历史数量", value: historyCount.map { "\($0) 条" } ?? "正在读取")
-        LabeledContent("数据占用", value: storageSizeText)
-
-        if let statusErrorMessage {
-          Label(statusErrorMessage, systemImage: "exclamationmark.triangle.fill")
-            .foregroundStyle(.orange)
-        }
-
-        if let historyPersistenceErrorMessage {
-          Label(historyPersistenceErrorMessage, systemImage: "exclamationmark.triangle.fill")
-            .foregroundStyle(.orange)
-        }
-
-        if let settingsSaveErrorMessage {
-          Label(settingsSaveErrorMessage, systemImage: "exclamationmark.triangle.fill")
-            .foregroundStyle(.orange)
-        }
-
-        HStack {
-          Button {
-            refreshStatus()
-          } label: {
-            Label("刷新状态", systemImage: "arrow.clockwise")
-          }
-
-          Button {
-            revealDataDirectory()
-          } label: {
-            Label("显示数据目录", systemImage: "folder")
-          }
-        }
-      }
-
-      Section("权限") {
-        HStack {
-          Label(accessibilityStatusTitle, systemImage: accessibilityTrusted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-            .foregroundStyle(accessibilityTrusted ? .green : .orange)
-
-          Spacer()
-
-          Button {
-            refreshAccessibilityStatus()
-          } label: {
-            Label("刷新", systemImage: "arrow.clockwise")
-          }
-        }
-
-        HStack {
-          Button {
-            AccessibilityPermissionController.requestPermission()
-            refreshAccessibilityStatus()
-          } label: {
-            Label("请求辅助功能权限", systemImage: "hand.raised")
-          }
-
-          Button {
-            AccessibilityPermissionController.openSystemSettings()
-          } label: {
-            Label("打开系统设置", systemImage: "gearshape")
-          }
-        }
-      }
-
-      Section("剪贴板") {
-        Toggle("默认纯文本粘贴", isOn: pastePlainByDefault)
-        Toggle("自动粘贴后恢复原剪贴板", isOn: restoreClipboardAfterPaste)
-
-        Picker("默认操作", selection: autoPasteMode) {
-          Text("仅复制").tag(AutoPasteMode.copyOnly)
-          Text("自动粘贴").tag(AutoPasteMode.paste)
-        }
-
-        Toggle("重复复制时移到顶部", isOn: moveDuplicatesToTop)
-
-        Stepper("最大历史数量: \(store.settings.maxHistoryCount)", value: maxHistoryCount, in: 50...10_000, step: 50)
-        Stepper(retentionDaysLabel, value: retentionDays, in: 0...365, step: 1)
-
-        VStack(alignment: .leading, spacing: 8) {
-          Text("记录类型")
-            .font(.headline)
-
-          ForEach(recordableKinds) { kind in
-            Toggle(kind.displayName, isOn: enabledTypeBinding(kind))
-          }
-        }
-      }
-
-      Section("隐私") {
-        Toggle("私密模式", isOn: privacyMode)
-
-        Button {
-          addLastExternalApplicationToIgnoredApps()
-        } label: {
-          Label(addCurrentApplicationLabel, systemImage: "app.badge")
-        }
-        .disabled(activeApplicationTracker.lastExternalApplication == nil)
-
-        EditableStringList(
-          title: "忽略应用 Bundle ID",
-          placeholder: "com.example.SecretApp",
-          values: ignoredApps
-        )
-
-        Button {
-          resetIgnoredApps()
-        } label: {
-          Label("恢复默认忽略应用", systemImage: "arrow.counterclockwise")
-        }
-
-        EditableStringList(
-          title: "忽略剪贴板类型",
-          placeholder: "org.nspasteboard.TransientType",
-          values: ignoredPasteboardTypes
-        )
-
-        Button {
-          resetIgnoredPasteboardTypes()
-        } label: {
-          Label("恢复默认忽略类型", systemImage: "arrow.counterclockwise")
-        }
-      }
-
-      Section("备份") {
-        HStack {
-          Button {
-            backupCoordinator.exportBackup()
-          } label: {
-            Label("导出", systemImage: "square.and.arrow.up")
-          }
-
-          Button {
-            backupCoordinator.importBackup(mode: .merge)
-          } label: {
-            Label("合并导入", systemImage: "arrow.triangle.merge")
-          }
-
-          Button {
-            backupCoordinator.importBackup(mode: .replace)
-          } label: {
-            Label("覆盖导入", systemImage: "arrow.down.doc")
-          }
-        }
-      }
-
-      Section("关于") {
-        LabeledContent("应用", value: AppMetadata.displayName)
-        LabeledContent("版本", value: AppMetadata.versionSummary)
-        LabeledContent("Bundle ID", value: AppMetadata.bundleIdentifier)
-        LabeledContent("最低系统", value: "macOS \(AppMetadata.minimumMacOSVersion)+")
-        LabeledContent("许可证", value: AppMetadata.licenseName)
-
-        Button {
-          NSWorkspace.shared.open(AppMetadata.repositoryURL)
-        } label: {
-          Label("打开项目仓库", systemImage: "arrow.up.right.square")
-        }
-      }
+    HStack(spacing: 0) {
+      sidebar
+      Divider()
+      detailPane
     }
-    .padding(24)
-    .frame(width: 520)
+    .frame(
+      minWidth: 860,
+      idealWidth: 920,
+      maxWidth: .infinity,
+      minHeight: 600,
+      idealHeight: 640,
+      maxHeight: .infinity
+    )
+    .background(SettingsSurface.contentBackground)
     .onAppear {
       refreshStatus()
     }
@@ -227,6 +45,130 @@ struct SettingsView: View {
     .onReceive(NotificationCenter.default.publisher(for: .litePasteSettingsSaveFailed)) { notification in
       handleSettingsSaveFailure(notification)
     }
+  }
+
+  private var sidebar: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      ForEach(SettingsPage.allCases) { page in
+        SettingsSidebarButton(
+          page: page,
+          isSelected: selectedPage == page
+        ) {
+          selectedPage = page
+        }
+      }
+
+      Spacer()
+    }
+    .padding(.horizontal, 14)
+    .padding(.vertical, 22)
+    .frame(width: 230)
+    .frame(maxHeight: .infinity, alignment: .topLeading)
+    .background(SettingsSurface.sidebarBackground)
+  }
+
+  private var detailPane: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: 22) {
+        SettingsPageHeader(page: selectedPage)
+        selectedPageContent
+      }
+      .padding(.horizontal, 28)
+      .padding(.vertical, 26)
+      .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+    .scrollIndicators(.visible)
+  }
+
+  @ViewBuilder
+  private var selectedPageContent: some View {
+    switch selectedPage {
+    case .clipboard:
+      clipboardSettingsPage
+    case .history:
+      historySettingsPage
+    case .general:
+      generalSettingsPage
+    case .hotkeys:
+      hotkeySettingsPage
+    case .backup:
+      backupSettingsPage
+    case .about:
+      aboutSettingsPage
+    }
+  }
+
+  private var clipboardSettingsPage: some View {
+    ClipboardSettingsPage(
+      panelPosition: panelPosition,
+      viewMode: viewMode,
+      coverMenuBarWhenEdgeAttached: coverMenuBarWhenEdgeAttached,
+      focusSearchOnOpen: focusSearchOnOpen,
+      clearSearchOnOpen: clearSearchOnOpen,
+      autoPasteMode: autoPasteMode,
+      pastePlainByDefault: pastePlainByDefault,
+      restoreClipboardAfterPaste: restoreClipboardAfterPaste,
+      moveDuplicatesToTop: moveDuplicatesToTop,
+      panelPositionDescription: panelPositionDescription
+    )
+  }
+
+  private var historySettingsPage: some View {
+    HistorySettingsPage(
+      maxHistoryCount: maxHistoryCount,
+      retentionDays: retentionDays,
+      maxHistoryCountValueText: "\(store.settings.maxHistoryCount) 条",
+      retentionDaysValueText: retentionDaysValueText,
+      recordableKinds: recordableKinds,
+      enabledTypeBinding: enabledTypeBinding,
+      privacyMode: privacyMode,
+      addCurrentApplicationLabel: addCurrentApplicationLabel,
+      canAddCurrentApplication: activeApplicationTracker.lastExternalApplication != nil,
+      addCurrentApplication: addLastExternalApplicationToIgnoredApps,
+      resetIgnoredApps: resetIgnoredApps,
+      ignoredApps: ignoredApps,
+      ignoredPasteboardTypes: ignoredPasteboardTypes,
+      resetIgnoredPasteboardTypes: resetIgnoredPasteboardTypes,
+      historyCountText: historyCount.map { "\($0) 条" } ?? "正在读取",
+      storageSizeText: storageSizeText,
+      refreshStatus: refreshStatus,
+      revealDataDirectory: revealDataDirectory
+    )
+  }
+
+  private var generalSettingsPage: some View {
+    GeneralSettingsPage(
+      launchAtLogin: launchAtLogin,
+      recordingStatusTitle: recordingStatusTitle,
+      currentApplicationTitle: currentApplicationTitle,
+      statusErrorMessage: statusErrorMessage,
+      historyPersistenceErrorMessage: historyPersistenceErrorMessage,
+      settingsSaveErrorMessage: settingsSaveErrorMessage,
+      accessibilityStatusTitle: accessibilityStatusTitle,
+      accessibilityTrusted: accessibilityTrusted,
+      requestAccessibilityPermission: {
+        AccessibilityPermissionController.requestPermission()
+        refreshAccessibilityStatus()
+      },
+      openAccessibilitySettings: AccessibilityPermissionController.openSystemSettings,
+      refreshAccessibilityStatus: refreshAccessibilityStatus
+    )
+  }
+
+  private var hotkeySettingsPage: some View {
+    HotkeySettingsPage(panelHotkey: panelHotkey)
+  }
+
+  private var backupSettingsPage: some View {
+    BackupSettingsPage(
+      exportBackup: backupCoordinator.exportBackup,
+      mergeImport: { backupCoordinator.importBackup(mode: .merge) },
+      replaceImport: { backupCoordinator.importBackup(mode: .replace) }
+    )
+  }
+
+  private var aboutSettingsPage: some View {
+    AboutSettingsPage()
   }
 
   private var launchAtLogin: Binding<Bool> {
@@ -355,6 +297,10 @@ struct SettingsView: View {
     } else {
       "历史保留: \(store.settings.retentionDays) 天"
     }
+  }
+
+  private var retentionDaysValueText: String {
+    store.settings.retentionDays == 0 ? "永久" : "\(store.settings.retentionDays) 天"
   }
 
   private var privacyMode: Binding<Bool> {
