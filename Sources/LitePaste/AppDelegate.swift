@@ -314,6 +314,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   @objc private func openSettings() {
+    panelCoordinator?.hide()
     let window = settingsWindow ?? makeSettingsWindow()
     settingsWindow = window
     NSApp.activate(ignoringOtherApps: true)
@@ -341,6 +342,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     window.minSize = NSSize(width: 780, height: 560)
     window.backgroundColor = .windowBackgroundColor
     window.isOpaque = true
+    window.delegate = self
     window.isReleasedWhenClosed = false
     window.center()
     return window
@@ -533,6 +535,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     alert.addButton(withTitle: "好")
     alert.alertStyle = .informational
     alert.runModal()
+  }
+}
+
+extension AppDelegate: NSWindowDelegate {
+  func windowDidBecomeKey(_ notification: Notification) {
+    guard let window = notification.object as? NSWindow,
+          window === settingsWindow else {
+      return
+    }
+
+    panelCoordinator?.hide()
   }
 }
 

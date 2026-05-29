@@ -55,6 +55,10 @@ final class PanelCoordinator {
     panel.makeKeyAndOrderFront(nil)
   }
 
+  func hide() {
+    hidePanel()
+  }
+
   private func makePanel() -> NSPanel {
     let panel = ClipboardPanelWindow(
       contentRect: NSRect(x: 0, y: 0, width: 1120, height: edgePanelThickness),
