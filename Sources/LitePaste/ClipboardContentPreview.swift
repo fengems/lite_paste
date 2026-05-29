@@ -240,7 +240,7 @@ private struct RichClipboardPreview: View {
 
   private var previewAttributedText: AttributedString {
     if let attributed = richAttributedStringFromSnapshots() {
-      return AttributedString(attributed)
+      return AttributedString(attributed.removingPreviewBackgroundColors())
     }
 
     return AttributedString(previewText)
@@ -284,6 +284,18 @@ private struct RichClipboardPreview: View {
     }
 
     return nil
+  }
+}
+
+private extension NSAttributedString {
+  func removingPreviewBackgroundColors() -> NSAttributedString {
+    guard length > 0 else {
+      return self
+    }
+
+    let mutable = NSMutableAttributedString(attributedString: self)
+    mutable.removeAttribute(.backgroundColor, range: NSRange(location: 0, length: length))
+    return mutable
   }
 }
 

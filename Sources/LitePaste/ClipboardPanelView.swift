@@ -45,6 +45,9 @@ struct ClipboardPanelView: View {
       panelContent
     }
     .frame(minWidth: 420, minHeight: ClipboardPanelMetrics.edgePanelThickness)
+    .compositingGroup()
+    .clipShape(panelCornerShape)
+    .overlay(panelBorder)
     .background(keyboardBridge)
     .onAppear(perform: prepareForOpen)
     .onChange(of: presentationState.openRevision) {
@@ -65,6 +68,15 @@ struct ClipboardPanelView: View {
     .animation(.easeOut(duration: 0.18), value: presentationState.actionMessage)
   }
 
+  private var panelCornerShape: RoundedRectangle {
+    RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cornerRadius, style: .continuous)
+  }
+
+  private var panelBorder: some View {
+    panelCornerShape
+      .stroke(Color.white.opacity(0.16), lineWidth: 1)
+  }
+
   private var panelContent: some View {
     VStack(spacing: ClipboardPanelMetrics.panelContentSpacing) {
       topToolbar
@@ -73,11 +85,6 @@ struct ClipboardPanelView: View {
     .padding(.horizontal, ClipboardPanelMetrics.drawerHorizontalPadding)
     .padding(.vertical, ClipboardPanelMetrics.drawerVerticalPadding)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    .clipShape(RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cornerRadius))
-    .overlay(
-      RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cornerRadius)
-        .stroke(Color.white.opacity(0.16), lineWidth: 1)
-    )
   }
 
   private var topToolbar: some View {

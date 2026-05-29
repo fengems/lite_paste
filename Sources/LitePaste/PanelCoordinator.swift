@@ -92,6 +92,7 @@ final class PanelCoordinator {
       }
     )
     let hostingController = NSHostingController(rootView: rootView)
+    applyRoundedContentMask(to: hostingController.view)
 
     panel.title = "Lite Paste"
     panel.titleVisibility = .hidden
@@ -101,12 +102,19 @@ final class PanelCoordinator {
     panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
     panel.isReleasedWhenClosed = false
     panel.contentViewController = hostingController
+    applyRoundedContentMask(to: panel.contentView)
     panel.backgroundColor = .clear
     panel.isOpaque = false
     panel.hasShadow = true
     panel.isMovableByWindowBackground = false
 
     return panel
+  }
+
+  private func applyRoundedContentMask(to view: NSView?) {
+    view?.wantsLayer = true
+    view?.layer?.cornerRadius = ClipboardPanelMetrics.cornerRadius
+    view?.layer?.masksToBounds = true
   }
 
   private func observeAppDeactivation() {
