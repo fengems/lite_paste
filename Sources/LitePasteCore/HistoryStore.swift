@@ -64,12 +64,12 @@ public final class HistoryStore: ObservableObject {
       applyControlledMutation {
         if moveDuplicatesToTop {
           records.removeAll { $0.id == updated.id }
-          records.insert(updated, at: 0)
+          records.insert(updated, at: frontInsertionIndex(for: updated))
         } else if let index = records.firstIndex(where: { $0.id == updated.id }) {
           records[index] = updated
         }
       }
-      persistUpsert(updated, position: moveDuplicatesToTop ? 0 : nil)
+      persistUpsert(updated, position: moveDuplicatesToTop ? frontInsertionIndex(for: updated) : nil)
       removeExternalFiles(in: payload)
       notifyHistoryChanged()
       return updated
@@ -90,9 +90,9 @@ public final class HistoryStore: ObservableObject {
     )
 
     applyControlledMutation {
-      records.insert(record, at: 0)
+      records.insert(record, at: frontInsertionIndex(for: record))
     }
-    persistUpsert(record, position: 0)
+    persistUpsert(record, position: frontInsertionIndex(for: record))
     trimHistoryIfNeeded(now: now, loadFullIfNeeded: false)
     return record
   }
@@ -188,12 +188,30 @@ public final class HistoryStore: ObservableObject {
   }
 
   public func togglePinned(_ id: ClipboardRecord.ID) {
-    update(id) { record in
+    if let index = records.firstIndex(where: { $0.id == id }) {
+      var record = records[index]
       record.isPinned.toggle()
       if !record.isPinned {
         record.pinShortcut = nil
       }
+
+      applyControlledMutation {
+        records.remove(at: index)
+        records.insert(record, at: frontInsertionIndex(for: record))
+      }
+      persistUpsert(record, position: frontInsertionIndex(for: record))
+      return
     }
+
+    guard var record = record(id: id) else {
+      return
+    }
+
+    record.isPinned.toggle()
+    if !record.isPinned {
+      record.pinShortcut = nil
+    }
+    persistUpsert(record, position: record.isPinned ? 0 : nil)
   }
 
   public func updatePinShortcut(_ id: ClipboardRecord.ID, shortcut: String?) {
@@ -206,11 +224,14 @@ public final class HistoryStore: ObservableObject {
     }
 
     let normalizedShortcut = shortcut.flatMap(PinShortcutCatalog.normalized)
+    var targetRecord = records[targetIndex]
+    targetRecord.isPinned = true
+    targetRecord.pinShortcut = normalizedShortcut
     applyControlledMutation {
-      records[targetIndex].isPinned = true
-      records[targetIndex].pinShortcut = normalizedShortcut
+      records.remove(at: targetIndex)
+      records.insert(targetRecord, at: 0)
     }
-    persistUpsert(records[targetIndex], position: nil)
+    persistUpsert(targetRecord, position: 0)
 
     guard let normalizedShortcut else {
       return
@@ -242,9 +263,9 @@ public final class HistoryStore: ObservableObject {
 
       applyControlledMutation {
         records.remove(at: index)
-        records.insert(record, at: 0)
+        records.insert(record, at: frontInsertionIndex(for: record))
       }
-      persistMarkUsed(id, at: now, fallbackRecord: record)
+      persistMarkUsed(id, at: now, position: frontInsertionIndex(for: record), fallbackRecord: record)
       return
     }
 
@@ -263,7 +284,7 @@ public final class HistoryStore: ObservableObject {
     }
 
     updateUsageMetadata(&record, now: now)
-    persistUpsert(record, position: 0)
+    persistUpsert(record, position: record.isPinned ? 0 : nil)
   }
 
   private func updateUsageMetadata(_ record: inout ClipboardRecord, now: Date) {
@@ -464,18 +485,31 @@ public final class HistoryStore: ObservableObject {
     }
   }
 
-  private func persistMarkUsed(_ id: ClipboardRecord.ID, at date: Date, fallbackRecord: ClipboardRecord) {
+  private func persistMarkUsed(
+    _ id: ClipboardRecord.ID,
+    at date: Date,
+    position: Int,
+    fallbackRecord: ClipboardRecord
+  ) {
     guard let repository = repository as? any ClipboardHistoryUsageRepository else {
-      persistUpsert(fallbackRecord, position: 0)
+      persistUpsert(fallbackRecord, position: position)
       return
     }
 
     do {
-      try repository.markUsed(id: id, at: date, position: 0)
+      try repository.markUsed(id: id, at: date, position: position)
       notifyHistoryChanged()
     } catch {
       notifyHistoryPersistenceFailed(operation: "更新使用记录", error: error)
     }
+  }
+
+  private func frontInsertionIndex(for record: ClipboardRecord) -> Int {
+    guard !record.isPinned else {
+      return 0
+    }
+
+    return records.firstIndex { !$0.isPinned } ?? records.count
   }
 
   private func persistDelete(id: ClipboardRecord.ID) {

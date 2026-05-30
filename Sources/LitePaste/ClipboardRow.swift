@@ -12,7 +12,6 @@ struct ClipboardRow: View {
   let externalAction: ClipboardExternalAction?
   let performExternalAction: (ClipboardExternalAction) -> Void
   let editNote: () -> Void
-  let editPinShortcut: () -> Void
   let toggleFavorite: () -> Void
   let togglePinned: () -> Void
   let deleteAction: () -> Void
@@ -63,9 +62,6 @@ struct ClipboardRow: View {
         }
         if !record.note.isEmpty {
           Label("备注", systemImage: "note.text")
-        }
-        if let pinShortcut = record.pinShortcut {
-          Label(PinShortcutCatalog.displayName(for: pinShortcut), systemImage: "keyboard")
         }
         Text(record.panelRelativeTimeText)
       }
@@ -133,12 +129,6 @@ struct ClipboardRow: View {
 
       Button(action: editNote) {
         Label(record.note.isEmpty ? "添加备注" : "编辑备注", systemImage: "note.text")
-      }
-
-      if record.isPinned {
-        Button(action: editPinShortcut) {
-          Label("设置快捷键", systemImage: "keyboard")
-        }
       }
 
       Button(role: .destructive, action: deleteAction) {

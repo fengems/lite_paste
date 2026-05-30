@@ -32,7 +32,7 @@ struct PermissionGuideView: View {
         Text("完成权限设置")
           .font(.system(size: 24, weight: .bold))
 
-        Text("Lite Paste 需要辅助功能权限来执行自动粘贴和置顶快捷粘贴。")
+        Text("Lite Paste 需要辅助功能权限来执行自动粘贴。")
           .font(.system(size: 13))
           .foregroundStyle(.secondary)
           .fixedSize(horizontal: false, vertical: true)

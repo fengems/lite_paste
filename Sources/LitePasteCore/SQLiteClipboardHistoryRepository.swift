@@ -282,7 +282,7 @@ public struct SQLiteClipboardHistoryRepository: ClipboardHistoryIncrementalRepos
   private static func orderClause(for sort: ClipboardHistorySort) -> String {
     switch sort {
     case .pinnedThenRecent:
-      "is_pinned DESC, last_copied_at DESC"
+      "is_pinned DESC, position ASC"
     case .recent:
       "last_copied_at DESC"
     case .mostUsed:

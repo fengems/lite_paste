@@ -48,10 +48,16 @@ public struct ClipboardHistoryQueryEngine: Sendable {
       .split(whereSeparator: \.isWhitespace)
       .map(String.init)
 
-    return records
+    let filteredRecords = records
       .filter { record in
         query.filter.matches(record) && matchesText(record, searchTerms: searchTerms)
       }
+
+    guard query.sort != .pinnedThenRecent else {
+      return pinnedFirstPreservingOrder(filteredRecords)
+    }
+
+    return filteredRecords
       .sorted { lhs, rhs in
         compare(lhs, rhs, sort: query.sort)
       }
@@ -80,14 +86,14 @@ public struct ClipboardHistoryQueryEngine: Sendable {
     return value.range(of: term, options: [.caseInsensitive, .diacriticInsensitive]) != nil
   }
 
+  private func pinnedFirstPreservingOrder(_ records: [ClipboardRecord]) -> [ClipboardRecord] {
+    records.filter(\.isPinned) + records.filter { !$0.isPinned }
+  }
+
   private func compare(_ lhs: ClipboardRecord, _ rhs: ClipboardRecord, sort: ClipboardHistorySort) -> Bool {
     switch sort {
     case .pinnedThenRecent:
-      if lhs.isPinned != rhs.isPinned {
-        return lhs.isPinned && !rhs.isPinned
-      }
-
-      return lhs.lastCopiedAt > rhs.lastCopiedAt
+      return false
 
     case .recent:
       return lhs.lastCopiedAt > rhs.lastCopiedAt

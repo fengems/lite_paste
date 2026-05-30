@@ -1352,6 +1352,14 @@ func checkHistoryStore() {
   expect(store.records.first?.id == first.id, "Duplicate content should move to top")
   expect(store.records.first?.copyCount == 2, "Duplicate content should increment copy count")
 
+  store.togglePinned(second.id)
+  expect(store.records.first?.id == second.id, "Pinning a record should move it to the front")
+  store.togglePinned(second.id)
+  expect(
+    store.records.first(where: { $0.id == second.id })?.isPinned == false,
+    "Unpinning a record should clear its pinned state"
+  )
+
   store.toggleFavorite(first.id)
   store.updateNote(first.id, note: "  saved memo  ")
   store.updatePinShortcut(first.id, shortcut: "command+option+1")
@@ -1375,7 +1383,7 @@ func checkHistoryStore() {
   expect(usedFirst?.copyCount == 3, "Marking a record used should increment copy count for most-used sorting")
 
   store.markUsed(second.id, now: Date(timeIntervalSince1970: 43))
-  expect(store.records.first?.id == second.id, "Marking a record used should move it to the top")
+  expect(store.records.first?.id == first.id, "Pinned records should stay before recently used regular records")
   expect(
     store.filteredRecords(ClipboardHistoryQuery(sort: .recent)).first?.id == second.id,
     "Recently used records should sort first in recent queries"
@@ -1638,7 +1646,7 @@ func checkHistoryStorePartialInitialLoad() {
     try repository.save(records)
 
     let store = HistoryStore(repository: repository, initialLoadLimit: 2)
-    expect(store.records.map(\.id) == [records[4].id, records[3].id], "HistoryStore should initially load only the first page")
+    expect(store.records.map(\.id) == [records[0].id, records[1].id], "HistoryStore should initially load only the first page")
     expect(
       store.filteredRecordCount(ClipboardHistoryQuery()) == 5,
       "HistoryStore partial initial load should keep repository-backed total counts"
@@ -1663,7 +1671,7 @@ func checkHistoryStorePartialInitialLoad() {
       "HistoryStore should enforce max history count during partial initial load"
     )
 
-    let hidden = records[1]
+    let hidden = records[4]
     store.markUsed(hidden.id, now: Date(timeIntervalSince1970: 10))
     let hiddenRecord = try repository.record(id: hidden.id)
     expect(
@@ -1677,7 +1685,7 @@ func checkHistoryStorePartialInitialLoad() {
 
     store.updateMaxHistoryCount(2)
     let trimmed = try repository.load()
-    expect(trimmed.map(\.id) == [hidden.id, records[4].id], "HistoryStore should keep recently used records when trimming")
+    expect(trimmed.map(\.id) == [hidden.id, records[3].id], "HistoryStore should keep recently used records when trimming")
 
     let clearRepository = SQLiteClipboardHistoryRepository(
       url: directory.appending(path: "clear-history.sqlite3")

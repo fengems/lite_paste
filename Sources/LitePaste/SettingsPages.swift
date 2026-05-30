@@ -415,10 +415,14 @@ struct HotkeySettingsPage: View {
         }
       }
 
-      SettingsSectionCard(title: "置顶快捷键") {
-        SettingsInfoRow(title: "支持范围", value: "⌘⌥1 到 ⌘⌥9")
+      SettingsSectionCard(title: "面板快捷键") {
+        SettingsInfoRow(title: "选择条目", value: "⌘1 到 ⌘6")
         SettingsDivider()
-        SettingsInfoRow(title: "配置入口", value: "记录更多菜单")
+        SettingsInfoRow(title: "确认粘贴", value: "Return")
+        SettingsDivider()
+        SettingsInfoRow(title: "复制条目", value: "⌘C")
+        SettingsDivider()
+        SettingsInfoRow(title: "删除条目", value: "Delete")
       }
     }
   }

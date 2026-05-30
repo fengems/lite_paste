@@ -20,7 +20,6 @@ struct ClipboardPanelView: View {
   @State private var itemActions = ClipboardItemActions()
   @State private var query = ""
   @State private var filter: ClipboardFilter = .all
-  @State private var sort: ClipboardHistorySort = .pinnedThenRecent
   @State private var viewMode: ClipboardPanelViewMode = AppSettingsStore.shared.settings.viewMode
   @State private var selectedRecordID: ClipboardRecord.ID?
   @State private var visibleRecordLimit = Self.initialVisibleRecordLimit
@@ -32,7 +31,7 @@ struct ClipboardPanelView: View {
   @FocusState private var searchFieldFocused: Bool
 
   private var queryRequest: ClipboardHistoryQuery {
-    ClipboardHistoryQuery(text: query, filter: filter, sort: sort)
+    ClipboardHistoryQuery(text: query, filter: filter)
   }
 
   private var records: [ClipboardRecord] {
@@ -62,9 +61,6 @@ struct ClipboardPanelView: View {
       resetVisibleRecords()
     }
     .onChange(of: filter) {
-      resetVisibleRecords()
-    }
-    .onChange(of: sort) {
       resetVisibleRecords()
     }
     .onChange(of: records.map(\.id)) {
@@ -117,7 +113,6 @@ struct ClipboardPanelView: View {
       }
 
       viewModePicker
-      sortPicker
       headerActions
     }
   }
@@ -137,7 +132,6 @@ struct ClipboardPanelView: View {
 
       HStack(spacing: 8) {
         filterScroller
-        sortPicker
 
         Text(resultSummary)
           .font(.system(size: 12, weight: .medium))
@@ -171,16 +165,6 @@ struct ClipboardPanelView: View {
     .onChange(of: viewMode) {
       persistViewMode()
     }
-  }
-
-  private var sortPicker: some View {
-    Picker("", selection: $sort) {
-      Label("最近", systemImage: "clock").tag(ClipboardHistorySort.recent)
-      Label("常用", systemImage: "number").tag(ClipboardHistorySort.mostUsed)
-      Label("置顶", systemImage: "pin").tag(ClipboardHistorySort.pinnedThenRecent)
-    }
-    .pickerStyle(.segmented)
-    .frame(width: 166)
   }
 
   private var headerActions: some View {
@@ -360,7 +344,6 @@ struct ClipboardPanelView: View {
       externalAction: itemActions.primaryExternalAction(for: record),
       performExternalAction: { handleExternalActionResult(itemActions.perform($0, for: record)) },
       editNote: { editNote(record) },
-      editPinShortcut: { editPinShortcut(record) },
       toggleFavorite: { store.toggleFavorite(record.id) },
       togglePinned: { store.togglePinned(record.id) },
       deleteAction: { confirmDelete(record) }
@@ -379,7 +362,6 @@ struct ClipboardPanelView: View {
       externalAction: itemActions.primaryExternalAction(for: record),
       performExternalAction: { handleExternalActionResult(itemActions.perform($0, for: record)) },
       editNote: { editNote(record) },
-      editPinShortcut: { editPinShortcut(record) },
       toggleFavorite: { store.toggleFavorite(record.id) },
       togglePinned: { store.togglePinned(record.id) },
       deleteAction: { confirmDelete(record) }
@@ -506,17 +488,14 @@ struct ClipboardPanelView: View {
     }
   }
 
-  private func editPinShortcut(_ record: ClipboardRecord) {
-    let result = PinShortcutEditor.edit(record: record, usedShortcuts: store.usedPinShortcuts(excluding: record.id))
-    if case let .save(shortcut) = result {
-      store.updatePinShortcut(record.id, shortcut: shortcut)
-    }
-  }
-
   private func handleKeyDown(_ event: NSEvent) -> Bool {
     let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
     let commandOnly = modifiers == .command
 
+    if commandOnly, let index = commandNumberSelectionIndex(from: event) {
+      selectRecord(at: index)
+      return true
+    }
     if commandOnly, event.charactersIgnoringModifiers?.lowercased() == "c" {
       return copySelected()
     }
@@ -593,6 +572,25 @@ struct ClipboardPanelView: View {
     }
     let nextIndex = min(max(currentIndex + offset, 0), records.count - 1)
     selectedRecordID = records[nextIndex].id
+  }
+
+  private func selectRecord(at index: Int) {
+    guard records.indices.contains(index) else {
+      return
+    }
+
+    selectedRecordID = records[index].id
+  }
+
+  private func commandNumberSelectionIndex(from event: NSEvent) -> Int? {
+    guard let characters = event.charactersIgnoringModifiers,
+          characters.count == 1,
+          let number = Int(characters),
+          (1...6).contains(number) else {
+      return nil
+    }
+
+    return number - 1
   }
 
   private func verticalSelectionOffset(direction: Int) -> Int {

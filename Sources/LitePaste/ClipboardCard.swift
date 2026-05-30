@@ -13,7 +13,6 @@ struct ClipboardCard: View {
   let externalAction: ClipboardExternalAction?
   let performExternalAction: (ClipboardExternalAction) -> Void
   let editNote: () -> Void
-  let editPinShortcut: () -> Void
   let toggleFavorite: () -> Void
   let togglePinned: () -> Void
   let deleteAction: () -> Void
@@ -52,6 +51,17 @@ struct ClipboardCard: View {
         .lineLimit(1)
 
       Spacer(minLength: 0)
+
+      IconButton(
+        systemName: record.isPinned ? "pin.fill" : "pin",
+        accessibilityLabel: "置顶",
+        isActive: record.isPinned,
+        tint: .purple,
+        size: 22,
+        iconSize: 11,
+        cornerRadius: 6,
+        action: togglePinned
+      )
 
       IconButton(
         systemName: record.isFavorite ? "star.fill" : "star",
@@ -111,16 +121,6 @@ struct ClipboardCard: View {
 
       Button(action: editNote) {
         Label(record.note.isEmpty ? "添加备注" : "编辑备注", systemImage: "note.text")
-      }
-
-      Button(action: togglePinned) {
-        Label(record.isPinned ? "取消置顶" : "置顶", systemImage: record.isPinned ? "pin.slash" : "pin")
-      }
-
-      if record.isPinned {
-        Button(action: editPinShortcut) {
-          Label("设置快捷键", systemImage: "keyboard")
-        }
       }
 
       Button(role: .destructive, action: deleteAction) {
