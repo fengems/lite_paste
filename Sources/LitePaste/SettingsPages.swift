@@ -265,7 +265,11 @@ private struct SettingsNumberStepperField: View {
         .focused($isFocused)
         .frame(width: 58, height: 24)
         .padding(.horizontal, 7)
-        .background(SettingsSurface.fieldBackground, in: RoundedRectangle(cornerRadius: 6))
+        .background(SettingsSurface.fieldBackground, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .overlay(
+          RoundedRectangle(cornerRadius: 6, style: .continuous)
+            .stroke(SettingsSurface.border.opacity(0.50), lineWidth: 1)
+        )
         .onSubmit(commitDraft)
         .onAppear(perform: syncDraft)
         .onChange(of: draftText) { _, newText in

@@ -39,18 +39,16 @@ struct ClipboardPanelView: View {
   }
 
   var body: some View {
-    ZStack {
-      VisualEffectBackground(material: .hudWindow, blendingMode: .behindWindow)
-        .ignoresSafeArea()
-      panelContent
-    }
+    panelSurface
     .frame(minWidth: 420, minHeight: ClipboardPanelMetrics.edgePanelThickness)
     .compositingGroup()
-    .clipShape(panelCornerShape)
-    .overlay(panelBorder)
     .background(keyboardBridge)
     .onAppear(perform: prepareForOpen)
     .onReceive(store.$records) { _ in
+      refreshCurrentPage()
+      normalizeSelection()
+    }
+    .onReceive(NotificationCenter.default.publisher(for: .litePasteHistoryChanged)) { _ in
       refreshCurrentPage()
       normalizeSelection()
     }
@@ -75,7 +73,69 @@ struct ClipboardPanelView: View {
 
   private var panelBorder: some View {
     panelCornerShape
-      .stroke(Color.white.opacity(0.16), lineWidth: 1)
+      .stroke(
+        LinearGradient(
+          colors: [
+            Color.cyan.opacity(0.75),
+            Color.blue.opacity(0.55),
+            Color.purple.opacity(0.48),
+            Color.orange.opacity(0.70)
+          ],
+          startPoint: .bottomLeading,
+          endPoint: .topTrailing
+        ),
+        lineWidth: 1.4
+      )
+  }
+
+  private var panelSurface: some View {
+    ZStack {
+      VisualEffectBackground(material: .hudWindow, blendingMode: .behindWindow)
+        .ignoresSafeArea()
+      panelTint
+      panelContent
+    }
+    .clipShape(panelCornerShape)
+    .overlay(panelInnerGlow)
+    .overlay(panelBorder)
+    .shadow(color: Color.black.opacity(0.20), radius: 18, y: 8)
+  }
+
+  private var panelInnerGlow: some View {
+    panelCornerShape
+      .stroke(
+        LinearGradient(
+          colors: [
+            Color.cyan.opacity(0.45),
+            Color.blue.opacity(0.28),
+            Color.purple.opacity(0.24),
+            Color.orange.opacity(0.38)
+          ],
+          startPoint: .bottomLeading,
+          endPoint: .topTrailing
+        ),
+        lineWidth: 5
+      )
+      .blur(radius: 7)
+      .opacity(0.55)
+      .clipShape(panelCornerShape)
+      .allowsHitTesting(false)
+  }
+
+  private var panelTint: some View {
+    RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cornerRadius, style: .continuous)
+      .fill(
+        LinearGradient(
+          colors: [
+            Color.white.opacity(0.06),
+            Color.cyan.opacity(0.025),
+            Color.purple.opacity(0.025)
+          ],
+          startPoint: .topLeading,
+          endPoint: .bottomTrailing
+        )
+      )
+      .allowsHitTesting(false)
   }
 
   private var panelContent: some View {
@@ -106,19 +166,16 @@ struct ClipboardPanelView: View {
       searchBox
         .frame(minWidth: 180, idealWidth: 240, maxWidth: 300)
 
+      toolbarDivider
       filterGroup(for: ClipboardFilter.allCases)
-
-      Text(resultSummary)
-        .font(.system(size: 12, weight: .medium))
-        .foregroundStyle(.secondary)
-        .lineLimit(1)
-        .fixedSize()
 
       if let actionMessage = presentationState.actionMessage {
         PanelStatusBadge(message: actionMessage)
       }
 
+      toolbarDivider
       viewModePicker
+      toolbarDivider
       headerActions
     }
   }
@@ -139,11 +196,7 @@ struct ClipboardPanelView: View {
       HStack(spacing: 8) {
         filterGroup(for: ClipboardFilter.allCases)
 
-        Text(resultSummary)
-          .font(.system(size: 12, weight: .medium))
-          .foregroundStyle(.secondary)
-          .lineLimit(1)
-          .fixedSize()
+        Spacer(minLength: 0)
       }
     }
   }
@@ -181,12 +234,6 @@ struct ClipboardPanelView: View {
   private var notchRightToolbar: some View {
     HStack(spacing: 8) {
       filterGroup(for: notchRightFilters, minWidth: 0, alignment: .trailing)
-
-      Text(resultSummary)
-        .font(.system(size: 12, weight: .medium))
-        .foregroundStyle(.secondary)
-        .lineLimit(1)
-        .fixedSize()
 
       if let actionMessage = presentationState.actionMessage {
         PanelStatusBadge(message: actionMessage)
@@ -234,9 +281,13 @@ struct ClipboardPanelView: View {
       viewModeButton(mode: .card, systemName: "rectangle.grid.2x2", label: "卡片视图")
       viewModeButton(mode: .list, systemName: "list.bullet", label: "列表视图")
     }
-    .padding(2)
-    .frame(width: 82)
-    .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 8))
+    .padding(4)
+    .frame(width: 82, height: 32)
+    .background(Color.primary.opacity(0.060), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    .overlay(
+      RoundedRectangle(cornerRadius: 8, style: .continuous)
+        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+    )
   }
 
   private func viewModeButton(mode: ClipboardPanelViewMode, systemName: String, label: String) -> some View {
@@ -254,9 +305,17 @@ struct ClipboardPanelView: View {
         .frame(maxWidth: .infinity, minHeight: 24)
         .foregroundStyle(isSelected ? Color.white : Color.secondary)
         .background(
-          isSelected ? Color.accentColor : Color.clear,
-          in: RoundedRectangle(cornerRadius: 6)
+          isSelected ? Color.white.opacity(0.12) : Color.clear,
+          in: RoundedRectangle(cornerRadius: 8, style: .continuous)
         )
+        .overlay(alignment: .bottom) {
+          if isSelected {
+            Capsule()
+              .fill(Color.blue)
+              .frame(width: 20, height: 2)
+              .offset(y: 5)
+          }
+        }
         .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
@@ -266,10 +325,37 @@ struct ClipboardPanelView: View {
 
   private var headerActions: some View {
     HStack(spacing: 6) {
-      IconButton(systemName: "trash.slash", accessibilityLabel: "清空未置顶", action: confirmClearUnpinned)
-      IconButton(systemName: "trash", accessibilityLabel: "清空全部", action: confirmClearAll)
+      deleteHistoryMenu
       IconButton(systemName: "xmark", accessibilityLabel: "关闭", action: closeAction)
     }
+  }
+
+  private var deleteHistoryMenu: some View {
+    Menu {
+      Button(action: confirmClearUnpinned) {
+        Label("清空未置顶", systemImage: "trash.slash")
+      }
+
+      Button(role: .destructive, action: confirmClearAll) {
+        Label("清空全部", systemImage: "trash")
+      }
+    } label: {
+      Image(systemName: "trash")
+        .font(.system(size: 13, weight: .semibold))
+        .frame(width: 26, height: 26)
+        .foregroundStyle(Color.secondary)
+        .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .overlay(
+          RoundedRectangle(cornerRadius: 7, style: .continuous)
+            .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+        .contentShape(Rectangle())
+    }
+    .menuStyle(.borderlessButton)
+    .menuIndicator(.hidden)
+    .fixedSize()
+    .accessibilityLabel("清空历史")
+    .panelTooltip("清空历史")
   }
 
   private var searchBox: some View {
@@ -299,7 +385,18 @@ struct ClipboardPanelView: View {
     .padding(.horizontal, 10)
     .padding(.vertical, 7)
     .frame(maxWidth: .infinity, minHeight: 32)
-    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    .overlay(
+      RoundedRectangle(cornerRadius: 8, style: .continuous)
+        .stroke(Color.white.opacity(0.10), lineWidth: 1)
+    )
+  }
+
+  private var toolbarDivider: some View {
+    Rectangle()
+      .fill(Color.white.opacity(0.10))
+      .frame(width: 1, height: 24)
+      .padding(.horizontal, 8)
   }
 
   @ViewBuilder
@@ -325,7 +422,7 @@ struct ClipboardPanelView: View {
   private var cardContent: some View {
     ScrollViewReader { proxy in
       ScrollView {
-        LazyVGrid(columns: cardGridColumns, alignment: .leading, spacing: 10) {
+        LazyVGrid(columns: cardGridColumns, alignment: .leading, spacing: ClipboardPanelMetrics.cardGridSpacing) {
           ForEach(records) { record in
             card(for: record)
               .id(record.id)
@@ -337,7 +434,7 @@ struct ClipboardPanelView: View {
           }
         }
         .padding(.top, ClipboardPanelMetrics.cardContentTopPadding)
-        .padding(.bottom, ClipboardPanelMetrics.cardContentBottomPadding)
+        .padding(.bottom, cardContentBottomPadding)
       }
       .scrollIndicators(.hidden)
       .frame(
@@ -356,14 +453,20 @@ struct ClipboardPanelView: View {
   }
 
   private var cardContentMinimumHeight: CGFloat {
-    cardContentUsesSingleRowHeight ? ClipboardPanelMetrics.cardContentHeight : 0
+    cardContentUsesFixedEdgeHeight ? ClipboardPanelMetrics.edgeCardContentHeight : 0
   }
 
   private var cardContentMaximumHeight: CGFloat? {
-    cardContentUsesSingleRowHeight ? ClipboardPanelMetrics.cardContentHeight : .infinity
+    cardContentUsesFixedEdgeHeight ? ClipboardPanelMetrics.edgeCardContentHeight : .infinity
   }
 
-  private var cardContentUsesSingleRowHeight: Bool {
+  private var cardContentBottomPadding: CGFloat {
+    cardContentUsesFixedEdgeHeight
+      ? ClipboardPanelMetrics.edgeCardContentBottomPadding
+      : ClipboardPanelMetrics.cardContentBottomPadding
+  }
+
+  private var cardContentUsesFixedEdgeHeight: Bool {
     switch settingsStore.settings.panelPosition {
     case .edgeBottom, .edgeTop, .bottomDrawer, .statusItem:
       true
@@ -374,7 +477,7 @@ struct ClipboardPanelView: View {
 
   private var cardGridColumns: [GridItem] {
     Array(
-      repeating: GridItem(.flexible(), spacing: 10),
+      repeating: GridItem(.flexible(), spacing: ClipboardPanelMetrics.cardGridSpacing),
       count: cardGridColumnCount
     )
   }
@@ -464,13 +567,6 @@ struct ClipboardPanelView: View {
       togglePinned: { store.togglePinned(record.id) },
       deleteAction: { confirmDelete(record) }
     )
-  }
-
-  private var resultSummary: String {
-    guard currentPage.totalCount > 0 else {
-      return "0 条"
-    }
-    return currentPage.hasMore ? "显示 \(records.count) / \(currentPage.totalCount) 条" : "\(currentPage.totalCount) 条"
   }
 
   private var emptyState: (systemName: String, title: String, message: String?) {

@@ -17,18 +17,19 @@ struct ClipboardRow: View {
   let deleteAction: () -> Void
 
   var body: some View {
-    HStack(spacing: 8) {
+    HStack(spacing: 9) {
       accentStrip
-      thumbnail
+      SourceAppIcon(record: record)
       titleBlock
       Spacer(minLength: 8)
       quickActions
     }
-    .padding(.horizontal, 9)
+    .padding(.trailing, 8)
     .padding(.vertical, 6)
     .background(rowBackground)
+    .clipShape(RoundedRectangle(cornerRadius: ClipboardPanelMetrics.compactCornerRadius, style: .continuous))
     .overlay(selectionStroke)
-    .shadow(color: isSelected ? record.kind.accentColor.opacity(0.18) : .clear, radius: 8, y: 3)
+    .shadow(color: isSelected ? record.kind.accentColor.opacity(0.22) : Color.black.opacity(0.08), radius: isSelected ? 12 : 5, y: 3)
     .contentShape(RoundedRectangle(cornerRadius: ClipboardPanelMetrics.compactCornerRadius))
     .onTapGesture {
       primaryAction(record)
@@ -38,14 +39,8 @@ struct ClipboardRow: View {
   private var accentStrip: some View {
     RoundedRectangle(cornerRadius: 2)
       .fill(record.kind.accentColor)
-      .frame(width: 4, height: 34)
-  }
-
-  private var thumbnail: some View {
-    ClipboardContentPreview(record: record, style: .thumbnail)
-      .frame(width: 34, height: 34)
-      .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 8))
-      .clipShape(RoundedRectangle(cornerRadius: 8))
+      .frame(width: ClipboardPanelMetrics.accentStripWidth, height: 34)
+      .shadow(color: record.kind.accentColor.opacity(0.28), radius: 8, y: 2)
   }
 
   private var titleBlock: some View {
@@ -74,32 +69,20 @@ struct ClipboardRow: View {
   private var quickActions: some View {
     HStack(spacing: 5) {
       IconButton(
-        systemName: "arrow.turn.down.left",
-        accessibilityLabel: "粘贴",
-        tint: record.kind.accentColor
-      ) {
-        pasteAction(record)
-      }
-      IconButton(
-        systemName: "doc.on.doc",
-        accessibilityLabel: "复制",
-        tint: record.kind.accentColor
-      ) {
-        copyAction(record)
-      }
+        systemName: record.isFavorite ? "star.fill" : "star",
+        accessibilityLabel: "收藏",
+        isActive: record.isFavorite,
+        tint: .yellow,
+        showsInactiveBackground: false,
+        action: toggleFavorite
+      )
       IconButton(
         systemName: record.isPinned ? "pin.fill" : "pin",
         accessibilityLabel: "置顶",
         isActive: record.isPinned,
         tint: .blue,
+        showsInactiveBackground: false,
         action: togglePinned
-      )
-      IconButton(
-        systemName: record.isFavorite ? "star.fill" : "star",
-        accessibilityLabel: "收藏",
-        isActive: record.isFavorite,
-        tint: .yellow,
-        action: toggleFavorite
       )
       actionMenu
     }
@@ -107,6 +90,18 @@ struct ClipboardRow: View {
 
   private var actionMenu: some View {
     Menu {
+      Button {
+        pasteAction(record)
+      } label: {
+        Label("粘贴", systemImage: "arrow.turn.down.left")
+      }
+
+      Button {
+        copyAction(record)
+      } label: {
+        Label("复制", systemImage: "doc.on.doc")
+      }
+
       Button {
         pastePlainTextAction(record)
       } label: {
@@ -138,9 +133,10 @@ struct ClipboardRow: View {
       Image(systemName: "ellipsis")
         .font(.system(size: 13, weight: .semibold))
         .frame(width: 26, height: 26)
-        .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 7))
+        .contentShape(Rectangle())
     }
     .menuStyle(.borderlessButton)
+    .menuIndicator(.hidden)
     .fixedSize()
     .accessibilityLabel("更多操作")
     .panelTooltip("更多操作")
@@ -148,7 +144,7 @@ struct ClipboardRow: View {
 
   private var selectionStroke: some View {
     RoundedRectangle(cornerRadius: ClipboardPanelMetrics.compactCornerRadius)
-      .stroke(isSelected ? record.kind.accentColor.opacity(0.98) : Color.clear, lineWidth: 2)
+      .stroke(isSelected ? record.kind.accentColor.opacity(0.98) : Color.white.opacity(0.08), lineWidth: isSelected ? 2 : 1)
   }
 
   private var rowBackground: some View {
@@ -156,7 +152,7 @@ struct ClipboardRow: View {
       .fill(.regularMaterial)
       .overlay {
         RoundedRectangle(cornerRadius: ClipboardPanelMetrics.compactCornerRadius)
-          .fill(isSelected ? record.kind.accentColor.opacity(0.10) : Color.clear)
+          .fill(record.kind.accentColor.opacity(isSelected ? 0.11 : 0.035))
       }
   }
 }

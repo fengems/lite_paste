@@ -46,31 +46,90 @@ enum SettingsPage: String, CaseIterable, Identifiable {
       "info.circle"
     }
   }
+
+  var accentColor: Color {
+    switch self {
+    case .clipboard:
+      Color.blue
+    case .history:
+      Color.cyan
+    case .general:
+      Color.indigo
+    case .hotkeys:
+      Color.purple
+    case .backup:
+      Color.orange
+    case .about:
+      Color.green
+    }
+  }
 }
 
 enum SettingsSurface {
   static let windowBackground = dynamicColor(
-    light: NSColor(calibratedWhite: 0.99, alpha: 1),
-    dark: NSColor(calibratedWhite: 0.145, alpha: 1)
+    light: NSColor(calibratedRed: 0.955, green: 0.968, blue: 0.985, alpha: 1),
+    dark: NSColor(calibratedRed: 0.075, green: 0.088, blue: 0.115, alpha: 1)
   )
   static let sidebarBackground = dynamicColor(
-    light: NSColor(calibratedWhite: 0.985, alpha: 1),
-    dark: NSColor(calibratedWhite: 0.13, alpha: 1)
+    light: NSColor(calibratedRed: 0.925, green: 0.945, blue: 0.970, alpha: 0.92),
+    dark: NSColor(calibratedRed: 0.090, green: 0.105, blue: 0.135, alpha: 0.92)
   )
   static let cardBackground = dynamicColor(
-    light: NSColor(calibratedWhite: 0.965, alpha: 1),
-    dark: NSColor(calibratedWhite: 0.165, alpha: 1)
+    light: NSColor(calibratedRed: 1.000, green: 1.000, blue: 1.000, alpha: 0.72),
+    dark: NSColor(calibratedRed: 0.165, green: 0.180, blue: 0.215, alpha: 0.70)
   )
   static let fieldBackground = dynamicColor(
-    light: NSColor(calibratedWhite: 0.925, alpha: 1),
-    dark: NSColor(calibratedWhite: 0.195, alpha: 1)
+    light: NSColor(calibratedRed: 0.905, green: 0.925, blue: 0.955, alpha: 0.78),
+    dark: NSColor(calibratedRed: 0.205, green: 0.220, blue: 0.260, alpha: 0.78)
   )
-  static let selectedSidebarBackground = Color(nsColor: .selectedContentBackgroundColor)
   static let separator = dynamicColor(
-    light: NSColor(calibratedWhite: 0.875, alpha: 1),
-    dark: NSColor(calibratedWhite: 0.22, alpha: 1)
+    light: NSColor(calibratedRed: 0.755, green: 0.790, blue: 0.835, alpha: 1),
+    dark: NSColor(calibratedRed: 0.325, green: 0.345, blue: 0.390, alpha: 1)
   )
   static let border = separator.opacity(0.48)
+
+  static var windowBackdrop: some View {
+    windowBackground
+      .overlay(
+        LinearGradient(
+          colors: [
+            Color.cyan.opacity(0.055),
+            Color.blue.opacity(0.025),
+            Color.purple.opacity(0.035)
+          ],
+          startPoint: .topLeading,
+          endPoint: .bottomTrailing
+        )
+      )
+  }
+
+  static var sidebarBackdrop: some View {
+    sidebarBackground
+      .overlay(
+        LinearGradient(
+          colors: [
+            Color.white.opacity(0.10),
+            Color.blue.opacity(0.035),
+            Color.black.opacity(0.035)
+          ],
+          startPoint: .top,
+          endPoint: .bottom
+        )
+      )
+  }
+
+  static var cardOverlay: some View {
+    LinearGradient(
+      colors: [
+        Color.white.opacity(0.085),
+        Color.cyan.opacity(0.020),
+        Color.purple.opacity(0.018)
+      ],
+      startPoint: .topLeading,
+      endPoint: .bottomTrailing
+    )
+    .allowsHitTesting(false)
+  }
 
   private static func dynamicColor(light: NSColor, dark: NSColor) -> Color {
     Color(nsColor: NSColor(name: nil) { appearance in
@@ -104,11 +163,19 @@ struct SettingsSidebarButton: View {
 
         Spacer(minLength: 0)
       }
-      .foregroundStyle(isSelected ? Color.white : Color.primary)
-      .padding(.horizontal, 10)
+      .foregroundStyle(isSelected ? Color.primary : Color.primary.opacity(0.74))
+      .padding(.horizontal, 11)
       .frame(height: 36)
       .background(sidebarBackground)
       .overlay(sidebarBorder)
+      .overlay(alignment: .leading) {
+        if isSelected {
+          Capsule()
+            .fill(page.accentColor)
+            .frame(width: 3, height: 18)
+            .padding(.leading, 3)
+        }
+      }
       .contentShape(RoundedRectangle(cornerRadius: 8))
     }
     .buttonStyle(.plain)
@@ -118,7 +185,16 @@ struct SettingsSidebarButton: View {
   private var sidebarBackground: some View {
     if isSelected {
       RoundedRectangle(cornerRadius: 8)
-        .fill(SettingsSurface.selectedSidebarBackground)
+        .fill(
+          LinearGradient(
+            colors: [
+              page.accentColor.opacity(0.20),
+              Color.white.opacity(0.08)
+            ],
+            startPoint: .leading,
+            endPoint: .trailing
+          )
+        )
     } else {
       RoundedRectangle(cornerRadius: 8)
         .fill(Color.clear)
@@ -129,7 +205,7 @@ struct SettingsSidebarButton: View {
   private var sidebarBorder: some View {
     if isSelected {
       RoundedRectangle(cornerRadius: 8)
-        .stroke(Color.white.opacity(0.10), lineWidth: 1)
+        .stroke(page.accentColor.opacity(0.32), lineWidth: 1)
     }
   }
 }
@@ -140,8 +216,14 @@ struct SettingsPageHeader: View {
   var body: some View {
     HStack(spacing: 9) {
       Image(systemName: page.systemImage)
-        .font(.system(size: 16, weight: .semibold))
-        .foregroundStyle(Color.accentColor)
+        .font(.system(size: 15, weight: .semibold))
+        .foregroundStyle(page.accentColor)
+        .frame(width: 30, height: 30)
+        .background(page.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+          RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .stroke(page.accentColor.opacity(0.25), lineWidth: 1)
+        )
 
       Text(page.title)
         .font(.system(size: 18, weight: .bold))
@@ -168,18 +250,31 @@ struct SettingsSectionCard<Content: View>: View {
     VStack(alignment: .leading, spacing: 8) {
       Text(title)
         .font(.system(size: 14, weight: .bold))
-        .foregroundStyle(.primary)
+        .foregroundStyle(Color.primary.opacity(0.92))
         .padding(.leading, 2)
 
       VStack(spacing: 0) {
         content
       }
       .frame(maxWidth: .infinity, alignment: .leading)
-      .background(SettingsSurface.cardBackground, in: RoundedRectangle(cornerRadius: 14))
+      .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+      .background(SettingsSurface.cardBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+      .overlay(SettingsSurface.cardOverlay.clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous)))
       .overlay(
-        RoundedRectangle(cornerRadius: 14)
-          .stroke(SettingsSurface.border, lineWidth: 1)
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+          .stroke(
+            LinearGradient(
+              colors: [
+                Color.white.opacity(0.18),
+                SettingsSurface.border
+              ],
+              startPoint: .topLeading,
+              endPoint: .bottomTrailing
+            ),
+            lineWidth: 1
+          )
       )
+      .shadow(color: Color.black.opacity(0.08), radius: 10, y: 4)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
   }
@@ -303,7 +398,7 @@ struct SettingsActionRow<Content: View>: View {
 struct SettingsDivider: View {
   var body: some View {
     Rectangle()
-      .fill(SettingsSurface.separator.opacity(0.68))
+      .fill(SettingsSurface.separator.opacity(0.42))
       .frame(height: 1)
   }
 }
@@ -311,7 +406,7 @@ struct SettingsDivider: View {
 struct SettingsVerticalDivider: View {
   var body: some View {
     Rectangle()
-      .fill(SettingsSurface.separator.opacity(0.82))
+      .fill(SettingsSurface.separator.opacity(0.48))
       .frame(width: 1)
   }
 }

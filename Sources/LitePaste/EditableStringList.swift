@@ -22,7 +22,11 @@ struct EditableStringList: View {
           .font(.system(size: 12))
           .padding(.horizontal, 9)
           .frame(height: 32)
-          .background(SettingsSurface.fieldBackground, in: RoundedRectangle(cornerRadius: 8))
+          .background(SettingsSurface.fieldBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+          .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+              .stroke(SettingsSurface.border.opacity(0.55), lineWidth: 1)
+          )
           .onSubmit(addDraft)
 
         Button {
@@ -60,7 +64,11 @@ struct EditableStringList: View {
             }
             .padding(.horizontal, 9)
             .frame(height: 26)
-            .background(SettingsSurface.fieldBackground, in: RoundedRectangle(cornerRadius: 7))
+            .background(SettingsSurface.fieldBackground, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .overlay(
+              RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .stroke(SettingsSurface.border.opacity(0.42), lineWidth: 1)
+            )
           }
         }
       }

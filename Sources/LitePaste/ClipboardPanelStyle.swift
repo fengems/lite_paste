@@ -9,14 +9,18 @@ enum ClipboardPanelMetrics {
   static let cardHeight: CGFloat = 184
   static let cardContentTopPadding: CGFloat = 1
   static let cardContentBottomPadding: CGFloat = 16
+  static let edgeCardContentBottomPadding: CGFloat = 2
+  static let cardGridSpacing: CGFloat = 10
   static let cardContentHeight: CGFloat = cardHeight + cardContentTopPadding + cardContentBottomPadding
+  static let edgeCardContentHeight: CGFloat = cardHeight * 2 + cardGridSpacing + cardContentTopPadding + edgeCardContentBottomPadding
   static let toolbarHeightAllowance: CGFloat = 46
   static let drawerHorizontalPadding: CGFloat = 10
   static let drawerVerticalPadding: CGFloat = 10
   static let panelContentSpacing: CGFloat = 8
   static let toolbarControlHeight: CGFloat = 32
   static let notchAvoidanceMargin: CGFloat = 16
-  static let edgePanelThickness: CGFloat = cardContentHeight + toolbarHeightAllowance + panelContentSpacing + drawerVerticalPadding * 2
+  static let accentStripWidth: CGFloat = 4
+  static let edgePanelThickness: CGFloat = edgeCardContentHeight + toolbarHeightAllowance + panelContentSpacing + drawerVerticalPadding * 2
 }
 
 struct ClipboardFilterChip: View {
@@ -26,16 +30,26 @@ struct ClipboardFilterChip: View {
 
   var body: some View {
     Button(action: action) {
+      let shape = Capsule()
+
       Image(systemName: filter.iconName)
         .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
         .frame(width: ClipboardPanelMetrics.toolbarControlHeight, height: ClipboardPanelMetrics.toolbarControlHeight)
         .contentShape(Capsule())
-        .background(backgroundStyle, in: Capsule())
+        .background(backgroundStyle, in: shape)
         .foregroundStyle(isSelected ? Color.white : Color.primary.opacity(0.82))
         .overlay(
-          Capsule()
-            .stroke(isSelected ? Color.clear : Color.primary.opacity(0.08), lineWidth: 1)
+          shape.stroke(isSelected ? filter.accentColor.opacity(0.45) : Color.white.opacity(0.08), lineWidth: 1)
         )
+        .overlay(alignment: .bottom) {
+          if isSelected {
+            Circle()
+              .fill(filter.accentColor)
+              .frame(width: 5, height: 5)
+              .offset(y: 7)
+          }
+        }
+        .shadow(color: isSelected ? filter.accentColor.opacity(0.22) : .clear, radius: 8, y: 2)
     }
     .buttonStyle(.plain)
     .accessibilityLabel(filter.displayName)
@@ -43,7 +57,7 @@ struct ClipboardFilterChip: View {
   }
 
   private var backgroundStyle: Color {
-    isSelected ? filter.accentColor : Color.primary.opacity(0.055)
+    isSelected ? Color.white.opacity(0.12) : Color.primary.opacity(0.035)
   }
 }
 

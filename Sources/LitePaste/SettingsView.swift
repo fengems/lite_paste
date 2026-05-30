@@ -29,7 +29,7 @@ struct SettingsView: View {
       idealHeight: 600,
       maxHeight: .infinity
     )
-    .background(SettingsSurface.windowBackground)
+    .background(SettingsSurface.windowBackdrop)
     .onAppear {
       refreshStatus()
     }
@@ -64,7 +64,7 @@ struct SettingsView: View {
     .padding(.vertical, 16)
     .frame(width: 198)
     .frame(maxHeight: .infinity, alignment: .topLeading)
-    .background(SettingsSurface.sidebarBackground)
+    .background(SettingsSurface.sidebarBackdrop)
   }
 
   private var detailPane: some View {
@@ -78,6 +78,8 @@ struct SettingsView: View {
       .frame(maxWidth: .infinity, alignment: .topLeading)
     }
     .scrollIndicators(.visible)
+    .background(Color.white.opacity(0.018))
+    .tint(selectedPage.accentColor)
   }
 
   @ViewBuilder

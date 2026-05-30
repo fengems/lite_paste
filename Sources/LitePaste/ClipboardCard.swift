@@ -1,4 +1,3 @@
-import AppKit
 import LitePasteCore
 import SwiftUI
 
@@ -20,16 +19,20 @@ struct ClipboardCard: View {
   var body: some View {
     ZStack(alignment: .leading) {
       cardBackground
+      accentStrip
 
       VStack(alignment: .leading, spacing: 9) {
         header
         preview
       }
-      .padding(10)
+      .padding(.vertical, 10)
+      .padding(.leading, 18)
+      .padding(.trailing, 10)
     }
     .frame(maxWidth: .infinity, minHeight: ClipboardPanelMetrics.cardHeight, maxHeight: ClipboardPanelMetrics.cardHeight)
+    .clipShape(cardShape)
     .overlay(selectionStroke)
-    .shadow(color: Color.black.opacity(0.08), radius: 4, y: 2)
+    .shadow(color: isSelected ? record.kind.accentColor.opacity(0.22) : Color.black.opacity(0.10), radius: isSelected ? 13 : 6, y: 3)
     .contentShape(RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cardCornerRadius))
     .onTapGesture {
       primaryAction(record)
@@ -37,18 +40,20 @@ struct ClipboardCard: View {
   }
 
   private var header: some View {
-    HStack(spacing: 7) {
-      SourceAppIcon(record: record)
+    HStack(spacing: 8) {
+      SourceAppIcon(record: record, size: 30, cornerRadius: 8, symbolSize: 14)
 
-      Text(contentSummary)
-        .font(.system(size: 12, weight: .semibold))
-        .foregroundStyle(.primary)
-        .lineLimit(1)
+      VStack(alignment: .leading, spacing: 2) {
+        Text(record.kind.displayName)
+          .font(.system(size: 13, weight: .semibold))
+          .foregroundStyle(.primary)
+          .lineLimit(1)
 
-      Text(record.panelRelativeTimeText)
-        .font(.system(size: 11, weight: .medium))
-        .foregroundStyle(.secondary)
-        .lineLimit(1)
+        Text(cardMetadata)
+          .font(.system(size: 11, weight: .medium))
+          .foregroundStyle(.secondary)
+          .lineLimit(1)
+      }
 
       Spacer(minLength: 0)
 
@@ -57,9 +62,7 @@ struct ClipboardCard: View {
         accessibilityLabel: "置顶",
         isActive: record.isPinned,
         tint: .blue,
-        size: 22,
-        iconSize: 11,
-        cornerRadius: 6,
+        showsInactiveBackground: false,
         action: togglePinned
       )
 
@@ -68,9 +71,7 @@ struct ClipboardCard: View {
         accessibilityLabel: "收藏",
         isActive: record.isFavorite,
         tint: .yellow,
-        size: 22,
-        iconSize: 11,
-        cornerRadius: 6,
+        showsInactiveBackground: false,
         action: toggleFavorite
       )
 
@@ -80,7 +81,14 @@ struct ClipboardCard: View {
 
   private var preview: some View {
     ClipboardContentPreview(record: record, style: .card)
+      .padding(10)
+      .padding(2)
       .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+      .background(Color.black.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+      .overlay(
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+          .stroke(Color.white.opacity(0.10), lineWidth: 1)
+      )
   }
 
   private var actionMenu: some View {
@@ -128,45 +136,28 @@ struct ClipboardCard: View {
       }
     } label: {
       Image(systemName: "ellipsis")
-        .font(.system(size: 11, weight: .semibold))
-        .frame(width: 22, height: 22)
-        .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 6))
+        .font(.system(size: 13, weight: .semibold))
+        .frame(width: 26, height: 26)
         .contentShape(Rectangle())
     }
     .menuStyle(.borderlessButton)
+    .menuIndicator(.hidden)
     .fixedSize()
     .accessibilityLabel("更多操作")
     .panelTooltip("更多操作")
   }
 
-  private var contentSummary: String {
-    switch record.kind {
-    case .text:
-      return "纯文本"
-    case .files:
-      return "\(max(record.contents.count, 1)) 个文件"
-    case .image:
-      return "图片"
-    case .richText:
-      return "富文本"
-    case .html:
-      return "HTML"
-    case .url:
-      return "链接"
-    case .email:
-      return "邮箱"
-    case .color:
-      return "颜色"
-    case .unknown:
-      return "未知"
-    }
+  private var cardMetadata: String {
+    [record.sourceAppName, record.panelRelativeTimeText]
+      .compactMap { $0 }
+      .joined(separator: "  •  ")
   }
 
   private var selectionStroke: some View {
     cardShape
       .strokeBorder(
-        Color.primary.opacity(isSelected ? 0.18 : 0.08),
-        lineWidth: 1
+        isSelected ? record.kind.accentColor.opacity(0.95) : Color.white.opacity(0.10),
+        lineWidth: isSelected ? 2 : 1
       )
   }
 
@@ -176,64 +167,23 @@ struct ClipboardCard: View {
 
   @ViewBuilder
   private var cardBackground: some View {
-    if isSelected {
-      selectedCardBackground
-    } else {
-      cardShape.fill(.regularMaterial)
-    }
+    cardShape
+      .fill(.regularMaterial)
+      .overlay(
+        cardShape.fill(record.kind.accentColor.opacity(isSelected ? 0.11 : 0.035))
+      )
+      .overlay(
+        cardShape
+          .stroke(Color.white.opacity(0.08), lineWidth: 1)
+      )
   }
 
-  @ViewBuilder
-  private var selectedCardBackground: some View {
-    if #available(macOS 26.0, *) {
-      GlassEffectContainer(spacing: 0) {
-        cardShape
-          .fill(Color.white.opacity(0.001))
-          .glassEffect(
-            Glass.regular
-              .tint(record.kind.accentColor.opacity(0.18))
-              .interactive(),
-            in: cardShape
-          )
-      }
-    } else {
-      ZStack {
-        cardShape
-          .fill(.thinMaterial)
-          .opacity(0.72)
-
-        cardShape
-          .fill(record.kind.accentColor.opacity(0.08))
-      }
-    }
-  }
-}
-
-private struct SourceAppIcon: View {
-  let record: ClipboardRecord
-
-  var body: some View {
-    Group {
-      if let image = appIcon {
-        Image(nsImage: image)
-          .resizable()
-          .scaledToFit()
-      } else {
-        Image(systemName: record.kind.previewIconName)
-          .font(.system(size: 12, weight: .semibold))
-          .foregroundStyle(record.kind.accentColor)
-      }
-    }
-    .frame(width: 20, height: 20)
-    .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 5))
-    .accessibilityLabel(record.sourceAppName ?? "来源应用")
-  }
-
-  private var appIcon: NSImage? {
-    guard let bundleId = record.sourceAppBundleId,
-          let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
-      return nil
-    }
-    return NSWorkspace.shared.icon(forFile: url.path)
+  private var accentStrip: some View {
+    RoundedRectangle(cornerRadius: 2, style: .continuous)
+      .fill(record.kind.accentColor)
+      .frame(width: ClipboardPanelMetrics.accentStripWidth)
+      .padding(.vertical, 0)
+      .padding(.leading, 0)
+      .shadow(color: record.kind.accentColor.opacity(0.28), radius: 8, y: 2)
   }
 }
