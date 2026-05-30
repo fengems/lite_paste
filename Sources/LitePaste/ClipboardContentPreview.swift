@@ -229,8 +229,9 @@ private struct RichClipboardPreview: View {
   var body: some View {
     switch style {
     case .card:
-      Text(previewAttributedText)
+      Text(previewText)
         .font(.system(size: 14))
+        .foregroundStyle(.primary)
         .lineLimit(6)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
@@ -241,24 +242,23 @@ private struct RichClipboardPreview: View {
     }
   }
 
-  private var previewAttributedText: AttributedString {
-    if let attributed = richAttributedStringFromSnapshots() {
-      return AttributedString(attributed.removingPreviewBackgroundColors())
+  private var previewText: String {
+    if let plainText = normalizedPreviewText(record.plainText) {
+      return plainText
     }
 
-    return AttributedString(previewText)
+    if let richText = normalizedPreviewText(richTextFromSnapshots()) {
+      return richText
+    }
+
+    if let searchText = normalizedPreviewText(record.searchText) {
+      return searchText
+    }
+
+    return record.title
   }
 
-  private var previewText: String {
-    let extracted = richAttributedStringFromSnapshots()?.string
-      ?? record.plainText
-      ?? record.searchText
-
-    let trimmed = extracted.trimmingCharacters(in: .whitespacesAndNewlines)
-    return trimmed.isEmpty ? record.title : trimmed
-  }
-
-  private func richAttributedStringFromSnapshots() -> NSAttributedString? {
+  private func richTextFromSnapshots() -> String? {
     for snapshot in record.contents.sorted(by: { $0.displayOrder < $1.displayOrder }) {
       guard let data = snapshot.dataForPreview else {
         continue
@@ -273,7 +273,7 @@ private struct RichClipboardPreview: View {
           options: [.documentType: NSAttributedString.DocumentType.rtf],
           documentAttributes: nil
          ) {
-        return attributed
+        return attributed.string
       }
 
       if snapshot.pasteboardType == NSPasteboard.PasteboardType.html.rawValue,
@@ -285,23 +285,20 @@ private struct RichClipboardPreview: View {
           ],
           documentAttributes: nil
          ) {
-        return attributed
+        return attributed.string
       }
     }
 
     return nil
   }
-}
 
-private extension NSAttributedString {
-  func removingPreviewBackgroundColors() -> NSAttributedString {
-    guard length > 0 else {
-      return self
+  private func normalizedPreviewText(_ text: String?) -> String? {
+    guard let text else {
+      return nil
     }
 
-    let mutable = NSMutableAttributedString(attributedString: self)
-    mutable.removeAttribute(.backgroundColor, range: NSRange(location: 0, length: length))
-    return mutable
+    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    return trimmed.isEmpty ? nil : trimmed
   }
 }
 

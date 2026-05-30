@@ -56,7 +56,7 @@ struct ClipboardCard: View {
         systemName: record.isPinned ? "pin.fill" : "pin",
         accessibilityLabel: "置顶",
         isActive: record.isPinned,
-        tint: .purple,
+        tint: .blue,
         size: 22,
         iconSize: 11,
         cornerRadius: 6,

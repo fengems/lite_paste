@@ -91,7 +91,7 @@ struct ClipboardRow: View {
         systemName: record.isPinned ? "pin.fill" : "pin",
         accessibilityLabel: "置顶",
         isActive: record.isPinned,
-        tint: .purple,
+        tint: .blue,
         action: togglePinned
       )
       IconButton(
