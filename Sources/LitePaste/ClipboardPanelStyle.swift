@@ -14,6 +14,8 @@ enum ClipboardPanelMetrics {
   static let drawerHorizontalPadding: CGFloat = 10
   static let drawerVerticalPadding: CGFloat = 10
   static let panelContentSpacing: CGFloat = 8
+  static let toolbarControlHeight: CGFloat = 32
+  static let notchAvoidanceMargin: CGFloat = 16
   static let edgePanelThickness: CGFloat = cardContentHeight + toolbarHeightAllowance + panelContentSpacing + drawerVerticalPadding * 2
 }
 
@@ -24,12 +26,10 @@ struct ClipboardFilterChip: View {
 
   var body: some View {
     Button(action: action) {
-      Label(filter.displayName, systemImage: filter.iconName)
-        .font(.system(size: 12, weight: isSelected ? .semibold : .medium))
-        .labelStyle(.titleAndIcon)
-        .lineLimit(1)
-        .padding(.horizontal, 9)
-        .padding(.vertical, 6)
+      Image(systemName: filter.iconName)
+        .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
+        .frame(width: ClipboardPanelMetrics.toolbarControlHeight, height: ClipboardPanelMetrics.toolbarControlHeight)
+        .contentShape(Capsule())
         .background(backgroundStyle, in: Capsule())
         .foregroundStyle(isSelected ? Color.white : Color.primary.opacity(0.82))
         .overlay(
@@ -38,6 +38,8 @@ struct ClipboardFilterChip: View {
         )
     }
     .buttonStyle(.plain)
+    .accessibilityLabel(filter.displayName)
+    .panelTooltip(filter.displayName)
   }
 
   private var backgroundStyle: Color {

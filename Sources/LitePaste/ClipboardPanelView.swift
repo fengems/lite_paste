@@ -81,6 +81,7 @@ struct ClipboardPanelView: View {
   private var panelContent: some View {
     VStack(spacing: ClipboardPanelMetrics.panelContentSpacing) {
       topToolbar
+        .zIndex(10)
       contentArea
     }
     .padding(.horizontal, ClipboardPanelMetrics.drawerHorizontalPadding)
@@ -88,10 +89,15 @@ struct ClipboardPanelView: View {
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
   }
 
+  @ViewBuilder
   private var topToolbar: some View {
-    ViewThatFits(in: .horizontal) {
-      toolbarLine
-      compactToolbar
+    if let topObstruction = presentationState.topObstruction {
+      notchAwareToolbar(for: topObstruction)
+    } else {
+      ViewThatFits(in: .horizontal) {
+        toolbarLine
+        compactToolbar
+      }
     }
   }
 
@@ -100,7 +106,7 @@ struct ClipboardPanelView: View {
       searchBox
         .frame(minWidth: 180, idealWidth: 240, maxWidth: 300)
 
-      filterScroller
+      filterScroller(for: ClipboardFilter.allCases)
 
       Text(resultSummary)
         .font(.system(size: 12, weight: .medium))
@@ -131,7 +137,7 @@ struct ClipboardPanelView: View {
       }
 
       HStack(spacing: 8) {
-        filterScroller
+        filterScroller(for: ClipboardFilter.allCases)
 
         Text(resultSummary)
           .font(.system(size: 12, weight: .medium))
@@ -142,29 +148,120 @@ struct ClipboardPanelView: View {
     }
   }
 
-  private var filterScroller: some View {
+  private func notchAwareToolbar(for obstruction: PanelTopObstruction) -> some View {
+    GeometryReader { proxy in
+      let layout = obstruction.padded(by: ClipboardPanelMetrics.notchAvoidanceMargin, in: proxy.size.width)
+
+      HStack(spacing: 0) {
+        notchLeftToolbar(width: layout.leadingWidth)
+          .frame(width: layout.leadingWidth, alignment: .leading)
+
+        Color.clear
+          .frame(width: layout.gapWidth)
+          .accessibilityHidden(true)
+
+        notchRightToolbar
+          .frame(width: layout.trailingWidth, alignment: .trailing)
+      }
+      .frame(width: proxy.size.width, height: proxy.size.height, alignment: .leading)
+    }
+    .frame(height: ClipboardPanelMetrics.toolbarControlHeight)
+  }
+
+  private func notchLeftToolbar(width: CGFloat) -> some View {
+    HStack(spacing: 8) {
+      searchBox
+        .frame(width: notchSearchWidth(for: width))
+
+      filterScroller(for: notchLeftFilters, minWidth: 0)
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .clipped()
+  }
+
+  private var notchRightToolbar: some View {
+    HStack(spacing: 8) {
+      filterScroller(for: notchRightFilters, minWidth: 0)
+
+      Text(resultSummary)
+        .font(.system(size: 12, weight: .medium))
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+        .fixedSize()
+
+      if let actionMessage = presentationState.actionMessage {
+        PanelStatusBadge(message: actionMessage)
+      }
+
+      viewModePicker
+      headerActions
+    }
+    .frame(maxWidth: .infinity, alignment: .trailing)
+    .clipped()
+  }
+
+  private var notchLeftFilters: [ClipboardFilter] {
+    Array(ClipboardFilter.allCases.prefix(4))
+  }
+
+  private var notchRightFilters: [ClipboardFilter] {
+    Array(ClipboardFilter.allCases.dropFirst(4))
+  }
+
+  private func notchSearchWidth(for availableWidth: CGFloat) -> CGFloat {
+    min(max(availableWidth * 0.42, 160), min(260, availableWidth))
+  }
+
+  private func filterScroller(for filters: [ClipboardFilter], minWidth: CGFloat = 180) -> some View {
     ScrollView(.horizontal, showsIndicators: false) {
-      HStack(spacing: 6) {
-        ForEach(ClipboardFilter.allCases) { option in
-          ClipboardFilterChip(filter: option, isSelected: filter == option) {
-            filter = option
-          }
+      filterChips(for: filters)
+    }
+    .frame(minWidth: minWidth, maxWidth: .infinity)
+  }
+
+  private func filterChips(for filters: [ClipboardFilter]) -> some View {
+    HStack(spacing: 6) {
+      ForEach(filters) { option in
+        ClipboardFilterChip(filter: option, isSelected: filter == option) {
+          filter = option
         }
       }
     }
-    .frame(minWidth: 180, maxWidth: .infinity)
   }
 
   private var viewModePicker: some View {
-    Picker("", selection: $viewMode) {
-      Image(systemName: "rectangle.grid.2x2").tag(ClipboardPanelViewMode.card)
-      Image(systemName: "list.bullet").tag(ClipboardPanelViewMode.list)
+    HStack(spacing: 0) {
+      viewModeButton(mode: .card, systemName: "rectangle.grid.2x2", label: "卡片视图")
+      viewModeButton(mode: .list, systemName: "list.bullet", label: "列表视图")
     }
-    .pickerStyle(.segmented)
+    .padding(2)
     .frame(width: 82)
-    .onChange(of: viewMode) {
+    .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 8))
+  }
+
+  private func viewModeButton(mode: ClipboardPanelViewMode, systemName: String, label: String) -> some View {
+    let isSelected = viewMode == mode
+
+    return Button {
+      guard viewMode != mode else {
+        return
+      }
+      viewMode = mode
       persistViewMode()
+    } label: {
+      Image(systemName: systemName)
+        .font(.system(size: 13, weight: .semibold))
+        .frame(maxWidth: .infinity, minHeight: 24)
+        .foregroundStyle(isSelected ? Color.white : Color.secondary)
+        .background(
+          isSelected ? Color.accentColor : Color.clear,
+          in: RoundedRectangle(cornerRadius: 6)
+        )
+        .contentShape(Rectangle())
     }
+    .buttonStyle(.plain)
+    .accessibilityLabel(label)
+    .panelTooltip(label)
   }
 
   private var headerActions: some View {
@@ -196,6 +293,7 @@ struct ClipboardPanelView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("清空搜索")
+        .panelTooltip("清空搜索")
       }
     }
     .padding(.horizontal, 10)

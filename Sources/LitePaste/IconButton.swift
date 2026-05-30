@@ -24,5 +24,6 @@ struct IconButton: View {
     }
     .buttonStyle(.plain)
     .accessibilityLabel(accessibilityLabel)
+    .panelTooltip(accessibilityLabel)
   }
 }

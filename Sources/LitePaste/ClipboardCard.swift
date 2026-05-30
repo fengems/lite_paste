@@ -136,6 +136,7 @@ struct ClipboardCard: View {
     .menuStyle(.borderlessButton)
     .fixedSize()
     .accessibilityLabel("更多操作")
+    .panelTooltip("更多操作")
   }
 
   private var contentSummary: String {

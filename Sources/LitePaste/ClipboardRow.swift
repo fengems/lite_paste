@@ -143,6 +143,7 @@ struct ClipboardRow: View {
     .menuStyle(.borderlessButton)
     .fixedSize()
     .accessibilityLabel("更多操作")
+    .panelTooltip("更多操作")
   }
 
   private var selectionStroke: some View {

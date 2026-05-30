@@ -150,6 +150,7 @@ final class PanelCoordinator {
     case .edgeBottom, .edgeTop, .edgeLeft, .edgeRight, .bottomDrawer, .statusItem:
       positionEdgeAttached(panel, position: settingsStore.settings.panelPosition)
     case .cursor, .mouseScreenCenter:
+      presentationState.updateTopObstruction(nil)
       positionNearMouse(panel)
     }
   }
@@ -157,10 +158,13 @@ final class PanelCoordinator {
   private func positionEdgeAttached(_ panel: NSPanel, position: PanelPosition) {
     guard let screen = Self.screenContainingMouse() ?? NSScreen.main else {
       panel.center()
+      presentationState.updateTopObstruction(nil)
       return
     }
 
-    panel.setFrame(edgeAttachedFrame(for: position, on: screen).roundedToScreenPoints(), display: true)
+    let frame = edgeAttachedFrame(for: position, on: screen).roundedToScreenPoints()
+    panel.setFrame(frame, display: true)
+    presentationState.updateTopObstruction(topObstruction(for: position, panelFrame: frame, on: screen))
   }
 
   private func positionNearMouse(_ panel: NSPanel) {
@@ -317,6 +321,58 @@ final class PanelCoordinator {
 
   private func hidePanel() {
     panel?.orderOut(nil)
+    presentationState.updateTopObstruction(nil)
+  }
+}
+
+private extension PanelCoordinator {
+  func topObstruction(for position: PanelPosition, panelFrame: NSRect, on screen: NSScreen) -> PanelTopObstruction? {
+    guard position == .edgeTop,
+          let screenObstruction = topObstructionRect(on: screen),
+          panelFrame.intersects(screenObstruction) else {
+      return nil
+    }
+
+    let contentInset = ClipboardPanelMetrics.drawerHorizontalPadding
+    let contentWidth = panelFrame.width - contentInset * 2
+    guard contentWidth > 0 else {
+      return nil
+    }
+
+    let minX = screenObstruction.minX - panelFrame.minX - contentInset
+    let maxX = screenObstruction.maxX - panelFrame.minX - contentInset
+    let clampedMinX = min(max(minX, 0), contentWidth)
+    let clampedMaxX = min(max(maxX, clampedMinX), contentWidth)
+
+    guard clampedMaxX > clampedMinX else {
+      return nil
+    }
+
+    return PanelTopObstruction(minX: clampedMinX, maxX: clampedMaxX)
+  }
+
+  func topObstructionRect(on screen: NSScreen) -> NSRect? {
+    guard let leftArea = screen.auxiliaryTopLeftArea,
+          let rightArea = screen.auxiliaryTopRightArea,
+          !leftArea.isEmpty,
+          !rightArea.isEmpty else {
+      return nil
+    }
+
+    let minX = leftArea.maxX
+    let maxX = rightArea.minX
+    let minY = min(leftArea.minY, rightArea.minY)
+    let maxY = max(leftArea.maxY, rightArea.maxY)
+    guard maxX > minX, maxY > minY, screen.safeAreaInsets.top > 0 else {
+      return nil
+    }
+
+    return NSRect(
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY
+    )
   }
 }
 
