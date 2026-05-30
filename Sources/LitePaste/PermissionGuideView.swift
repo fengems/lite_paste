@@ -11,8 +11,9 @@ struct PermissionGuideView: View {
   @State private var accessibilityTrusted = false
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 22) {
+    VStack(alignment: .leading, spacing: 20) {
       header
+      essentials
       permissionCard
       actions
     }
@@ -29,11 +30,49 @@ struct PermissionGuideView: View {
         .foregroundStyle(Color.accentColor)
 
       VStack(alignment: .leading, spacing: 6) {
-        Text("完成权限设置")
+        Text("欢迎使用 Lite Paste")
           .font(.system(size: 24, weight: .bold))
 
-        Text("Lite Paste 需要辅助功能权限来执行自动粘贴。")
+        Text("完成一次设置后，就可以用菜单栏和快捷键管理剪贴板。")
           .font(.system(size: 13))
+          .foregroundStyle(.secondary)
+          .fixedSize(horizontal: false, vertical: true)
+      }
+    }
+  }
+
+  private var essentials: some View {
+    VStack(spacing: 10) {
+      guideRow(
+        icon: "command",
+        title: "快速打开",
+        description: "默认使用 ⌘⇧V 呼出面板，面板内支持搜索、筛选和数字快捷选择。"
+      )
+      guideRow(
+        icon: "lock.shield",
+        title: "本地优先",
+        description: "历史记录默认保存在本机，支持停止监听和按应用忽略。"
+      )
+      guideRow(
+        icon: "arrow.turn.down.left",
+        title: "自动粘贴",
+        description: "授予辅助功能权限后，选择记录即可回到上一个应用并粘贴。"
+      )
+    }
+  }
+
+  private func guideRow(icon: String, title: String, description: String) -> some View {
+    HStack(alignment: .top, spacing: 12) {
+      Image(systemName: icon)
+        .font(.system(size: 15, weight: .semibold))
+        .foregroundStyle(Color.accentColor)
+        .frame(width: 24, height: 24)
+
+      VStack(alignment: .leading, spacing: 3) {
+        Text(title)
+          .font(.system(size: 13, weight: .semibold))
+        Text(description)
+          .font(.system(size: 12))
           .foregroundStyle(.secondary)
           .fixedSize(horizontal: false, vertical: true)
       }

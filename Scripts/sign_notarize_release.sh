@@ -53,7 +53,12 @@ resolved_entitlements() {
   if [[ -z "${team_prefix}" && -n "${TEAM_ID:-}" ]]; then
     team_prefix="${TEAM_ID}."
   fi
+  if [[ -z "${team_prefix}" ]]; then
+    echo "TEAM_ID or TEAM_IDENTIFIER_PREFIX is required for iCloud document entitlements." >&2
+    exit 65
+  fi
 
+  mkdir -p "${OUTPUT_DIR}"
   sed "s/\$(TeamIdentifierPrefix)/${team_prefix}/g" "${ENTITLEMENTS_PATH}" > "${destination}"
   printf '%s\n' "${destination}"
 }
@@ -68,6 +73,10 @@ require_command codesign
 require_command xcrun
 
 cd "${ROOT_DIR}"
+
+if [[ "${SKIP_DISTRIBUTION_PREFLIGHT:-0}" != "1" ]]; then
+  Scripts/check_distribution_ready.sh
+fi
 
 VERSION="${VERSION}" BUILD="${BUILD}" Scripts/verify_metadata.sh
 

@@ -38,10 +38,20 @@ xcrun notarytool store-credentials litepaste-notary \
 
 ## 2. 一键签名和公证
 
+发布前先运行环境预检，避免生成本机能打开、其他用户无法顺畅安装的包：
+
+```bash
+DEVELOPER_ID_APPLICATION="Developer ID Application: Your Name (TEAMID)" \
+TEAM_ID="TEAMID" \
+NOTARY_PROFILE="litepaste-notary" \
+Scripts/check_distribution_ready.sh
+```
+
 推荐使用 keychain profile：
 
 ```bash
 DEVELOPER_ID_APPLICATION="Developer ID Application: Your Name (TEAMID)" \
+TEAM_ID="TEAMID" \
 NOTARY_PROFILE="litepaste-notary" \
 VERSION=0.1.0 \
 BUILD=1 \
@@ -62,6 +72,7 @@ Scripts/sign_notarize_release.sh
 
 脚本会执行：
 
+- 检查 Developer ID 证书、iCloud entitlement 团队前缀和公证凭据。
 - 重新构建 `Build/LitePaste.app`。
 - 使用 Developer ID、Hardened Runtime 和 `Config/LitePaste/LitePaste.entitlements` 重签名。
 - 生成 zip、DMG 和 SHA-256 校验文件。
@@ -76,6 +87,7 @@ Scripts/sign_notarize_release.sh
 
 ```bash
 DEVELOPER_ID_APPLICATION="Developer ID Application: Your Name (TEAMID)" \
+TEAM_ID="TEAMID" \
 NOTARIZE=0 \
 Scripts/sign_notarize_release.sh
 ```

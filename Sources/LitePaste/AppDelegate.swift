@@ -349,7 +349,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       )
     )
     let window = NSWindow(
-      contentRect: NSRect(x: 0, y: 0, width: 520, height: 300),
+      contentRect: NSRect(x: 0, y: 0, width: 520, height: 440),
       styleMask: [.titled, .closable],
       backing: .buffered,
       defer: false
@@ -398,16 +398,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   private func showAccessibilityPermissionAlert() {
-    let alert = NSAlert()
-    alert.messageText = "需要辅助功能权限"
-    alert.informativeText = "Lite Paste 已复制该内容。授予辅助功能权限后，可以自动回到目标应用并粘贴。"
-    alert.addButton(withTitle: "打开系统设置")
-    alert.addButton(withTitle: "稍后")
-    alert.alertStyle = .informational
-
-    if alert.runModal() == .alertFirstButtonReturn {
-      AccessibilityPermissionController.openSystemSettings()
-    }
+    UserAlerts.showAccessibilityPermissionRequired(
+      message: "Lite Paste 已复制该内容。授予辅助功能权限后，可以自动回到目标应用并粘贴。"
+    )
   }
 
   private func showMissingContentAlert() {

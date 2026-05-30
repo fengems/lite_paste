@@ -289,16 +289,9 @@ final class PanelCoordinator {
   }
 
   private func showAccessibilityPermissionAlert() {
-    let alert = NSAlert()
-    alert.messageText = "需要辅助功能权限"
-    alert.informativeText = "Lite Paste 已复制该内容。授予辅助功能权限后，可以自动粘贴到上一个应用。"
-    alert.addButton(withTitle: "打开系统设置")
-    alert.addButton(withTitle: "稍后")
-    alert.alertStyle = .informational
-
-    if alert.runModal() == .alertFirstButtonReturn {
-      AccessibilityPermissionController.openSystemSettings()
-    }
+    UserAlerts.showAccessibilityPermissionRequired(
+      message: "Lite Paste 已复制该内容。授予辅助功能权限后，可以自动粘贴到上一个应用。"
+    )
   }
 
   private func showMissingContentAlert() {
