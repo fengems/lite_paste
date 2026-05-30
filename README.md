@@ -1,5 +1,7 @@
 # Lite Paste
 
+[![CI](https://github.com/fengems/lite_paste/actions/workflows/ci.yml/badge.svg)](https://github.com/fengems/lite_paste/actions/workflows/ci.yml)
+
 Lite Paste is a native macOS clipboard manager focused on speed, privacy, and a polished menu-bar workflow. It keeps clipboard history locally, opens from the menu bar or a global hotkey, and restores text, files, images, colors, links, HTML, and rich text back to the system pasteboard.
 
 Lite Paste 是一款原生 macOS 剪贴板管理器，重点是轻量、隐私优先和高效的菜单栏体验。它默认把历史记录保存在本机，可通过菜单栏或全局快捷键打开，并支持恢复文本、文件、图片、颜色、链接、HTML 和富文本内容。
@@ -18,7 +20,9 @@ Lite Paste 是一款原生 macOS 剪贴板管理器，重点是轻量、隐私�
 
 ## Install
 
-Download the latest notarized DMG from the [GitHub Releases](https://github.com/fengems/lite_paste/releases) page, open it, and drag `LitePaste.app` to Applications.
+When a notarized build is available, download the latest DMG from the [GitHub Releases](https://github.com/fengems/lite_paste/releases) page, open it, and drag `LitePaste.app` to Applications.
+
+The repository is public before the first notarized release is published. Until a release appears on GitHub Releases, build Lite Paste locally with the development commands below.
 
 On first launch, macOS may ask for Accessibility permission. Lite Paste uses this permission only when you trigger automatic paste, so it can return to the previous app and send the paste shortcut. Without the permission, Lite Paste still copies the selected item to the clipboard and you can paste manually.
 
@@ -102,6 +106,10 @@ Detailed release notes and manual QA steps are in:
 - [Release checklist](docs/RELEASE_CHECKLIST.md)
 - [Public release audit](docs/PUBLIC_RELEASE_AUDIT.md)
 - [macOS app target notes](docs/MACOS_APP_TARGET.md)
+
+## Contributing
+
+See [Contributing](.github/CONTRIBUTING.md), [Security Policy](.github/SECURITY.md), and [Changelog](CHANGELOG.md).
 
 ## License
 

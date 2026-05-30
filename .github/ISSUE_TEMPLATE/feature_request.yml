@@ -1,0 +1,37 @@
+name: Feature request
+description: Suggest an improvement or new workflow.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Workflow
+      description: What are you trying to do with Lite Paste?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed improvement
+      description: Describe the behavior you want.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any current workaround or different design you considered.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Clipboard capture
+        - Search and filtering
+        - Copy or paste
+        - UI and layout
+        - Settings
+        - Backup or restore
+        - Packaging or install
+        - Other

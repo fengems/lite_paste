@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  checks:
+    name: SwiftPM checks
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Tool versions
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: Verify metadata
+        run: Scripts/verify_metadata.sh
+
+      - name: Check shell scripts
+        run: bash -n Scripts/*.sh
+
+      - name: Build
+        run: swift build
+
+      - name: Core checks
+        run: swift run LitePasteCoreChecks
+
+      - name: Diff hygiene
+        run: git diff --check

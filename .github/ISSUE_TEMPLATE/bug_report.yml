@@ -1,0 +1,54 @@
+name: Bug report
+description: Report something that is broken or confusing.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Lite Paste. Please avoid sharing real clipboard secrets.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the broken behavior and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Copy ...
+        2. Open Lite Paste ...
+        3. Click ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Lite Paste version
+      placeholder: "0.1.2"
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "macOS 15.x"
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Clipboard capture
+        - Search and filtering
+        - Copy or paste
+        - UI and layout
+        - Settings
+        - Backup or restore
+        - Packaging or install
+        - Other
+  - type: textarea
+    id: logs
+    attributes:
+      label: Extra context
+      description: Screenshots, sanitized logs, or notes. Do not paste real secrets.
