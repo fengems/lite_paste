@@ -38,6 +38,8 @@ team_prefix() {
 
 check_identity() {
   [[ -n "${IDENTITY}" ]] || fail "缺少 DEVELOPER_ID_APPLICATION"
+  [[ "${IDENTITY}" == Developer\ ID\ Application:* ]] ||
+    fail "DEVELOPER_ID_APPLICATION 必须是 Developer ID Application 证书"
   security find-identity -v -p codesigning | grep -Fq "\"${IDENTITY}\"" ||
     fail "钥匙串中找不到 Developer ID 签名身份：${IDENTITY}"
 }
