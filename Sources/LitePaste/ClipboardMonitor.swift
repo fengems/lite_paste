@@ -41,7 +41,10 @@ final class ClipboardMonitor {
   }
 
   func start() {
-    timer?.invalidate()
+    guard timer == nil else {
+      return
+    }
+    lastChangeCount = pasteboard.changeCount
     timer = Timer.scheduledTimer(withTimeInterval: 0.55, repeats: true) { [weak self] _ in
       Task { @MainActor in
         self?.captureIfNeeded()
@@ -107,12 +110,14 @@ final class ClipboardMonitor {
 
   private func readPayload(pasteboardTypes types: Set<String>, sourceAppBundleId: String?) -> ClipboardPayload? {
     let fileURLs = readFileURLs()
-    let imageCandidates = readImageCandidates()
+    let plainText = pasteboard.string(forType: .string)
     let richTextCandidates = readRichTextCandidates(
       pasteboardTypes: types,
       sourceAppBundleId: sourceAppBundleId
     )
-    let plainText = pasteboard.string(forType: .string)
+    let imageCandidates = ClipboardPayloadResolver.isTabularPlainText(plainText)
+      ? []
+      : readImageCandidates()
 
     return payloadResolver.resolve(
       pasteboardTypes: types,

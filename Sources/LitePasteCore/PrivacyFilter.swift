@@ -1,22 +1,22 @@
 import Foundation
 
 public struct PrivacyFilter: Sendable {
-  public var privacyMode: Bool
+  public var isMonitoringPaused: Bool
   public var ignoredApps: Set<String>
   public var ignoredPasteboardTypes: Set<String>
 
   public init(
-    privacyMode: Bool = false,
+    isMonitoringPaused: Bool = false,
     ignoredApps: Set<String> = Self.defaultIgnoredApps,
     ignoredPasteboardTypes: Set<String> = Self.defaultIgnoredPasteboardTypes
   ) {
-    self.privacyMode = privacyMode
+    self.isMonitoringPaused = isMonitoringPaused
     self.ignoredApps = ignoredApps
     self.ignoredPasteboardTypes = ignoredPasteboardTypes
   }
 
   public func shouldRecord(sourceAppBundleId: String?, pasteboardTypes: Set<String>) -> Bool {
-    if privacyMode {
+    if isMonitoringPaused {
       return false
     }
 

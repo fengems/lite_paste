@@ -17,7 +17,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
   public var clearSearchOnOpen: Bool
   public var focusSearchOnOpen: Bool
   public var coverMenuBarWhenEdgeAttached: Bool
-  public var privacyMode: Bool
+  public var isMonitoringPaused: Bool
   public var launchAtLogin: Bool
 
   public init(
@@ -37,7 +37,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     clearSearchOnOpen: Bool = true,
     focusSearchOnOpen: Bool = true,
     coverMenuBarWhenEdgeAttached: Bool = true,
-    privacyMode: Bool = false,
+    isMonitoringPaused: Bool = false,
     launchAtLogin: Bool = false
   ) {
     self.hotkey = Self.normalizedHotkey(hotkey)
@@ -56,7 +56,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     self.clearSearchOnOpen = clearSearchOnOpen
     self.focusSearchOnOpen = focusSearchOnOpen
     self.coverMenuBarWhenEdgeAttached = coverMenuBarWhenEdgeAttached
-    self.privacyMode = privacyMode
+    self.isMonitoringPaused = isMonitoringPaused
     self.launchAtLogin = launchAtLogin
   }
 
@@ -77,6 +77,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     case clearSearchOnOpen
     case focusSearchOnOpen
     case coverMenuBarWhenEdgeAttached
+    case isMonitoringPaused
     case privacyMode
     case launchAtLogin
   }
@@ -115,7 +116,10 @@ public struct AppSettings: Codable, Equatable, Sendable {
     coverMenuBarWhenEdgeAttached =
       try container.decodeIfPresent(Bool.self, forKey: .coverMenuBarWhenEdgeAttached) ??
       defaults.coverMenuBarWhenEdgeAttached
-    privacyMode = try container.decodeIfPresent(Bool.self, forKey: .privacyMode) ?? defaults.privacyMode
+    isMonitoringPaused =
+      try container.decodeIfPresent(Bool.self, forKey: .isMonitoringPaused) ??
+      container.decodeIfPresent(Bool.self, forKey: .privacyMode) ??
+      defaults.isMonitoringPaused
     launchAtLogin = try container.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? defaults.launchAtLogin
   }
 
@@ -137,7 +141,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     try container.encode(clearSearchOnOpen, forKey: .clearSearchOnOpen)
     try container.encode(focusSearchOnOpen, forKey: .focusSearchOnOpen)
     try container.encode(coverMenuBarWhenEdgeAttached, forKey: .coverMenuBarWhenEdgeAttached)
-    try container.encode(privacyMode, forKey: .privacyMode)
+    try container.encode(isMonitoringPaused, forKey: .isMonitoringPaused)
     try container.encode(launchAtLogin, forKey: .launchAtLogin)
   }
 

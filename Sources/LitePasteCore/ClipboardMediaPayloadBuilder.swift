@@ -71,7 +71,7 @@ public struct ClipboardMediaPayloadBuilder: Sendable {
     return ClipboardPayload(
       kind: kind,
       title: title,
-      searchText: plainText ?? fallbackTitle,
+      searchText: plainText.map(textPayloadBuilder.makeSearchText(from:)) ?? fallbackTitle,
       plainText: plainText,
       contentHashBasis: contentHashBasis,
       pasteboardTypes: pasteboardTypes,

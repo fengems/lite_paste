@@ -9,11 +9,11 @@ enum ClipboardPanelMetrics {
   static let cardHeight: CGFloat = 184
   static let cardContentTopPadding: CGFloat = 1
   static let cardContentBottomPadding: CGFloat = 16
-  static let edgeCardContentBottomPadding: CGFloat = 2
+  static let edgeCardContentBottomPadding: CGFloat = 1
   static let cardGridSpacing: CGFloat = 10
   static let cardContentHeight: CGFloat = cardHeight + cardContentTopPadding + cardContentBottomPadding
   static let edgeCardContentHeight: CGFloat = cardHeight * 2 + cardGridSpacing + cardContentTopPadding + edgeCardContentBottomPadding
-  static let toolbarHeightAllowance: CGFloat = 46
+  static let toolbarHeightAllowance: CGFloat = 32
   static let drawerHorizontalPadding: CGFloat = 10
   static let drawerVerticalPadding: CGFloat = 10
   static let panelContentSpacing: CGFloat = 8
@@ -41,14 +41,6 @@ struct ClipboardFilterChip: View {
         .overlay(
           shape.stroke(isSelected ? filter.accentColor.opacity(0.45) : Color.white.opacity(0.08), lineWidth: 1)
         )
-        .overlay(alignment: .bottom) {
-          if isSelected {
-            Circle()
-              .fill(filter.accentColor)
-              .frame(width: 5, height: 5)
-              .offset(y: 7)
-          }
-        }
         .shadow(color: isSelected ? filter.accentColor.opacity(0.22) : .clear, radius: 8, y: 2)
     }
     .buttonStyle(.plain)

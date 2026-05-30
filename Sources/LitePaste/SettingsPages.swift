@@ -113,7 +113,7 @@ struct HistorySettingsPage: View {
   @Binding var preserveLargeRichTextFormats: Bool
   let recordableKinds: [ClipboardKind]
   let enabledTypeBinding: (ClipboardKind) -> Binding<Bool>
-  @Binding var privacyMode: Bool
+  @Binding var isMonitoringPaused: Bool
   let addCurrentApplicationLabel: String
   let canAddCurrentApplication: Bool
   let addCurrentApplication: () -> Void
@@ -180,11 +180,11 @@ struct HistorySettingsPage: View {
   }
 
   private var privacySettingsCard: some View {
-    SettingsSectionCard(title: "隐私设置") {
+    SettingsSectionCard(title: "监听与过滤") {
       SettingsSwitchRow(
-        title: "私密模式",
-        detail: "开启后暂停记录新的剪贴板内容。",
-        isOn: $privacyMode
+        title: "停止监听",
+        detail: "开启后不再监听系统剪贴板，也不会保存新的历史记录。",
+        isOn: $isMonitoringPaused
       )
 
       SettingsDivider()

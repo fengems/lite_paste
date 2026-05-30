@@ -3,6 +3,7 @@ import Foundation
 public struct ClipboardTextPayloadBuilder: Sendable {
   public static let plainTextPasteboardType = "public.utf8-plain-text"
   public static let maxTitleLength = 140
+  public static let maxSearchTextLength = 64 * 1024
 
   public init() {}
 
@@ -16,7 +17,7 @@ public struct ClipboardTextPayloadBuilder: Sendable {
     return ClipboardPayload(
       kind: classify(text),
       title: makeTitle(from: text),
-      searchText: text,
+      searchText: makeSearchText(from: text),
       plainText: text,
       pasteboardTypes: pasteboardTypes,
       contents: [
@@ -61,6 +62,18 @@ public struct ClipboardTextPayloadBuilder: Sendable {
 
     let index = compact.index(compact.startIndex, offsetBy: Self.maxTitleLength)
     return String(compact[..<index])
+  }
+
+  public func makeSearchText(from text: String) -> String {
+    guard let endIndex = text.index(
+      text.startIndex,
+      offsetBy: Self.maxSearchTextLength,
+      limitedBy: text.endIndex
+    ) else {
+      return String(text.prefix(Self.maxSearchTextLength))
+    }
+
+    return endIndex == text.endIndex ? text : String(text[..<endIndex])
   }
 
   private func isURL(_ text: String) -> Bool {

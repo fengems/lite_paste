@@ -15,7 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   private var statusItem: NSStatusItem?
   private var statusMenu: NSMenu?
-  private var privacyModeMenuItem: NSMenuItem?
+  private var pauseMonitoringMenuItem: NSMenuItem?
   private var ignoreApplicationMenuItem: NSMenuItem?
   private var monitor: ClipboardMonitor?
   private var panelCoordinator: PanelCoordinator?
@@ -39,7 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       store: store,
       writeTracker: clipboardWriteTracker,
       privacyFilter: PrivacyFilter(
-        privacyMode: settingsStore.settings.privacyMode,
+        isMonitoringPaused: settingsStore.settings.isMonitoringPaused,
         ignoredApps: settingsStore.settings.ignoredApps,
         ignoredPasteboardTypes: settingsStore.settings.ignoredPasteboardTypes
       ),
@@ -56,7 +56,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     observeBackupImports()
     launchAtLoginController.sync(with: settingsStore.settings.launchAtLogin)
     activeApplicationTracker.start()
-    monitor.start()
+    updateMonitoringActivity(isPaused: settingsStore.settings.isMonitoringPaused)
     presentPermissionGuideIfNeeded()
   }
 
@@ -88,13 +88,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         keyEquivalent: ""
       )
     )
-    let privacyModeItem = NSMenuItem(
-      title: "私密模式",
-      action: #selector(togglePrivacyModeFromMenu),
+    let pauseMonitoringItem = NSMenuItem(
+      title: "停止监听剪贴板",
+      action: #selector(toggleMonitoringPausedFromMenu),
       keyEquivalent: ""
     )
-    menu.addItem(privacyModeItem)
-    self.privacyModeMenuItem = privacyModeItem
+    menu.addItem(pauseMonitoringItem)
+    self.pauseMonitoringMenuItem = pauseMonitoringItem
 
     let ignoreApplicationItem = NSMenuItem(
       title: "忽略当前应用",
@@ -104,13 +104,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     menu.addItem(ignoreApplicationItem)
     self.ignoreApplicationMenuItem = ignoreApplicationItem
 
-    menu.addItem(
-      NSMenuItem(
-        title: "设置...",
-        action: #selector(openSettings),
-        keyEquivalent: ","
-      )
+    let settingsItem = NSMenuItem(
+      title: "设置...",
+      action: #selector(openSettings),
+      keyEquivalent: ","
     )
+    settingsItem.image = nil
+    menu.addItem(settingsItem)
     menu.addItem(.separator())
     menu.addItem(
       NSMenuItem(
@@ -207,13 +207,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private func apply(_ settings: AppSettings) {
     monitor?.updatePrivacyFilter(
       PrivacyFilter(
-        privacyMode: settings.privacyMode,
+        isMonitoringPaused: settings.isMonitoringPaused,
         ignoredApps: settings.ignoredApps,
         ignoredPasteboardTypes: settings.ignoredPasteboardTypes
       )
     )
     monitor?.updateEnabledTypes(settings.enabledTypes)
     monitor?.updatePreserveLargeRichTextFormats(settings.preserveLargeRichTextFormats)
+    updateMonitoringActivity(isPaused: settings.isMonitoringPaused)
     store.updateMaxHistoryCount(settings.maxHistoryCount)
     store.updateRetentionDays(settings.retentionDays)
     store.updateMoveDuplicatesToTop(settings.moveDuplicatesToTop)
@@ -235,6 +236,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
   }
 
+  private func updateMonitoringActivity(isPaused: Bool) {
+    if isPaused {
+      monitor?.stop()
+    } else {
+      monitor?.start()
+    }
+  }
+
   @objc private func handleStatusItemClick(_ sender: NSStatusBarButton) {
     guard NSApp.currentEvent?.type == .rightMouseUp,
           let statusItem,
@@ -252,9 +261,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     panelCoordinator?.show(relativeTo: statusItem?.button)
   }
 
-  @objc private func togglePrivacyModeFromMenu() {
+  @objc private func toggleMonitoringPausedFromMenu() {
     settingsStore.update { settings in
-      settings.privacyMode.toggle()
+      settings.isMonitoringPaused.toggle()
     }
     updateStatusMenuState()
   }
@@ -357,10 +366,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   private func updateStatusMenuState() {
-    let privacyMode = settingsStore.settings.privacyMode
-    privacyModeMenuItem?.state = privacyMode ? .on : .off
+    let isMonitoringPaused = settingsStore.settings.isMonitoringPaused
+    pauseMonitoringMenuItem?.state = isMonitoringPaused ? .on : .off
     updateIgnoreApplicationMenuItem()
-    statusItem?.button?.toolTip = privacyMode ? "Lite Paste - 私密模式已开启" : "Lite Paste"
+    statusItem?.button?.toolTip = isMonitoringPaused ? "Lite Paste - 已停止监听剪贴板" : "Lite Paste"
   }
 
   private func updateIgnoreApplicationMenuItem() {

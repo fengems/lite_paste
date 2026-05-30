@@ -29,7 +29,7 @@ struct SettingsView: View {
       idealHeight: 600,
       maxHeight: .infinity
     )
-    .background(SettingsSurface.windowBackdrop)
+    .background(SettingsSurface.windowBackground)
     .onAppear {
       refreshStatus()
     }
@@ -64,7 +64,7 @@ struct SettingsView: View {
     .padding(.vertical, 16)
     .frame(width: 198)
     .frame(maxHeight: .infinity, alignment: .topLeading)
-    .background(SettingsSurface.sidebarBackdrop)
+    .background(SettingsSurface.sidebarBackground)
   }
 
   private var detailPane: some View {
@@ -78,7 +78,6 @@ struct SettingsView: View {
       .frame(maxWidth: .infinity, alignment: .topLeading)
     }
     .scrollIndicators(.visible)
-    .background(Color.white.opacity(0.018))
     .tint(selectedPage.accentColor)
   }
 
@@ -122,7 +121,7 @@ struct SettingsView: View {
       preserveLargeRichTextFormats: preserveLargeRichTextFormats,
       recordableKinds: recordableKinds,
       enabledTypeBinding: enabledTypeBinding,
-      privacyMode: privacyMode,
+      isMonitoringPaused: isMonitoringPaused,
       addCurrentApplicationLabel: addCurrentApplicationLabel,
       canAddCurrentApplication: activeApplicationTracker.lastExternalApplication != nil,
       addCurrentApplication: addLastExternalApplicationToIgnoredApps,
@@ -300,11 +299,11 @@ struct SettingsView: View {
     }
   }
 
-  private var privacyMode: Binding<Bool> {
+  private var isMonitoringPaused: Binding<Bool> {
     Binding {
-      store.settings.privacyMode
+      store.settings.isMonitoringPaused
     } set: { value in
-      store.update { $0.privacyMode = value }
+      store.update { $0.isMonitoringPaused = value }
     }
   }
 
@@ -337,8 +336,8 @@ struct SettingsView: View {
   }
 
   private var recordingStatusTitle: String {
-    if store.settings.privacyMode {
-      return "私密模式已开启"
+    if store.settings.isMonitoringPaused {
+      return "已停止监听剪贴板"
     }
 
     if let application = activeApplicationTracker.lastExternalApplication,

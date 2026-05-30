@@ -5,6 +5,7 @@ import SwiftUI
 struct ClipboardPanelView: View {
   private static let initialVisibleRecordLimit = 80
   private static let recordPageSize = 80
+  private static let searchRefreshDebounceNanoseconds: UInt64 = 120_000_000
 
   @ObservedObject var store: HistoryStore
   @ObservedObject var presentationState: PanelPresentationState
@@ -28,6 +29,7 @@ struct ClipboardPanelView: View {
     totalCount: 0,
     limit: Self.initialVisibleRecordLimit
   )
+  @State private var pageRefreshTask: Task<Void, Never>?
   @FocusState private var searchFieldFocused: Bool
 
   private var queryRequest: ClipboardHistoryQuery {
@@ -46,23 +48,24 @@ struct ClipboardPanelView: View {
     .onAppear(perform: prepareForOpen)
     .onReceive(store.$records) { _ in
       refreshCurrentPage()
-      normalizeSelection()
     }
     .onReceive(NotificationCenter.default.publisher(for: .litePasteHistoryChanged)) { _ in
       refreshCurrentPage()
-      normalizeSelection()
     }
     .onChange(of: presentationState.openRevision) {
       prepareForOpen()
     }
     .onChange(of: query) {
-      resetVisibleRecords()
+      resetVisibleRecords(debounce: true)
     }
     .onChange(of: filter) {
       resetVisibleRecords()
     }
     .onChange(of: records.map(\.id)) {
       normalizeSelection()
+    }
+    .onDisappear {
+      pageRefreshTask?.cancel()
     }
     .animation(.easeOut(duration: 0.18), value: presentationState.actionMessage)
   }
@@ -92,6 +95,7 @@ struct ClipboardPanelView: View {
     ZStack {
       VisualEffectBackground(material: .hudWindow, blendingMode: .behindWindow)
         .ignoresSafeArea()
+      panelOpacityFill
       panelTint
       panelContent
     }
@@ -119,6 +123,20 @@ struct ClipboardPanelView: View {
       .blur(radius: 7)
       .opacity(0.55)
       .clipShape(panelCornerShape)
+      .allowsHitTesting(false)
+  }
+
+  private var panelOpacityFill: some View {
+    RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cornerRadius, style: .continuous)
+      .fill(
+        Color(nsColor: NSColor(name: nil) { appearance in
+          let mode = appearance.bestMatch(from: [.darkAqua, .aqua])
+          if mode == .darkAqua {
+            return NSColor(calibratedWhite: 0.10, alpha: 0.46)
+          }
+          return NSColor(calibratedWhite: 0.98, alpha: 0.52)
+        })
+      )
       .allowsHitTesting(false)
   }
 
@@ -267,7 +285,7 @@ struct ClipboardPanelView: View {
   }
 
   private func filterChips(for filters: [ClipboardFilter]) -> some View {
-    HStack(spacing: 6) {
+    HStack(spacing: 8) {
       ForEach(filters) { option in
         ClipboardFilterChip(filter: option, isSelected: filter == option) {
           filter = option
@@ -369,7 +387,15 @@ struct ClipboardPanelView: View {
         .font(.system(size: 13))
         .focused($searchFieldFocused)
 
-      if !query.isEmpty {
+      if query.isEmpty {
+        Text("⌘F")
+          .font(.system(size: 11, weight: .semibold, design: .rounded))
+          .foregroundStyle(.secondary)
+          .padding(.horizontal, 6)
+          .frame(height: 18)
+          .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+          .accessibilityHidden(true)
+      } else {
         Button {
           query = ""
         } label: {
@@ -571,8 +597,8 @@ struct ClipboardPanelView: View {
 
   private var emptyState: (systemName: String, title: String, message: String?) {
     if store.allRecordCount() == 0 {
-      if settingsStore.settings.privacyMode {
-        return ("lock.shield", "私密模式已开启", "新的剪贴板内容暂不会保存到历史。")
+      if settingsStore.settings.isMonitoringPaused {
+        return ("pause.circle", "已停止监听剪贴板", "关闭停止监听后，新的剪贴板内容会继续保存到历史。")
       }
       if settingsStore.settings.enabledTypes.isEmpty {
         return ("line.3.horizontal.decrease.circle", "没有启用记录类型", "在设置中启用至少一种剪贴板类型后才会保存历史。")
@@ -690,6 +716,10 @@ struct ClipboardPanelView: View {
       selectRecord(at: index)
       return true
     }
+    if commandOnly, event.charactersIgnoringModifiers?.lowercased() == "f" {
+      focusSearchField()
+      return true
+    }
     if commandOnly, event.charactersIgnoringModifiers?.lowercased() == "c" {
       return copySelected()
     }
@@ -745,6 +775,10 @@ struct ClipboardPanelView: View {
     }
     asPlainText ? pastePlainTextAction(record) : pasteAction(record)
     return true
+  }
+
+  private func focusSearchField() {
+    searchFieldFocused = true
   }
 
   private func deleteSelected() -> Bool {
@@ -825,14 +859,19 @@ struct ClipboardPanelView: View {
   }
 
   private func resetVisibleRecords() {
+    resetVisibleRecords(debounce: false)
+  }
+
+  private func resetVisibleRecords(debounce: Bool) {
     visibleRecordLimit = Self.initialVisibleRecordLimit
-    refreshCurrentPage()
-    normalizeSelection()
+    refreshCurrentPage(
+      selectFirst: false,
+      debounceNanoseconds: debounce ? Self.searchRefreshDebounceNanoseconds : 0
+    )
   }
 
   private func selectFirstRecord() {
-    refreshCurrentPage()
-    selectedRecordID = records.first?.id
+    refreshCurrentPage(selectFirst: true)
   }
 
   private func loadMoreRecords() {
@@ -841,7 +880,37 @@ struct ClipboardPanelView: View {
   }
 
   private func refreshCurrentPage() {
-    currentPage = store.filteredPage(queryRequest, limit: visibleRecordLimit)
+    refreshCurrentPage(selectFirst: false)
+  }
+
+  private func refreshCurrentPage(
+    selectFirst: Bool,
+    debounceNanoseconds: UInt64 = 0
+  ) {
+    let request = queryRequest
+    let limit = visibleRecordLimit
+    pageRefreshTask?.cancel()
+    pageRefreshTask = Task { @MainActor in
+      if debounceNanoseconds > 0 {
+        do {
+          try await Task.sleep(nanoseconds: debounceNanoseconds)
+        } catch {
+          return
+        }
+      }
+
+      let page = await store.filteredPageAsync(request, limit: limit)
+      guard !Task.isCancelled else {
+        return
+      }
+
+      currentPage = page
+      if selectFirst {
+        selectedRecordID = page.records.first?.id
+      } else {
+        normalizeSelection()
+      }
+    }
   }
 
   private func scrollToSelectedRecord(

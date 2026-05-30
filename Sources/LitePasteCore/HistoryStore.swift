@@ -153,6 +153,34 @@ public final class HistoryStore: ObservableObject {
     )
   }
 
+  public func filteredPageAsync(
+    _ query: ClipboardHistoryQuery,
+    limit: Int,
+    offset: Int = 0
+  ) async -> ClipboardHistoryPage {
+    let limit = max(limit, 0)
+    let offset = max(offset, 0)
+
+    if let queryRepository = repository as? any ClipboardHistoryQueryingRepository {
+      do {
+        return try await Task.detached(priority: .userInitiated) {
+          let records = try queryRepository.execute(query, limit: limit, offset: offset)
+          let totalCount = try queryRepository.count(query)
+          return ClipboardHistoryPage(
+            records: records,
+            totalCount: totalCount,
+            limit: limit,
+            offset: offset
+          )
+        }.value
+      } catch {
+        notifyHistoryPersistenceFailed(operation: "查询历史", error: error)
+      }
+    }
+
+    return filteredPage(query, limit: limit, offset: offset)
+  }
+
   public func record(id: ClipboardRecord.ID) -> ClipboardRecord? {
     if let record = records.first(where: { $0.id == id }) {
       return record

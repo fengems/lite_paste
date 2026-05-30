@@ -24,7 +24,7 @@ TEXT_VALUE="LitePaste runtime text ${STAMP}"
 URL_VALUE="https://litepaste-smoke.example/${STAMP}"
 EMAIL_VALUE="litepaste-smoke-${STAMP}@example.com"
 COLOR_VALUE="#A1B2C3"
-PRIVACY_VALUE="LitePaste privacy smoke ${STAMP}"
+PAUSED_MONITORING_VALUE="LitePaste paused monitoring smoke ${STAMP}"
 DISABLED_TEXT_VALUE="LitePaste disabled text smoke ${STAMP}"
 IGNORED_APP_VALUE="LitePaste ignored app smoke ${STAMP}"
 FILE_PATH="${DATA_DIR}/LitePaste Runtime File ${STAMP}.txt"
@@ -86,12 +86,12 @@ wait_for_history_db() {
   exit 1
 }
 
-write_privacy_mode_setting() {
+write_monitoring_paused_setting() {
   local enabled="$1"
 
   cat >"${DATA_DIR}/settings.json" <<JSON
 {
-  "privacyMode" : ${enabled}
+  "isMonitoringPaused" : ${enabled}
 }
 JSON
 }
@@ -102,7 +102,7 @@ write_enabled_types_setting() {
   cat >"${DATA_DIR}/settings.json" <<JSON
 {
   "enabledTypes" : ${types_json},
-  "privacyMode" : false
+  "isMonitoringPaused" : false
 }
 JSON
 }
@@ -113,7 +113,7 @@ write_ignored_apps_setting() {
   cat >"${DATA_DIR}/settings.json" <<JSON
 {
   "ignoredApps" : ${IGNORED_APP_BUNDLE_IDS_JSON},
-  "privacyMode" : false
+  "isMonitoringPaused" : false
 }
 JSON
 }
@@ -134,9 +134,9 @@ wait_for_capture() {
     "select count(*) from clipboard_records where plain_text = '${value}' and kind = '${kind}';"
 }
 
-assert_privacy_mode_blocks_capture() {
+assert_paused_monitoring_blocks_capture() {
   settle_pasteboard
-  set_clipboard "text" "${PRIVACY_VALUE}"
+  set_clipboard "text" "${PAUSED_MONITORING_VALUE}"
 
   for _ in {1..12}; do
     assert_app_running
@@ -146,11 +146,11 @@ assert_privacy_mode_blocks_capture() {
       local match_count
       match_count="$(
         sqlite3 -cmd ".timeout 5000" "${HISTORY_DB}" \
-          "select count(*) from clipboard_records where plain_text = '${PRIVACY_VALUE}';" 2>/dev/null || printf '0'
+          "select count(*) from clipboard_records where plain_text = '${PAUSED_MONITORING_VALUE}';" 2>/dev/null || printf '0'
       )"
 
       if [[ "${match_count}" != "0" ]]; then
-        echo "Lite Paste captured clipboard content while privacy mode was enabled." >&2
+        echo "Lite Paste captured clipboard content while monitoring was paused." >&2
         sqlite3 -cmd ".timeout 5000" "${HISTORY_DB}" \
           "select kind, title, plain_text from clipboard_records order by last_copied_at desc limit 10;" >&2 || true
         cat "${APP_LOG}" >&2 || true
@@ -403,10 +403,10 @@ assert_memory_within_limit() {
 }
 
 snapshot_clipboard
-write_privacy_mode_setting true
+write_monitoring_paused_setting true
 start_app
 wait_for_history_db
-assert_privacy_mode_blocks_capture
+assert_paused_monitoring_blocks_capture
 stop_app
 
 write_enabled_types_setting '["image"]'
@@ -424,7 +424,7 @@ stop_app
 write_enabled_types_setting '["text","richText","html","image","files","url","email","color","unknown"]'
 start_app
 wait_for_history_db
-assert_not_captured "${PRIVACY_VALUE}" "privacy-mode smoke content"
+assert_not_captured "${PAUSED_MONITORING_VALUE}" "paused-monitoring smoke content"
 assert_not_captured "${DISABLED_TEXT_VALUE}" "disabled-type smoke content"
 assert_not_captured "${IGNORED_APP_VALUE}" "ignored-app smoke content"
 wait_for_capture "${TEXT_VALUE}" "text"

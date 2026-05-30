@@ -50,86 +50,43 @@ enum SettingsPage: String, CaseIterable, Identifiable {
   var accentColor: Color {
     switch self {
     case .clipboard:
-      Color.blue
+      Color(nsColor: NSColor(calibratedRed: 0.34, green: 0.48, blue: 0.68, alpha: 1))
     case .history:
-      Color.cyan
+      Color(nsColor: NSColor(calibratedRed: 0.30, green: 0.56, blue: 0.62, alpha: 1))
     case .general:
-      Color.indigo
+      Color(nsColor: NSColor(calibratedRed: 0.43, green: 0.47, blue: 0.66, alpha: 1))
     case .hotkeys:
-      Color.purple
+      Color(nsColor: NSColor(calibratedRed: 0.54, green: 0.43, blue: 0.64, alpha: 1))
     case .backup:
-      Color.orange
+      Color(nsColor: NSColor(calibratedRed: 0.67, green: 0.49, blue: 0.32, alpha: 1))
     case .about:
-      Color.green
+      Color(nsColor: NSColor(calibratedRed: 0.38, green: 0.57, blue: 0.42, alpha: 1))
     }
   }
 }
 
 enum SettingsSurface {
   static let windowBackground = dynamicColor(
-    light: NSColor(calibratedRed: 0.955, green: 0.968, blue: 0.985, alpha: 1),
-    dark: NSColor(calibratedRed: 0.075, green: 0.088, blue: 0.115, alpha: 1)
+    light: NSColor(calibratedWhite: 0.99, alpha: 1),
+    dark: NSColor(calibratedWhite: 0.145, alpha: 1)
   )
   static let sidebarBackground = dynamicColor(
-    light: NSColor(calibratedRed: 0.925, green: 0.945, blue: 0.970, alpha: 0.92),
-    dark: NSColor(calibratedRed: 0.090, green: 0.105, blue: 0.135, alpha: 0.92)
+    light: NSColor(calibratedWhite: 0.985, alpha: 1),
+    dark: NSColor(calibratedWhite: 0.13, alpha: 1)
   )
   static let cardBackground = dynamicColor(
-    light: NSColor(calibratedRed: 1.000, green: 1.000, blue: 1.000, alpha: 0.72),
-    dark: NSColor(calibratedRed: 0.165, green: 0.180, blue: 0.215, alpha: 0.70)
+    light: NSColor(calibratedWhite: 0.965, alpha: 1),
+    dark: NSColor(calibratedWhite: 0.165, alpha: 1)
   )
   static let fieldBackground = dynamicColor(
-    light: NSColor(calibratedRed: 0.905, green: 0.925, blue: 0.955, alpha: 0.78),
-    dark: NSColor(calibratedRed: 0.205, green: 0.220, blue: 0.260, alpha: 0.78)
+    light: NSColor(calibratedWhite: 0.925, alpha: 1),
+    dark: NSColor(calibratedWhite: 0.195, alpha: 1)
   )
   static let separator = dynamicColor(
-    light: NSColor(calibratedRed: 0.755, green: 0.790, blue: 0.835, alpha: 1),
-    dark: NSColor(calibratedRed: 0.325, green: 0.345, blue: 0.390, alpha: 1)
+    light: NSColor(calibratedWhite: 0.875, alpha: 1),
+    dark: NSColor(calibratedWhite: 0.22, alpha: 1)
   )
   static let border = separator.opacity(0.48)
-
-  static var windowBackdrop: some View {
-    windowBackground
-      .overlay(
-        LinearGradient(
-          colors: [
-            Color.cyan.opacity(0.055),
-            Color.blue.opacity(0.025),
-            Color.purple.opacity(0.035)
-          ],
-          startPoint: .topLeading,
-          endPoint: .bottomTrailing
-        )
-      )
-  }
-
-  static var sidebarBackdrop: some View {
-    sidebarBackground
-      .overlay(
-        LinearGradient(
-          colors: [
-            Color.white.opacity(0.10),
-            Color.blue.opacity(0.035),
-            Color.black.opacity(0.035)
-          ],
-          startPoint: .top,
-          endPoint: .bottom
-        )
-      )
-  }
-
-  static var cardOverlay: some View {
-    LinearGradient(
-      colors: [
-        Color.white.opacity(0.085),
-        Color.cyan.opacity(0.020),
-        Color.purple.opacity(0.018)
-      ],
-      startPoint: .topLeading,
-      endPoint: .bottomTrailing
-    )
-    .allowsHitTesting(false)
-  }
 
   private static func dynamicColor(light: NSColor, dark: NSColor) -> Color {
     Color(nsColor: NSColor(name: nil) { appearance in
@@ -171,7 +128,7 @@ struct SettingsSidebarButton: View {
       .overlay(alignment: .leading) {
         if isSelected {
           Capsule()
-            .fill(page.accentColor)
+            .fill(page.accentColor.opacity(0.72))
             .frame(width: 3, height: 18)
             .padding(.leading, 3)
         }
@@ -185,16 +142,7 @@ struct SettingsSidebarButton: View {
   private var sidebarBackground: some View {
     if isSelected {
       RoundedRectangle(cornerRadius: 8)
-        .fill(
-          LinearGradient(
-            colors: [
-              page.accentColor.opacity(0.20),
-              Color.white.opacity(0.08)
-            ],
-            startPoint: .leading,
-            endPoint: .trailing
-          )
-        )
+        .fill(page.accentColor.opacity(0.10))
     } else {
       RoundedRectangle(cornerRadius: 8)
         .fill(Color.clear)
@@ -205,7 +153,7 @@ struct SettingsSidebarButton: View {
   private var sidebarBorder: some View {
     if isSelected {
       RoundedRectangle(cornerRadius: 8)
-        .stroke(page.accentColor.opacity(0.32), lineWidth: 1)
+        .stroke(page.accentColor.opacity(0.18), lineWidth: 1)
     }
   }
 }
@@ -219,10 +167,10 @@ struct SettingsPageHeader: View {
         .font(.system(size: 15, weight: .semibold))
         .foregroundStyle(page.accentColor)
         .frame(width: 30, height: 30)
-        .background(page.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(page.accentColor.opacity(0.075), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(
           RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .stroke(page.accentColor.opacity(0.25), lineWidth: 1)
+            .stroke(page.accentColor.opacity(0.14), lineWidth: 1)
         )
 
       Text(page.title)
@@ -259,20 +207,9 @@ struct SettingsSectionCard<Content: View>: View {
       .frame(maxWidth: .infinity, alignment: .leading)
       .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
       .background(SettingsSurface.cardBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-      .overlay(SettingsSurface.cardOverlay.clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous)))
       .overlay(
         RoundedRectangle(cornerRadius: 12, style: .continuous)
-          .stroke(
-            LinearGradient(
-              colors: [
-                Color.white.opacity(0.18),
-                SettingsSurface.border
-              ],
-              startPoint: .topLeading,
-              endPoint: .bottomTrailing
-            ),
-            lineWidth: 1
-          )
+          .stroke(SettingsSurface.border.opacity(0.76), lineWidth: 1)
       )
       .shadow(color: Color.black.opacity(0.08), radius: 10, y: 4)
     }

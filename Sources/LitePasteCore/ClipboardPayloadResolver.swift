@@ -82,6 +82,22 @@ public struct ClipboardPayloadResolver: Sendable {
       return payload
     }
 
+    if Self.isTabularPlainText(plainText), !imageCandidates.isEmpty {
+      if let richTextPayload = richTextPayload(
+        from: richTextCandidates.first,
+        plainText: plainText,
+        pasteboardTypes: pasteboardTypes
+      ) {
+        return richTextPayload
+      }
+
+      if let plainTextPayload = plainText.flatMap({
+        textPayloadBuilder.payload(from: $0, pasteboardTypes: pasteboardTypes)
+      }) {
+        return plainTextPayload
+      }
+    }
+
     if let imageCandidate = imageCandidates.first {
       return try? mediaPayloadBuilder.imagePayload(
         data: imageCandidate.data,
@@ -92,15 +108,10 @@ public struct ClipboardPayloadResolver: Sendable {
     }
 
     if let richTextCandidate = richTextCandidates.first {
-      return try? mediaPayloadBuilder.richTextPayload(
-        kind: richTextCandidate.kind,
-        data: richTextCandidate.data,
-        pasteboardType: richTextCandidate.pasteboardType,
-        preferredExtension: richTextCandidate.preferredExtension,
-        fallbackTitle: richTextCandidate.fallbackTitle,
+      return richTextPayload(
+        from: richTextCandidate,
         plainText: plainText,
-        pasteboardTypes: pasteboardTypes,
-        representations: richTextCandidate.representations
+        pasteboardTypes: pasteboardTypes
       )
     }
 
@@ -109,5 +120,41 @@ public struct ClipboardPayloadResolver: Sendable {
     }
 
     return textPayloadBuilder.payload(from: plainText, pasteboardTypes: pasteboardTypes)
+  }
+
+  public static func isTabularPlainText(_ text: String?) -> Bool {
+    guard let text else {
+      return false
+    }
+
+    let lines = text
+      .split(whereSeparator: \.isNewline)
+      .prefix(16)
+    guard lines.count >= 2 else {
+      return false
+    }
+
+    return lines.filter { $0.contains("\t") }.count >= 2
+  }
+
+  private func richTextPayload(
+    from candidate: ClipboardRichTextCandidate?,
+    plainText: String?,
+    pasteboardTypes: Set<String>
+  ) -> ClipboardPayload? {
+    guard let candidate else {
+      return nil
+    }
+
+    return try? mediaPayloadBuilder.richTextPayload(
+      kind: candidate.kind,
+      data: candidate.data,
+      pasteboardType: candidate.pasteboardType,
+      preferredExtension: candidate.preferredExtension,
+      fallbackTitle: candidate.fallbackTitle,
+      plainText: plainText,
+      pasteboardTypes: pasteboardTypes,
+      representations: candidate.representations
+    )
   }
 }

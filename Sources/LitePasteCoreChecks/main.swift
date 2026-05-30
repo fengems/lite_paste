@@ -339,10 +339,15 @@ func checkAppSettingsBackwardCompatibility() {
     expect(settings.moveDuplicatesToTop, "Settings should default moveDuplicatesToTop for old files")
     expect(settings.focusSearchOnOpen, "Settings should default focusSearchOnOpen for old files")
     expect(settings.coverMenuBarWhenEdgeAttached, "Settings should default menu bar coverage to on for old files")
+    expect(!settings.isMonitoringPaused, "Settings should default paused monitoring to off for old files")
     expect(
       settings.ignoredApps.contains("com.1password.1password"),
       "Settings should default ignoredApps for old files"
     )
+
+    let legacyPausedData = Data(#"{"privacyMode":true}"#.utf8)
+    let legacyPausedSettings = try JSONDecoder.litePaste.decode(AppSettings.self, from: legacyPausedData)
+    expect(legacyPausedSettings.isMonitoringPaused, "Settings should migrate legacy privacyMode to paused monitoring")
 
     let custom = AppSettings(
       panelPosition: .cursor,
@@ -352,7 +357,8 @@ func checkAppSettingsBackwardCompatibility() {
       preserveLargeRichTextFormats: true,
       moveDuplicatesToTop: false,
       focusSearchOnOpen: false,
-      coverMenuBarWhenEdgeAttached: true
+      coverMenuBarWhenEdgeAttached: true,
+      isMonitoringPaused: true
     )
     let encoded = try JSONEncoder.litePaste.encode(custom)
     let decoded = try JSONDecoder.litePaste.decode(AppSettings.self, from: encoded)
@@ -365,6 +371,7 @@ func checkAppSettingsBackwardCompatibility() {
       decoded.ignoredPasteboardTypes.contains("org.example.SecretType"),
       "Settings should preserve ignored pasteboard types"
     )
+    expect(decoded.isMonitoringPaused, "Settings should preserve paused monitoring")
     let legacyIgnoredPasteboardTypes = PrivacyFilter.defaultIgnoredPasteboardTypes.union([
       "com.apple.finder.node",
       "com.apple.pasteboard.promised-file-url",
@@ -629,13 +636,13 @@ func checkContentHasher() {
 }
 
 func checkPrivacyFilter() {
-  let privateFilter = PrivacyFilter(privacyMode: true)
+  let pausedFilter = PrivacyFilter(isMonitoringPaused: true)
   expect(
-    !privateFilter.shouldRecord(
+    !pausedFilter.shouldRecord(
       sourceAppBundleId: "com.apple.TextEdit",
       pasteboardTypes: ["public.utf8-plain-text"]
     ),
-    "Privacy mode should stop recording"
+    "Paused monitoring should stop recording"
   )
 
   let ignoredAppFilter = PrivacyFilter(ignoredApps: ["com.example.Secret"])
@@ -731,6 +738,16 @@ func checkClipboardTextPayloadBuilder() {
     payload.contents.first?.inlineData == Data(" hello@example.com ".utf8),
     "Text payload snapshot should preserve UTF-8 text data"
   )
+
+  let hugeText = String(repeating: "表格内容", count: ClipboardTextPayloadBuilder.maxSearchTextLength)
+  guard let hugePayload = builder.payload(from: hugeText, pasteboardTypes: ["public.utf8-plain-text"]) else {
+    fatalError("Text payload builder should create payload for huge text")
+  }
+  expect(
+    hugePayload.searchText.count == ClipboardTextPayloadBuilder.maxSearchTextLength,
+    "Text payload should cap huge search text"
+  )
+  expect(hugePayload.plainText == hugeText, "Text payload should preserve huge plain text for paste")
 }
 
 func checkClipboardFilePayloadBuilder() {
@@ -968,6 +985,36 @@ func checkClipboardPayloadResolver() {
     )
     expect(imagePayload?.kind == .image, "Payload resolver should prefer images over rich text and text")
 
+    let tabularRichPayload = resolver.resolve(
+      pasteboardTypes: pasteboardTypes,
+      fileURLs: [],
+      imageCandidates: [
+        ClipboardImageCandidate(data: Data("image".utf8), pasteboardType: "public.png", preferredExtension: "png")
+      ],
+      richTextCandidates: [
+        ClipboardRichTextCandidate(
+          kind: .html,
+          data: Data("<table><tr><td>A</td><td>B</td></tr></table>".utf8),
+          pasteboardType: "public.html",
+          preferredExtension: "html",
+          fallbackTitle: "HTML"
+        )
+      ],
+      plainText: "A\tB\n1\t2"
+    )
+    expect(tabularRichPayload?.kind == .html, "Payload resolver should prefer tabular rich text over image previews")
+
+    let tabularTextPayload = resolver.resolve(
+      pasteboardTypes: pasteboardTypes,
+      fileURLs: [],
+      imageCandidates: [
+        ClipboardImageCandidate(data: Data("image".utf8), pasteboardType: "public.png", preferredExtension: "png")
+      ],
+      richTextCandidates: [],
+      plainText: "A\tB\n1\t2"
+    )
+    expect(tabularTextPayload?.kind == .text, "Payload resolver should keep tabular plain text out of image history")
+
     let richPayload = resolver.resolve(
       pasteboardTypes: pasteboardTypes,
       fileURLs: [],
@@ -1071,13 +1118,13 @@ func checkClipboardCaptureGate() {
     "Capture gate should reject disabled payload kinds"
   )
 
-  let privacyModeGate = ClipboardCaptureGate(
+  let pausedMonitoringGate = ClipboardCaptureGate(
     enabledTypes: Set(ClipboardKind.allCases),
-    privacyFilter: PrivacyFilter(privacyMode: true)
+    privacyFilter: PrivacyFilter(isMonitoringPaused: true)
   )
   expect(
-    !privacyModeGate.shouldRecord(payload: payload, sourceAppBundleId: "com.apple.TextEdit"),
-    "Capture gate should reject payloads while privacy mode is enabled"
+    !pausedMonitoringGate.shouldRecord(payload: payload, sourceAppBundleId: "com.apple.TextEdit"),
+    "Capture gate should reject payloads while monitoring is paused"
   )
 
   let ignoredAppGate = ClipboardCaptureGate(
