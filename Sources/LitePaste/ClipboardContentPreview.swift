@@ -220,6 +220,9 @@ private struct ColorClipboardPreview: View {
 }
 
 private struct RichClipboardPreview: View {
+  // Parsing huge HTML snippets blocks SwiftUI rendering; fall back to plain text previews.
+  private static let richPreviewParseByteLimit = 256 * 1024
+
   let record: ClipboardRecord
   let style: ClipboardPreviewStyle
 
@@ -258,6 +261,9 @@ private struct RichClipboardPreview: View {
   private func richAttributedStringFromSnapshots() -> NSAttributedString? {
     for snapshot in record.contents.sorted(by: { $0.displayOrder < $1.displayOrder }) {
       guard let data = snapshot.dataForPreview else {
+        continue
+      }
+      guard data.count <= Self.richPreviewParseByteLimit else {
         continue
       }
 

@@ -4,6 +4,9 @@ import LitePasteCore
 
 @MainActor
 final class ClipboardMonitor {
+  // Large Excel ranges can expose multi-megabyte HTML/RTF payloads; keep them as plain text.
+  private static let richTextCaptureByteLimit = 512 * 1024
+
   private let pasteboard: NSPasteboard
   private let store: HistoryStore
   private let writeTracker: ClipboardWriteTracker
@@ -153,6 +156,9 @@ final class ClipboardMonitor {
 
     return candidateTypes.compactMap { type, kind, fileExtension, fallbackTitle in
       guard let data = pasteboard.data(forType: type) else {
+        return nil
+      }
+      guard data.count <= Self.richTextCaptureByteLimit else {
         return nil
       }
 

@@ -24,14 +24,15 @@ struct ClipboardPanelView: View {
   @State private var viewMode: ClipboardPanelViewMode = AppSettingsStore.shared.settings.viewMode
   @State private var selectedRecordID: ClipboardRecord.ID?
   @State private var visibleRecordLimit = Self.initialVisibleRecordLimit
+  @State private var currentPage = ClipboardHistoryPage(
+    records: [],
+    totalCount: 0,
+    limit: Self.initialVisibleRecordLimit
+  )
   @FocusState private var searchFieldFocused: Bool
 
   private var queryRequest: ClipboardHistoryQuery {
     ClipboardHistoryQuery(text: query, filter: filter, sort: sort)
-  }
-
-  private var currentPage: ClipboardHistoryPage {
-    store.filteredPage(queryRequest, limit: visibleRecordLimit)
   }
 
   private var records: [ClipboardRecord] {
@@ -50,6 +51,10 @@ struct ClipboardPanelView: View {
     .overlay(panelBorder)
     .background(keyboardBridge)
     .onAppear(perform: prepareForOpen)
+    .onReceive(store.$records) { _ in
+      refreshCurrentPage()
+      normalizeSelection()
+    }
     .onChange(of: presentationState.openRevision) {
       prepareForOpen()
     }
@@ -629,15 +634,22 @@ struct ClipboardPanelView: View {
 
   private func resetVisibleRecords() {
     visibleRecordLimit = Self.initialVisibleRecordLimit
+    refreshCurrentPage()
     normalizeSelection()
   }
 
   private func selectFirstRecord() {
+    refreshCurrentPage()
     selectedRecordID = records.first?.id
   }
 
   private func loadMoreRecords() {
     visibleRecordLimit += Self.recordPageSize
+    refreshCurrentPage()
+  }
+
+  private func refreshCurrentPage() {
+    currentPage = store.filteredPage(queryRequest, limit: visibleRecordLimit)
   }
 
   private func scrollToSelectedRecord(
