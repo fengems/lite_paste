@@ -43,6 +43,8 @@ Lite Paste is designed as a local-first utility:
 - Password managers and concealed/transient pasteboard types are ignored by default.
 - iCloud backup is explicit and user-triggered. It is not real-time sync.
 
+Read the [Privacy Notes](docs/PRIVACY.md) for details about local storage, Accessibility permission, ignored apps, and backups.
+
 ## Development
 
 Requirements:
@@ -103,8 +105,10 @@ Scripts/check_distribution_ready.sh
 Detailed release notes and manual QA steps are in:
 
 - [Developer ID release guide](docs/DEVELOPER_ID_RELEASE.md)
+- [Privacy notes](docs/PRIVACY.md)
 - [Release checklist](docs/RELEASE_CHECKLIST.md)
 - [Public release audit](docs/PUBLIC_RELEASE_AUDIT.md)
+- [Release notes draft](docs/releases/0.1.2.md)
 - [macOS app target notes](docs/MACOS_APP_TARGET.md)
 
 ## Contributing

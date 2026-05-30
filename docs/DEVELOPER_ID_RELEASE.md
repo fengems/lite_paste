@@ -113,7 +113,27 @@ shasum -a 256 -c Build/LitePaste-0.1.0-1.dmg.sha256
 xcrun notarytool log SUBMISSION_ID --keychain-profile litepaste-notary
 ```
 
-## 5. 当前限制
+## 5. 创建 GitHub Release
+
+确认 DMG 已签名、公证、staple，并且 checksum 已重新生成后，使用发布脚本创建 GitHub Release：
+
+```bash
+VERSION=0.1.2 \
+BUILD=1 \
+TAG=0.1.2 \
+NOTES_PATH=docs/releases/0.1.2.md \
+Scripts/create_github_release.sh
+```
+
+脚本会检查：
+
+- 工作区和暂存区干净。
+- 当前分支是 `main`，且 `main` 与 `origin/main` 一致。
+- tag 尚不存在。
+- zip、DMG 和 SHA-256 文件存在且校验通过。
+- DMG 通过 `xcrun stapler validate` 和 `spctl --assess`。
+
+## 6. 当前限制
 
 - 当前仓库仍是 SwiftPM 主入口，完整 Xcode target 还未创建。
 - 当前 DMG 是基础安装镜像，尚未加入自定义背景图、窗口布局和许可证页。

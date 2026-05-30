@@ -5,6 +5,8 @@ All notable changes to Lite Paste are documented here.
 ## Unreleased
 
 - Added public project governance files, issue templates, CI checks, and release readiness documentation.
+- Added a guarded GitHub Release creation script and a draft release note for the first notarized public release.
+- Added public privacy notes describing local storage, monitoring, Accessibility permission, and backups.
 
 ## 0.1.1
 
