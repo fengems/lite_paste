@@ -106,7 +106,7 @@ struct ClipboardPanelView: View {
       searchBox
         .frame(minWidth: 180, idealWidth: 240, maxWidth: 300)
 
-      filterScroller(for: ClipboardFilter.allCases)
+      filterGroup(for: ClipboardFilter.allCases)
 
       Text(resultSummary)
         .font(.system(size: 12, weight: .medium))
@@ -137,7 +137,7 @@ struct ClipboardPanelView: View {
       }
 
       HStack(spacing: 8) {
-        filterScroller(for: ClipboardFilter.allCases)
+        filterGroup(for: ClipboardFilter.allCases)
 
         Text(resultSummary)
           .font(.system(size: 12, weight: .medium))
@@ -173,15 +173,14 @@ struct ClipboardPanelView: View {
       searchBox
         .frame(width: notchSearchWidth(for: width))
 
-      filterScroller(for: notchLeftFilters, minWidth: 0)
+      filterGroup(for: notchLeftFilters, minWidth: 0)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
-    .clipped()
   }
 
   private var notchRightToolbar: some View {
     HStack(spacing: 8) {
-      filterScroller(for: notchRightFilters, minWidth: 0)
+      filterGroup(for: notchRightFilters, minWidth: 0, alignment: .trailing)
 
       Text(resultSummary)
         .font(.system(size: 12, weight: .medium))
@@ -197,7 +196,6 @@ struct ClipboardPanelView: View {
       headerActions
     }
     .frame(maxWidth: .infinity, alignment: .trailing)
-    .clipped()
   }
 
   private var notchLeftFilters: [ClipboardFilter] {
@@ -212,11 +210,13 @@ struct ClipboardPanelView: View {
     min(max(availableWidth * 0.42, 160), min(260, availableWidth))
   }
 
-  private func filterScroller(for filters: [ClipboardFilter], minWidth: CGFloat = 180) -> some View {
-    ScrollView(.horizontal, showsIndicators: false) {
-      filterChips(for: filters)
-    }
-    .frame(minWidth: minWidth, maxWidth: .infinity)
+  private func filterGroup(
+    for filters: [ClipboardFilter],
+    minWidth: CGFloat = 180,
+    alignment: Alignment = .leading
+  ) -> some View {
+    filterChips(for: filters)
+      .frame(minWidth: minWidth, maxWidth: .infinity, alignment: alignment)
   }
 
   private func filterChips(for filters: [ClipboardFilter]) -> some View {
