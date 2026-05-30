@@ -1616,16 +1616,21 @@ func checkHistoryStorePagedQueries() {
       try? FileManager.default.removeItem(at: directory)
     }
 
-    let records = (0..<5).map { index in
-      ClipboardRecord(
-        id: UUID(uuidString: "00000000-0000-0000-0000-00000000020\(index)")!,
-        kind: index == 4 ? .image : .text,
-        title: "record \(index)",
-        searchText: "page \(index)",
-        createdAt: Date(timeIntervalSince1970: TimeInterval(index)),
-        lastCopiedAt: Date(timeIntervalSince1970: TimeInterval(index)),
-        copyCount: index + 1,
-        contentHash: "page-\(index)"
+    var records: [ClipboardRecord] = []
+    for index in 0..<5 {
+      let id = UUID(uuidString: "00000000-0000-0000-0000-00000000020\(index)")!
+      let timestamp = Date(timeIntervalSince1970: TimeInterval(index))
+      records.append(
+        ClipboardRecord(
+          id: id,
+          kind: index == 4 ? .image : .text,
+          title: "record \(index)",
+          searchText: "page \(index)",
+          createdAt: timestamp,
+          lastCopiedAt: timestamp,
+          copyCount: index + 1,
+          contentHash: "page-\(index)"
+        )
       )
     }
     let repository = SQLiteClipboardHistoryRepository(url: url)
@@ -1660,7 +1665,8 @@ func checkHistoryStorePagedQueries() {
 
     let fallbackStore = HistoryStore(records: records, repository: InMemoryClipboardHistoryRepository())
     let fallbackPage = fallbackStore.filteredPage(query, limit: 2, offset: 3)
-    expect(fallbackPage.records.map(\.id) == [records[1].id, records[0].id], "HistoryStore page should fall back to in-memory paging")
+    let fallbackPageIDs = fallbackPage.records.map { $0.id }
+    expect(fallbackPageIDs == [records[1].id, records[0].id], "HistoryStore page should fall back to in-memory paging")
     expect(fallbackPage.totalCount == 5, "HistoryStore fallback page should expose total count")
   } catch {
     fatalError("HistoryStore paged query check failed: \(error)")

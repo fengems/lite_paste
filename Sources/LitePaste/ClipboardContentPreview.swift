@@ -159,11 +159,15 @@ private struct FileThumbnailPreview: View {
       }
     }
     .task(id: item.url.path) {
-      thumbnail = await loadThumbnail(for: item.url, size: size)
+      if let data = await loadThumbnailData(for: item.url, size: size) {
+        thumbnail = NSImage(data: data)
+      } else {
+        thumbnail = nil
+      }
     }
   }
 
-  private func loadThumbnail(for url: URL, size: CGFloat) async -> NSImage? {
+  private func loadThumbnailData(for url: URL, size: CGFloat) async -> Data? {
     guard item.exists else {
       return nil
     }
@@ -177,7 +181,7 @@ private struct FileThumbnailPreview: View {
 
     return await withCheckedContinuation { continuation in
       QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { representation, _ in
-        continuation.resume(returning: representation?.nsImage)
+        continuation.resume(returning: representation?.nsImage.tiffRepresentation)
       }
     }
   }
