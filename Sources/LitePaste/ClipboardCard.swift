@@ -32,7 +32,7 @@ struct ClipboardCard: View {
     .frame(maxWidth: .infinity, minHeight: ClipboardPanelMetrics.cardHeight, maxHeight: ClipboardPanelMetrics.cardHeight)
     .clipShape(cardShape)
     .overlay(selectionStroke)
-    .shadow(color: isSelected ? record.kind.accentColor.opacity(0.22) : Color.black.opacity(0.10), radius: isSelected ? 13 : 6, y: 3)
+    .shadow(color: isSelected ? record.kind.accentColor.opacity(0.28) : Color.black.opacity(0.10), radius: isSelected ? 13 : 6, y: 3)
     .contentShape(RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cardCornerRadius))
     .onTapGesture {
       primaryAction(record)
@@ -170,7 +170,7 @@ struct ClipboardCard: View {
     cardShape
       .fill(.regularMaterial)
       .overlay(
-        cardShape.fill(record.kind.accentColor.opacity(isSelected ? 0.11 : 0.035))
+        cardShape.fill(record.kind.accentColor.opacity(isSelected ? 0.14 : 0.055))
       )
       .overlay(
         cardShape
@@ -184,6 +184,6 @@ struct ClipboardCard: View {
       .frame(width: ClipboardPanelMetrics.accentStripWidth)
       .padding(.vertical, 0)
       .padding(.leading, 0)
-      .shadow(color: record.kind.accentColor.opacity(0.28), radius: 8, y: 2)
+      .shadow(color: record.kind.accentColor.opacity(0.36), radius: 9, y: 2)
   }
 }

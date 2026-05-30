@@ -95,8 +95,6 @@ struct ClipboardPanelView: View {
     ZStack {
       VisualEffectBackground(material: .hudWindow, blendingMode: .behindWindow)
         .ignoresSafeArea()
-      panelOpacityFill
-      panelTint
       panelContent
     }
     .clipShape(panelCornerShape)
@@ -121,38 +119,8 @@ struct ClipboardPanelView: View {
         lineWidth: 5
       )
       .blur(radius: 7)
-      .opacity(0.55)
+      .opacity(0.62)
       .clipShape(panelCornerShape)
-      .allowsHitTesting(false)
-  }
-
-  private var panelOpacityFill: some View {
-    RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cornerRadius, style: .continuous)
-      .fill(
-        Color(nsColor: NSColor(name: nil) { appearance in
-          let mode = appearance.bestMatch(from: [.darkAqua, .aqua])
-          if mode == .darkAqua {
-            return NSColor(calibratedWhite: 0.10, alpha: 0.46)
-          }
-          return NSColor(calibratedWhite: 0.98, alpha: 0.52)
-        })
-      )
-      .allowsHitTesting(false)
-  }
-
-  private var panelTint: some View {
-    RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cornerRadius, style: .continuous)
-      .fill(
-        LinearGradient(
-          colors: [
-            Color.white.opacity(0.06),
-            Color.cyan.opacity(0.025),
-            Color.purple.opacity(0.025)
-          ],
-          startPoint: .topLeading,
-          endPoint: .bottomTrailing
-        )
-      )
       .allowsHitTesting(false)
   }
 

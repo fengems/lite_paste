@@ -19,7 +19,7 @@ enum ClipboardPanelMetrics {
   static let panelContentSpacing: CGFloat = 8
   static let toolbarControlHeight: CGFloat = 32
   static let notchAvoidanceMargin: CGFloat = 16
-  static let accentStripWidth: CGFloat = 4
+  static let accentStripWidth: CGFloat = 5
   static let edgePanelThickness: CGFloat = edgeCardContentHeight + toolbarHeightAllowance + panelContentSpacing + drawerVerticalPadding * 2
 }
 
@@ -39,9 +39,9 @@ struct ClipboardFilterChip: View {
         .background(backgroundStyle, in: shape)
         .foregroundStyle(isSelected ? Color.white : Color.primary.opacity(0.82))
         .overlay(
-          shape.stroke(isSelected ? filter.accentColor.opacity(0.45) : Color.white.opacity(0.08), lineWidth: 1)
+          shape.stroke(isSelected ? filter.accentColor.opacity(0.68) : Color.white.opacity(0.09), lineWidth: 1)
         )
-        .shadow(color: isSelected ? filter.accentColor.opacity(0.22) : .clear, radius: 8, y: 2)
+        .shadow(color: isSelected ? filter.accentColor.opacity(0.30) : .clear, radius: 9, y: 2)
     }
     .buttonStyle(.plain)
     .accessibilityLabel(filter.displayName)
@@ -49,7 +49,7 @@ struct ClipboardFilterChip: View {
   }
 
   private var backgroundStyle: Color {
-    isSelected ? Color.white.opacity(0.12) : Color.primary.opacity(0.035)
+    isSelected ? filter.accentColor.opacity(0.24) : Color.primary.opacity(0.045)
   }
 }
 

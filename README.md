@@ -32,7 +32,7 @@ Lite Paste 是一个原生 macOS 剪贴板管理器，目标是提供接近 Past
 - SQLite 仓库层已具备按 ID/hash 查找、单条 upsert、单条删除和清空的增量写入基础能力。
 - `HistoryStore` 已优先使用增量写入路径，普通仓库仍保留整表保存 fallback。
 - 历史去重、持久化加载清理和外部 blob 删除行为有核心检查覆盖。
-- 本地备份导入导出，导出时只包含历史引用的外部 blob，导入前校验备份清单、设置、历史和外部 blob 完整性，导入后自动刷新运行状态，外部 blob 路径随备份位置重写，合并导入会保留当前设置并规避同名 blob 冲突，覆盖导入会替换或重置设置且带二次确认。
+- 本地备份导入导出和 iCloud Drive 备份，优先写入 iCloud 应用容器，容器不可用时写入用户 iCloud Drive 下的 Lite Paste 目录；iCloud 备份只保留最新一份，避免不可见的历史备份长期占用空间；导出时只包含历史引用的外部 blob，导入前校验备份清单、设置、历史和外部 blob 完整性，导入后自动刷新运行状态，外部 blob 路径随备份位置重写，合并导入会保留当前设置并规避同名 blob 冲突，覆盖导入会替换或重置设置且带二次确认。
 - 开机启动设置接入。
 - 设置页关于区包含版本、Bundle ID、最低系统、许可证和项目仓库入口。
 - 菜单栏使用项目内绘制的 template 图标，本地 `.app` bundle 打包脚本会生成 AppIcon 并执行 ad-hoc 签名，发布脚本可生成 zip 和 DMG 试用包。
@@ -52,10 +52,19 @@ swift run LitePaste
 Scripts/build_app_bundle.sh --open
 ```
 
-默认使用 ad-hoc 签名，每次重新打包后 macOS 可能要求重新授权辅助功能权限。若本机有稳定的代码签名证书，可指定签名身份以复用授权：
+默认优先使用本地 `LitePaste Local Code Signing` 身份，否则使用 ad-hoc 签名。每次更换签名身份后，macOS 可能要求重新授权辅助功能权限。若本机有稳定的代码签名证书，可指定签名身份以复用授权：
 
 ```bash
 CODESIGN_IDENTITY="Apple Development: Your Name (TEAMID)" Scripts/build_app_bundle.sh
+```
+
+本地人工验收包默认不签入 iCloud Documents entitlement，避免本地签名身份被 launchd 拒绝启动；设置页的 iCloud 备份仍可通过用户 iCloud Drive 目录兜底验证。若要验证 Apple iCloud Documents container，需要使用真实 Apple 签名身份并显式开启：
+
+```bash
+TEAM_ID="TEAMID" \
+CODESIGN_IDENTITY="Apple Development: Your Name (TEAMID)" \
+INCLUDE_ICLOUD_ENTITLEMENTS=1 \
+Scripts/build_app_bundle.sh --open
 ```
 
 人工验收前建议使用预检脚本。该脚本会验证 metadata、确认 Xcode 能构建 SwiftPM scheme、运行核心检查、生成本地 `.app`，验证 Info.plist 和签名，并在成功后直接打开 App；详细日志会写入 `Build/prepare_manual_check.log`：

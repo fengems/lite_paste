@@ -107,9 +107,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let settingsItem = NSMenuItem(
       title: "设置...",
       action: #selector(openSettings),
-      keyEquivalent: ","
+      keyEquivalent: ""
     )
-    settingsItem.image = nil
     menu.addItem(settingsItem)
     menu.addItem(.separator())
     menu.addItem(
@@ -123,6 +122,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     for item in menu.items {
       item.target = self
     }
+    removeMenuItemImages(in: menu)
 
     statusMenu = menu
   }
@@ -367,7 +367,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   private func updateStatusMenuState() {
     let isMonitoringPaused = settingsStore.settings.isMonitoringPaused
-    pauseMonitoringMenuItem?.state = isMonitoringPaused ? .on : .off
+    pauseMonitoringMenuItem?.title = isMonitoringPaused ? "恢复监听剪贴板" : "停止监听剪贴板"
+    pauseMonitoringMenuItem?.state = .off
     updateIgnoreApplicationMenuItem()
     statusItem?.button?.toolTip = isMonitoringPaused ? "Lite Paste - 已停止监听剪贴板" : "Lite Paste"
   }
@@ -385,9 +386,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     let isIgnored = settingsStore.settings.ignoredApps.contains(application.bundleIdentifier)
-    item.title = isIgnored ? "取消忽略 \(application.name)" : "忽略 \(application.name)"
+    item.title = isIgnored ? "取消忽略当前应用：\(application.name)" : "忽略当前应用：\(application.name)"
     item.isEnabled = true
-    item.state = isIgnored ? .on : .off
+    item.state = .off
+  }
+
+  private func removeMenuItemImages(in menu: NSMenu) {
+    for item in menu.items {
+      item.image = nil
+    }
   }
 
   private func showAccessibilityPermissionAlert() {
@@ -470,5 +477,6 @@ extension AppDelegate: NSWindowDelegate {
 extension AppDelegate: NSMenuDelegate {
   func menuWillOpen(_ menu: NSMenu) {
     updateStatusMenuState()
+    removeMenuItemImages(in: menu)
   }
 }

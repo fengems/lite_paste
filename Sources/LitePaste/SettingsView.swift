@@ -14,6 +14,7 @@ struct SettingsView: View {
   @State private var historyPersistenceErrorMessage: String?
   @State private var settingsSaveErrorMessage: String?
   @State private var selectedPage: SettingsPage = .clipboard
+  @State private var iCloudBackupStatusText = "正在检查"
 
   var body: some View {
     HStack(spacing: 0) {
@@ -32,6 +33,7 @@ struct SettingsView: View {
     .background(SettingsSurface.windowBackground)
     .onAppear {
       refreshStatus()
+      refreshICloudBackupStatus()
     }
     .onReceive(NotificationCenter.default.publisher(for: .litePasteHistoryChanged)) { _ in
       refreshHistoryStatus()
@@ -163,7 +165,13 @@ struct SettingsView: View {
     BackupSettingsPage(
       exportBackup: backupCoordinator.exportBackup,
       mergeImport: { backupCoordinator.importBackup(mode: .merge) },
-      replaceImport: { backupCoordinator.importBackup(mode: .replace) }
+      replaceImport: { backupCoordinator.importBackup(mode: .replace) },
+      iCloudStatusText: iCloudBackupStatusText,
+      refreshICloudStatus: refreshICloudBackupStatus,
+      exportICloudBackup: exportICloudBackup,
+      mergeImportICloudBackup: { importLatestICloudBackup(mode: .merge) },
+      replaceImportICloudBackup: { importLatestICloudBackup(mode: .replace) },
+      revealICloudBackupsDirectory: revealICloudBackupsDirectory
     )
   }
 
@@ -405,6 +413,34 @@ struct SettingsView: View {
   private func refreshStatus() {
     refreshAccessibilityStatus()
     refreshHistoryStatus()
+  }
+
+  private func refreshICloudBackupStatus() {
+    iCloudBackupStatusText = "正在检查"
+    Task {
+      iCloudBackupStatusText = await backupCoordinator.iCloudBackupStatusText()
+    }
+  }
+
+  private func exportICloudBackup() {
+    Task {
+      await backupCoordinator.exportICloudBackup()
+      refreshICloudBackupStatus()
+    }
+  }
+
+  private func importLatestICloudBackup(mode: BackupImportMode) {
+    Task {
+      await backupCoordinator.importLatestICloudBackup(mode: mode)
+      refreshICloudBackupStatus()
+    }
+  }
+
+  private func revealICloudBackupsDirectory() {
+    Task {
+      await backupCoordinator.revealICloudBackupsDirectory()
+      refreshICloudBackupStatus()
+    }
   }
 
   private func handleSettingsSaveFailure(_ notification: Notification) {

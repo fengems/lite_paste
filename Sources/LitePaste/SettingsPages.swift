@@ -436,6 +436,12 @@ struct BackupSettingsPage: View {
   let exportBackup: () -> Void
   let mergeImport: () -> Void
   let replaceImport: () -> Void
+  let iCloudStatusText: String
+  let refreshICloudStatus: () -> Void
+  let exportICloudBackup: () -> Void
+  let mergeImportICloudBackup: () -> Void
+  let replaceImportICloudBackup: () -> Void
+  let revealICloudBackupsDirectory: () -> Void
 
   var body: some View {
     SettingsPageStack {
@@ -451,6 +457,38 @@ struct BackupSettingsPage: View {
 
           Button(action: replaceImport) {
             Label("覆盖导入", systemImage: "arrow.down.doc")
+          }
+        }
+      }
+
+      SettingsSectionCard(title: "iCloud 备份") {
+        SettingsInfoRow(title: "状态", value: iCloudStatusText)
+
+        SettingsDivider()
+
+        SettingsActionRow {
+          Button(action: exportICloudBackup) {
+            Label("备份到 iCloud", systemImage: "icloud.and.arrow.up")
+          }
+
+          Button(action: refreshICloudStatus) {
+            Label("刷新", systemImage: "arrow.clockwise")
+          }
+
+          Button(action: revealICloudBackupsDirectory) {
+            Label("显示目录", systemImage: "folder")
+          }
+        }
+
+        SettingsDivider()
+
+        SettingsActionRow {
+          Button(action: mergeImportICloudBackup) {
+            Label("从 iCloud 合并", systemImage: "icloud.and.arrow.down")
+          }
+
+          Button(action: replaceImportICloudBackup) {
+            Label("从 iCloud 覆盖", systemImage: "arrow.down.doc")
           }
         }
       }

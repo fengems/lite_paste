@@ -29,7 +29,7 @@ struct ClipboardRow: View {
     .background(rowBackground)
     .clipShape(RoundedRectangle(cornerRadius: ClipboardPanelMetrics.compactCornerRadius, style: .continuous))
     .overlay(selectionStroke)
-    .shadow(color: isSelected ? record.kind.accentColor.opacity(0.22) : Color.black.opacity(0.08), radius: isSelected ? 12 : 5, y: 3)
+    .shadow(color: isSelected ? record.kind.accentColor.opacity(0.28) : Color.black.opacity(0.08), radius: isSelected ? 12 : 5, y: 3)
     .contentShape(RoundedRectangle(cornerRadius: ClipboardPanelMetrics.compactCornerRadius))
     .onTapGesture {
       primaryAction(record)
@@ -40,7 +40,7 @@ struct ClipboardRow: View {
     RoundedRectangle(cornerRadius: 2)
       .fill(record.kind.accentColor)
       .frame(width: ClipboardPanelMetrics.accentStripWidth, height: 34)
-      .shadow(color: record.kind.accentColor.opacity(0.28), radius: 8, y: 2)
+      .shadow(color: record.kind.accentColor.opacity(0.36), radius: 9, y: 2)
   }
 
   private var titleBlock: some View {
@@ -152,7 +152,7 @@ struct ClipboardRow: View {
       .fill(.regularMaterial)
       .overlay {
         RoundedRectangle(cornerRadius: ClipboardPanelMetrics.compactCornerRadius)
-          .fill(record.kind.accentColor.opacity(isSelected ? 0.11 : 0.035))
+          .fill(record.kind.accentColor.opacity(isSelected ? 0.14 : 0.055))
       }
   }
 }

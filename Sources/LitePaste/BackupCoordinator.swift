@@ -5,6 +5,7 @@ import LitePasteCore
 @MainActor
 final class BackupCoordinator {
   private let service = ImportExportService()
+  private let iCloudService = ICloudBackupService()
 
   func exportBackup() {
     let panel = NSOpenPanel()
@@ -52,6 +53,51 @@ final class BackupCoordinator {
     }
   }
 
+  func iCloudBackupStatusText() async -> String {
+    do {
+      let summary = try await iCloudService.summary()
+      guard let latestBackupURL = summary.latestBackupURL else {
+        return "iCloud 可用，暂无备份"
+      }
+
+      return "已发现 \(summary.backupCount) 个备份，最新：\(latestBackupURL.lastPathComponent)"
+    } catch {
+      return errorMessage(for: error)
+    }
+  }
+
+  func exportICloudBackup() async {
+    do {
+      let backupURL = try await iCloudService.exportBackup()
+      showAlert(title: "iCloud 备份完成", message: "已保存到：\(backupURL.lastPathComponent)")
+    } catch {
+      showAlert(title: "iCloud 备份失败", message: errorMessage(for: error), style: .warning)
+    }
+  }
+
+  func importLatestICloudBackup(mode: BackupImportMode) async {
+    do {
+      let backupURL = try await latestICloudBackupURLForImport(mode: mode)
+      try await iCloudService.importLatestBackup(mode: mode)
+      NotificationCenter.default.post(name: .litePasteBackupImported, object: nil)
+      showAlert(title: "iCloud 导入完成", message: "\(successMessage(for: mode))\n\n来源：\(backupURL.lastPathComponent)")
+    } catch BackupCoordinatorError.cancelled {
+      return
+    } catch {
+      showAlert(title: "iCloud 导入失败", message: errorMessage(for: error), style: .warning)
+    }
+  }
+
+  func revealICloudBackupsDirectory() async {
+    do {
+      let directory = try await iCloudService.backupsDirectoryURL()
+      try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+      NSWorkspace.shared.activateFileViewerSelecting([directory])
+    } catch {
+      showAlert(title: "无法打开 iCloud 备份目录", message: errorMessage(for: error), style: .warning)
+    }
+  }
+
   private func confirmReplaceImport(from backupURL: URL) -> Bool {
     let alert = NSAlert()
     alert.messageText = "覆盖导入备份？"
@@ -60,6 +106,19 @@ final class BackupCoordinator {
     alert.addButton(withTitle: "覆盖导入")
     alert.addButton(withTitle: "取消")
     return alert.runModal() == .alertFirstButtonReturn
+  }
+
+  private func latestICloudBackupURLForImport(mode: BackupImportMode) async throws -> URL {
+    let summary = try await iCloudService.summary()
+    guard let backupURL = summary.latestBackupURL else {
+      throw ICloudBackupError.noBackups
+    }
+
+    guard mode != .replace || confirmReplaceImport(from: backupURL) else {
+      throw BackupCoordinatorError.cancelled
+    }
+
+    return backupURL
   }
 
   private func successMessage(for mode: BackupImportMode) -> String {
@@ -88,5 +147,13 @@ final class BackupCoordinator {
     alert.addButton(withTitle: "好")
     alert.alertStyle = style
     alert.runModal()
+  }
+}
+
+private enum BackupCoordinatorError: Error, LocalizedError {
+  case cancelled
+
+  var errorDescription: String? {
+    "操作已取消。"
   }
 }

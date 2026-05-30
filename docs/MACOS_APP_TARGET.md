@@ -40,6 +40,7 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 - Minimum Deployment：`macOS 15.0`
 - App Category：Productivity
 - App Sandbox：v1 暂不作为优先目标
+- iCloud：启用 iCloud Documents，容器建议为 `iCloud.com.fengems.LitePaste`
 - Dock 行为：菜单栏常驻工具，默认 `LSUIElement = true`
 - Swift Language Version：Swift 6
 
@@ -60,6 +61,8 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 ## 权限说明
 
 Lite Paste 的自动粘贴依赖 Accessibility 权限。该权限不通过 Info.plist 文案声明，而是在运行时调用系统 API 请求用户授权。
+
+Lite Paste 的 iCloud 备份优先使用 iCloud Documents entitlement，并只保留最新一份备份。正式 target 应启用 iCloud Documents，并使用 `Config/LitePaste/LitePaste.entitlements` 中的 iCloud container 配置。为了保证人工验收包能在本地签名身份下稳定启动，本地脚本默认不签入 iCloud entitlement；需要验证 Apple iCloud Documents container 时，设置 `INCLUDE_ICLOUD_ENTITLEMENTS=1`，并提供 `TEAM_IDENTIFIER_PREFIX` 或 `TEAM_ID` 让脚本替换 `$(TeamIdentifierPrefix)` 后再签名。若运行环境无法获取应用 iCloud container，但用户已开启 iCloud Drive，应用会回退到用户 iCloud Drive 下的 Lite Paste 备份目录。
 
 当前行为：
 
@@ -105,6 +108,15 @@ swift Scripts/generate_app_icon.swift /tmp/LitePaste-AppIcon.icns Assets/LitePas
 
 ```bash
 CONFIGURATION=debug Scripts/build_app_bundle.sh
+```
+
+需要验证 iCloud Documents container 时，应使用真实 Apple 签名身份并显式开启 iCloud entitlement：
+
+```bash
+TEAM_ID="TEAMID" \
+CODESIGN_IDENTITY="Apple Development: Your Name (TEAMID)" \
+INCLUDE_ICLOUD_ENTITLEMENTS=1 \
+Scripts/build_app_bundle.sh --open
 ```
 
 ## 验证命令

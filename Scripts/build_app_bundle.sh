@@ -15,8 +15,11 @@ MACOS_DIR="${CONTENTS_DIR}/MacOS"
 RESOURCES_DIR="${CONTENTS_DIR}/Resources"
 INFO_PLIST_SOURCE="${ROOT_DIR}/Config/LitePaste/Info.plist"
 INFO_PLIST_DESTINATION="${CONTENTS_DIR}/Info.plist"
+ENTITLEMENTS_SOURCE="${ROOT_DIR}/Config/LitePaste/LitePaste.entitlements"
 ICON_DESTINATION="${RESOURCES_DIR}/AppIcon.icns"
 OPEN_APP=false
+INCLUDE_ICLOUD_ENTITLEMENTS="${INCLUDE_ICLOUD_ENTITLEMENTS:-${ENABLE_ICLOUD_ENTITLEMENTS:-0}}"
+RESOLVED_ENTITLEMENTS_PATH=""
 
 usage() {
   cat <<'USAGE'
@@ -32,6 +35,9 @@ usage() {
 环境变量：
   CONFIGURATION      SwiftPM 构建配置，默认 release。
   CODESIGN_IDENTITY  代码签名身份，默认优先使用本地 LitePaste Local Code Signing，否则 ad-hoc。
+  INCLUDE_ICLOUD_ENTITLEMENTS  设置为 1/true/yes 时签入 iCloud Documents entitlement；默认关闭。
+  TEAM_ID            iCloud entitlement 的团队 ID；设置后会替换 $(TeamIdentifierPrefix)。
+  TEAM_IDENTIFIER_PREFIX  完整团队前缀，例如 ABCDE12345.，优先级高于 TEAM_ID。
 USAGE
 }
 
@@ -57,6 +63,47 @@ step() {
   printf '\n%s\n' "$1"
 }
 
+is_truthy() {
+  case "$1" in
+    1|true|TRUE|yes|YES|on|ON)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+resolved_entitlements() {
+  local destination="${OUTPUT_DIR}/LitePaste.resolved.entitlements"
+  local team_prefix="${TEAM_IDENTIFIER_PREFIX:-}"
+  if [[ -z "${team_prefix}" && -n "${TEAM_ID:-}" ]]; then
+    team_prefix="${TEAM_ID}."
+  fi
+  if [[ -z "${team_prefix}" ]]; then
+    printf '开启 iCloud entitlement 时必须设置 TEAM_ID 或 TEAM_IDENTIFIER_PREFIX。\n' >&2
+    exit 65
+  fi
+
+  mkdir -p "${OUTPUT_DIR}"
+  sed "s/\$(TeamIdentifierPrefix)/${team_prefix}/g" "${ENTITLEMENTS_SOURCE}" > "${destination}"
+  printf '%s\n' "${destination}"
+}
+
+prepare_icloud_entitlements() {
+  if ! is_truthy "${INCLUDE_ICLOUD_ENTITLEMENTS}"; then
+    return 0
+  fi
+
+  if [[ "${CODESIGN_IDENTITY}" == "-" || "${CODESIGN_IDENTITY}" == "${LOCAL_CODESIGN_IDENTITY}" ]]; then
+    printf '本地或 ad-hoc 签名不能可靠使用 iCloud Documents entitlement。\n' >&2
+    printf '请使用 Apple Development/Developer ID 签名身份，并设置 TEAM_ID 或 TEAM_IDENTIFIER_PREFIX。\n' >&2
+    exit 65
+  fi
+
+  RESOLVED_ENTITLEMENTS_PATH="$(resolved_entitlements)"
+}
+
 cd "${ROOT_DIR}"
 
 step "准备 Lite Paste 本地 App 包。"
@@ -69,6 +116,8 @@ if [[ -z "${CODESIGN_IDENTITY}" ]]; then
     CODESIGN_IDENTITY="-"
   fi
 fi
+
+prepare_icloud_entitlements
 
 step "构建 ${CONFIGURATION} 版本..."
 swift build -c "${CONFIGURATION}" --product "${PRODUCT_NAME}"
@@ -94,11 +143,20 @@ fi
 
 if command -v codesign >/dev/null 2>&1; then
   step "签名 App..."
-  codesign --force --sign "${CODESIGN_IDENTITY}" "${APP_DIR}" >/dev/null
+  codesign_args=(--force --sign "${CODESIGN_IDENTITY}")
+  if [[ -n "${RESOLVED_ENTITLEMENTS_PATH}" ]]; then
+    codesign_args=(--force --entitlements "${RESOLVED_ENTITLEMENTS_PATH}" --sign "${CODESIGN_IDENTITY}")
+  fi
+  codesign "${codesign_args[@]}" "${APP_DIR}" >/dev/null
 fi
 
 printf '\n%s 已生成：%s\n' "${APP_DISPLAY_NAME}" "${APP_DIR}"
 printf '签名身份：%s\n' "${CODESIGN_IDENTITY}"
+if [[ -n "${RESOLVED_ENTITLEMENTS_PATH}" ]]; then
+  printf 'iCloud entitlement：已启用\n'
+else
+  printf 'iCloud entitlement：未启用（本地验收包默认设置）\n'
+fi
 
 if "${OPEN_APP}"; then
   printf '正在打开 App...\n'

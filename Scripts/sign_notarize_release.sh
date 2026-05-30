@@ -36,6 +36,7 @@ Environment:
   VERSION defaults to Config/LitePaste/Info.plist CFBundleShortVersionString.
   BUILD defaults to Config/LitePaste/Info.plist CFBundleVersion.
   NOTARIZE=0  Skip notarytool submit/staple and only create a Developer ID signed package.
+  TEAM_ID or TEAM_IDENTIFIER_PREFIX is used to resolve iCloud document entitlements.
 EOF
 }
 
@@ -44,6 +45,17 @@ require_command() {
     echo "Missing required command: $1" >&2
     exit 1
   fi
+}
+
+resolved_entitlements() {
+  local destination="${OUTPUT_DIR}/LitePaste.release.entitlements"
+  local team_prefix="${TEAM_IDENTIFIER_PREFIX:-}"
+  if [[ -z "${team_prefix}" && -n "${TEAM_ID:-}" ]]; then
+    team_prefix="${TEAM_ID}."
+  fi
+
+  sed "s/\$(TeamIdentifierPrefix)/${team_prefix}/g" "${ENTITLEMENTS_PATH}" > "${destination}"
+  printf '%s\n' "${destination}"
 }
 
 if [[ -z "${IDENTITY}" ]]; then
@@ -66,7 +78,7 @@ codesign \
   --deep \
   --options runtime \
   --timestamp \
-  --entitlements "${ENTITLEMENTS_PATH}" \
+  --entitlements "$(resolved_entitlements)" \
   --sign "${IDENTITY}" \
   "${APP_PATH}"
 
