@@ -12,6 +12,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
   public var autoPasteMode: AutoPasteMode
   public var pastePlainByDefault: Bool
   public var restoreClipboardAfterPaste: Bool
+  public var preserveLargeRichTextFormats: Bool
   public var moveDuplicatesToTop: Bool
   public var clearSearchOnOpen: Bool
   public var focusSearchOnOpen: Bool
@@ -31,6 +32,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     autoPasteMode: AutoPasteMode = .copyOnly,
     pastePlainByDefault: Bool = false,
     restoreClipboardAfterPaste: Bool = false,
+    preserveLargeRichTextFormats: Bool = false,
     moveDuplicatesToTop: Bool = true,
     clearSearchOnOpen: Bool = true,
     focusSearchOnOpen: Bool = true,
@@ -49,6 +51,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     self.autoPasteMode = autoPasteMode
     self.pastePlainByDefault = pastePlainByDefault
     self.restoreClipboardAfterPaste = restoreClipboardAfterPaste
+    self.preserveLargeRichTextFormats = preserveLargeRichTextFormats
     self.moveDuplicatesToTop = moveDuplicatesToTop
     self.clearSearchOnOpen = clearSearchOnOpen
     self.focusSearchOnOpen = focusSearchOnOpen
@@ -69,6 +72,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     case autoPasteMode
     case pastePlainByDefault
     case restoreClipboardAfterPaste
+    case preserveLargeRichTextFormats
     case moveDuplicatesToTop
     case clearSearchOnOpen
     case focusSearchOnOpen
@@ -102,6 +106,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
     autoPasteMode = try container.decodeIfPresent(AutoPasteMode.self, forKey: .autoPasteMode) ?? defaults.autoPasteMode
     pastePlainByDefault = try container.decodeIfPresent(Bool.self, forKey: .pastePlainByDefault) ?? defaults.pastePlainByDefault
     restoreClipboardAfterPaste = try container.decodeIfPresent(Bool.self, forKey: .restoreClipboardAfterPaste) ?? defaults.restoreClipboardAfterPaste
+    preserveLargeRichTextFormats =
+      try container.decodeIfPresent(Bool.self, forKey: .preserveLargeRichTextFormats) ??
+      defaults.preserveLargeRichTextFormats
     moveDuplicatesToTop = try container.decodeIfPresent(Bool.self, forKey: .moveDuplicatesToTop) ?? defaults.moveDuplicatesToTop
     clearSearchOnOpen = try container.decodeIfPresent(Bool.self, forKey: .clearSearchOnOpen) ?? defaults.clearSearchOnOpen
     focusSearchOnOpen = try container.decodeIfPresent(Bool.self, forKey: .focusSearchOnOpen) ?? defaults.focusSearchOnOpen
@@ -125,6 +132,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     try container.encode(autoPasteMode, forKey: .autoPasteMode)
     try container.encode(pastePlainByDefault, forKey: .pastePlainByDefault)
     try container.encode(restoreClipboardAfterPaste, forKey: .restoreClipboardAfterPaste)
+    try container.encode(preserveLargeRichTextFormats, forKey: .preserveLargeRichTextFormats)
     try container.encode(moveDuplicatesToTop, forKey: .moveDuplicatesToTop)
     try container.encode(clearSearchOnOpen, forKey: .clearSearchOnOpen)
     try container.encode(focusSearchOnOpen, forKey: .focusSearchOnOpen)

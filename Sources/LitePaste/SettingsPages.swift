@@ -110,6 +110,7 @@ struct ClipboardSettingsPage: View {
 struct HistorySettingsPage: View {
   @Binding var maxHistoryCount: Int
   @Binding var retentionDays: Int
+  @Binding var preserveLargeRichTextFormats: Bool
   let recordableKinds: [ClipboardKind]
   let enabledTypeBinding: (ClipboardKind) -> Binding<Bool>
   @Binding var privacyMode: Bool
@@ -155,6 +156,14 @@ struct HistorySettingsPage: View {
           unit: "天"
         )
       }
+
+      SettingsDivider()
+
+      SettingsSwitchRow(
+        title: "大表格原始格式",
+        detail: "复制大型表格时保留更多原始格式，粘回表格软件时更可能保留公式；会增加内存和磁盘占用。",
+        isOn: $preserveLargeRichTextFormats
+      )
     }
   }
 

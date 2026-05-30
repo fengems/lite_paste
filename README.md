@@ -21,7 +21,7 @@ Lite Paste 是一个原生 macOS 剪贴板管理器，目标是提供接近 Past
 - 图片、文件、颜色、富文本和 HTML 预览，图片预览会显示尺寸，文件预览优先使用 Quick Look 缩略图并标记已移动或删除的路径，富文本/HTML 会尽量保留样式，富媒体使用外部 blob 存储。
 - 复制回剪贴板和自动粘贴到上一个应用，支持按条目临时纯文本复制/粘贴，恢复计划覆盖文本、文件、图片和富文本原格式；历史引用的媒体数据缺失时会明确提示。
 - Lite Paste 自写入剪贴板会被监控器忽略，避免循环记录。
-- 默认视图、面板位置、贴边菜单栏覆盖、搜索自动聚焦、默认纯文本、粘贴后恢复剪贴板、重复内容处理、记录类型、最大历史数量、保留天数等运行设置。
+- 默认视图、面板位置、贴边菜单栏覆盖、搜索自动聚焦、默认纯文本、粘贴后恢复剪贴板、重复内容处理、大表格原始格式保留、记录类型、最大历史数量、保留天数等运行设置。
 - 面板快捷键、最大历史数量和保留天数会做边界规范化，避免导入异常设置破坏运行状态；设置写入失败时会明确提示。
 - 私密模式、默认忽略密码管理器、忽略应用、忽略剪贴板类型等隐私设置，支持菜单栏快速切换私密模式、忽略或取消忽略当前应用和一键忽略最近使用的应用。
 - 启动时会检查 Accessibility 权限，未授权时提供权限引导；自动粘贴时仍会降级为复制并提示，设置页提供权限状态、请求授权和打开系统设置入口。
@@ -49,8 +49,7 @@ swift run LitePaste
 也可以打包成本地可打开的 `.app`：
 
 ```bash
-Scripts/build_app_bundle.sh
-open Build/LitePaste.app
+Scripts/build_app_bundle.sh --open
 ```
 
 默认使用 ad-hoc 签名，每次重新打包后 macOS 可能要求重新授权辅助功能权限。若本机有稳定的代码签名证书，可指定签名身份以复用授权：
@@ -59,11 +58,10 @@ open Build/LitePaste.app
 CODESIGN_IDENTITY="Apple Development: Your Name (TEAMID)" Scripts/build_app_bundle.sh
 ```
 
-人工验收前建议使用预检脚本。该脚本会验证 metadata、确认 Xcode 能构建 SwiftPM scheme、运行核心检查、生成本地 `.app`，并验证 Info.plist 和签名：
+人工验收前建议使用预检脚本。该脚本会验证 metadata、确认 Xcode 能构建 SwiftPM scheme、运行核心检查、生成本地 `.app`，验证 Info.plist 和签名，并在成功后直接打开 App；详细日志会写入 `Build/prepare_manual_check.log`：
 
 ```bash
 CODESIGN_IDENTITY="Apple Development: Your Name (TEAMID)" Scripts/prepare_manual_check.sh
-open Build/LitePaste.app
 ```
 
 如需把真实剪贴板采集/恢复烟测也纳入人工验收准备：

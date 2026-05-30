@@ -13,8 +13,7 @@ swift run LitePaste
 当前仓库也提供 Command Line Tools 环境可用的本地 `.app` 打包脚本：
 
 ```bash
-Scripts/build_app_bundle.sh
-open Build/LitePaste.app
+Scripts/build_app_bundle.sh --open
 ```
 
 本地试用 zip 包和 DMG 包可通过以下命令生成，文件名版本号默认读取 `Config/LitePaste/Info.plist`：
@@ -116,7 +115,7 @@ CONFIGURATION=debug Scripts/build_app_bundle.sh
 xcodebuild -scheme LitePaste -configuration Debug build
 ```
 
-人工验收本地 `.app` 前可运行：
+人工验收本地 `.app` 前可运行；脚本成功后会直接打开 App，详细日志写入 `Build/prepare_manual_check.log`：
 
 ```bash
 Scripts/prepare_manual_check.sh

@@ -38,7 +38,7 @@ VERSION=0.1.0 BUILD=1 Scripts/package_release.sh
 Scripts/verify_release.sh
 ```
 
-准备给人工验收的本地 `.app` 时，可先运行：
+准备给人工验收的本地 `.app` 时，可先运行；脚本成功后会直接打开 App，详细日志写入 `Build/prepare_manual_check.log`：
 
 ```bash
 Scripts/prepare_manual_check.sh
@@ -57,7 +57,7 @@ Scripts/verify_metadata.sh
 xcodebuild -scheme LitePaste -destination 'platform=macOS' -configuration Debug build
 swift run LitePasteCoreChecks
 swift build
-Scripts/build_app_bundle.sh
+Scripts/build_app_bundle.sh --open
 Scripts/smoke_runtime_capture.sh
 plutil -lint Build/LitePaste.app/Contents/Info.plist
 codesign --verify --deep --strict --verbose=2 Build/LitePaste.app
@@ -115,7 +115,7 @@ Scripts/sign_notarize_release.sh
 
 ## 3. 首次运行检查
 
-1. 打开应用：
+1. 如果预检脚本没有保持应用打开，或需要重新打开应用：
 
 ```bash
 open Build/LitePaste.app
@@ -146,7 +146,7 @@ LITEPASTE_APPLICATION_SUPPORT_DIR="$(mktemp -d)" \
 17. 点击条目的删除按钮或按 Delete 键删除选中条目，确认会先出现单条删除确认；取消后记录应保留，确认后记录应移除；如历史数据库无法写入，应提示持久化失败。
 18. 点击“清空未置顶”，确认弹窗中的数量应包含分页外历史，且不会包含置顶记录。
 19. 点击“清空全部”，确认弹窗中的数量应包含分页外历史，并明确包含置顶记录；空历史时不应弹出清空确认。
-20. 从 Finder 复制文件、从浏览器复制富文本/HTML 内容，确认不会被默认隐私规则误过滤；对 URL、裸域名、邮箱、文件或图片条目执行外部操作，确认可打开对应目标并给出短暂反馈；目标不存在或图片 blob 缺失时应提示失败。
+20. 从 Finder 复制文件、从浏览器复制富文本/HTML 内容，确认不会被默认隐私规则误过滤；开启“大表格原始格式”后复制大型表格，确认可保存为富文本/HTML 记录且数据占用会增加；对 URL、裸域名、邮箱、文件或图片条目执行外部操作，确认可打开对应目标并给出短暂反馈；目标不存在或图片 blob 缺失时应提示失败。
 21. 对富文本或 HTML 条目执行纯文本复制/粘贴按钮，并用 `⌘⇧C` / `⌘⇧↩` 验证会去除格式。
 22. 在未授权辅助功能时，确认自动粘贴会降级为复制并提示。
 23. 当历史记录引用的媒体数据缺失时，复制、粘贴或置顶快捷键粘贴应提示无法恢复内容，而不是静默失败。

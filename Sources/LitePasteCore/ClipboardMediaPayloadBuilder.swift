@@ -43,24 +43,77 @@ public struct ClipboardMediaPayloadBuilder: Sendable {
     preferredExtension: String,
     fallbackTitle: String,
     plainText: String?,
-    pasteboardTypes: Set<String>
+    pasteboardTypes: Set<String>,
+    representations: [ClipboardRichTextRepresentation] = []
   ) throws -> ClipboardPayload {
-    let snapshot = try blobStorage.snapshot(
+    let resolvedRepresentations = richTextRepresentations(
       data: data,
       pasteboardType: pasteboardType,
       preferredExtension: preferredExtension,
-      displayOrder: 0
+      representations: representations
     )
+    let snapshots = try resolvedRepresentations.map { representation in
+      try blobStorage.snapshot(
+        data: representation.data,
+        pasteboardType: representation.pasteboardType,
+        preferredExtension: representation.preferredExtension,
+        displayOrder: representation.displayOrder
+      )
+    }
     let title = plainText.map(textPayloadBuilder.makeTitle(from:)) ?? fallbackTitle
+    let contentHashBasis = representations.isEmpty
+      ? ContentHasher.hash(kind: kind, data: data)
+      : ContentHasher.hash(
+        kind: kind,
+        typedData: resolvedRepresentations.map { (pasteboardType: $0.pasteboardType, data: $0.data) }
+      )
 
     return ClipboardPayload(
       kind: kind,
       title: title,
       searchText: plainText ?? fallbackTitle,
       plainText: plainText,
-      contentHashBasis: ContentHasher.hash(kind: kind, data: data),
+      contentHashBasis: contentHashBasis,
       pasteboardTypes: pasteboardTypes,
-      contents: [snapshot]
+      contents: snapshots
     )
+  }
+
+  private func richTextRepresentations(
+    data: Data,
+    pasteboardType: String,
+    preferredExtension: String,
+    representations: [ClipboardRichTextRepresentation]
+  ) -> [ClipboardRichTextRepresentation] {
+    let sortedRepresentations = representations.sorted { first, second in
+      first.displayOrder < second.displayOrder
+    }
+    guard !sortedRepresentations.isEmpty else {
+      return [
+        ClipboardRichTextRepresentation(
+          data: data,
+          pasteboardType: pasteboardType,
+          preferredExtension: preferredExtension,
+          displayOrder: 0
+        )
+      ]
+    }
+
+    guard !sortedRepresentations.contains(where: { $0.pasteboardType == pasteboardType }) else {
+      return sortedRepresentations
+    }
+
+    return [
+      ClipboardRichTextRepresentation(
+        data: data,
+        pasteboardType: pasteboardType,
+        preferredExtension: preferredExtension,
+        displayOrder: 0
+      )
+    ] + sortedRepresentations.enumerated().map { offset, representation in
+      var shifted = representation
+      shifted.displayOrder = offset + 1
+      return shifted
+    }
   }
 }

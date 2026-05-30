@@ -117,6 +117,7 @@ struct SettingsView: View {
     HistorySettingsPage(
       maxHistoryCount: maxHistoryCount,
       retentionDays: retentionDays,
+      preserveLargeRichTextFormats: preserveLargeRichTextFormats,
       recordableKinds: recordableKinds,
       enabledTypeBinding: enabledTypeBinding,
       privacyMode: privacyMode,
@@ -203,6 +204,14 @@ struct SettingsView: View {
       store.settings.restoreClipboardAfterPaste
     } set: { value in
       store.update { $0.restoreClipboardAfterPaste = value }
+    }
+  }
+
+  private var preserveLargeRichTextFormats: Binding<Bool> {
+    Binding {
+      store.settings.preserveLargeRichTextFormats
+    } set: { value in
+      store.update { $0.preserveLargeRichTextFormats = value }
     }
   }
 

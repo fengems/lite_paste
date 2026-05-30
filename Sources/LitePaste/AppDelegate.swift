@@ -46,7 +46,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ignoredApps: settingsStore.settings.ignoredApps,
         ignoredPasteboardTypes: settingsStore.settings.ignoredPasteboardTypes
       ),
-      enabledTypes: settingsStore.settings.enabledTypes
+      enabledTypes: settingsStore.settings.enabledTypes,
+      preserveLargeRichTextFormats: settingsStore.settings.preserveLargeRichTextFormats
     )
 
     self.writer = writer
@@ -253,6 +254,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       )
     )
     monitor?.updateEnabledTypes(settings.enabledTypes)
+    monitor?.updatePreserveLargeRichTextFormats(settings.preserveLargeRichTextFormats)
     store.updateMaxHistoryCount(settings.maxHistoryCount)
     store.updateRetentionDays(settings.retentionDays)
     store.updateMoveDuplicatesToTop(settings.moveDuplicatesToTop)

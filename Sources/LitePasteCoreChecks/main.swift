@@ -335,6 +335,7 @@ func checkAppSettingsBackwardCompatibility() {
     expect(settings.clearSearchOnOpen, "Settings should default clearSearchOnOpen for old files")
     expect(settings.maxHistoryCount == 1_000, "Settings should default maxHistoryCount for old files")
     expect(!settings.restoreClipboardAfterPaste, "Settings should default restoreClipboardAfterPaste for old files")
+    expect(!settings.preserveLargeRichTextFormats, "Settings should default large rich text preservation to off")
     expect(settings.moveDuplicatesToTop, "Settings should default moveDuplicatesToTop for old files")
     expect(settings.focusSearchOnOpen, "Settings should default focusSearchOnOpen for old files")
     expect(settings.coverMenuBarWhenEdgeAttached, "Settings should default menu bar coverage to on for old files")
@@ -348,6 +349,7 @@ func checkAppSettingsBackwardCompatibility() {
       ignoredPasteboardTypes: ["org.example.SecretType"],
       ignoredApps: ["com.example.SecretApp"],
       restoreClipboardAfterPaste: true,
+      preserveLargeRichTextFormats: true,
       moveDuplicatesToTop: false,
       focusSearchOnOpen: false,
       coverMenuBarWhenEdgeAttached: true
@@ -394,6 +396,10 @@ func checkAppSettingsBackwardCompatibility() {
     expect(
       decoded.restoreClipboardAfterPaste,
       "Settings should preserve clipboard restore behavior"
+    )
+    expect(
+      decoded.preserveLargeRichTextFormats,
+      "Settings should preserve large rich text preservation behavior"
     )
     expect(
       !decoded.moveDuplicatesToTop,
@@ -604,6 +610,22 @@ func checkContentHasher() {
   let first = ContentHasher.hash(kind: .text, text: "hello")
   let second = ContentHasher.hash(kind: .text, text: "  hello\n")
   expect(first == second, "ContentHasher should normalize outer whitespace")
+
+  let richHash = ContentHasher.hash(
+    kind: .html,
+    typedData: [
+      (pasteboardType: "public.html", data: Data("<b>1</b>".utf8)),
+      (pasteboardType: "com.microsoft.Excel", data: Data("formula".utf8))
+    ]
+  )
+  let changedRichHash = ContentHasher.hash(
+    kind: .html,
+    typedData: [
+      (pasteboardType: "public.html", data: Data("<b>1</b>".utf8)),
+      (pasteboardType: "com.microsoft.Excel", data: Data("other formula".utf8))
+    ]
+  )
+  expect(richHash != changedRichHash, "ContentHasher should include typed pasteboard data")
 }
 
 func checkPrivacyFilter() {
@@ -827,6 +849,47 @@ func checkClipboardMediaPayloadBuilder() {
     )
     expect(htmlPayload.contents.first?.pasteboardType == "public.html", "Rich payload should preserve pasteboard type")
 
+    let excelPrivateData = Data("formula".utf8)
+    let highFidelityPayload = try builder.richTextPayload(
+      kind: .html,
+      data: htmlData,
+      pasteboardType: "public.html",
+      preferredExtension: "html",
+      fallbackTitle: "HTML",
+      plainText: "1",
+      pasteboardTypes: ["public.html", "public.utf8-plain-text", "com.microsoft.Excel"],
+      representations: [
+        ClipboardRichTextRepresentation(
+          data: excelPrivateData,
+          pasteboardType: "com.microsoft.Excel",
+          preferredExtension: "pbdata",
+          displayOrder: 0
+        ),
+        ClipboardRichTextRepresentation(
+          data: htmlData,
+          pasteboardType: "public.html",
+          preferredExtension: "html",
+          displayOrder: 1
+        )
+      ]
+    )
+
+    expect(highFidelityPayload.contents.count == 2, "Rich payload should preserve original representations")
+    expect(
+      highFidelityPayload.contents.map(\.pasteboardType) == ["com.microsoft.Excel", "public.html"],
+      "Rich payload should keep original representation order"
+    )
+    expect(
+      highFidelityPayload.contentHashBasis == ContentHasher.hash(
+        kind: .html,
+        typedData: [
+          (pasteboardType: "com.microsoft.Excel", data: excelPrivateData),
+          (pasteboardType: "public.html", data: htmlData)
+        ]
+      ),
+      "Rich payload should hash from every original representation"
+    )
+
     let rtfData = Data("{\\rtf1 text}".utf8)
     let rtfPayload = try builder.richTextPayload(
       kind: .richText,
@@ -928,6 +991,40 @@ func checkClipboardPayloadResolver() {
       plainText: "hello"
     )
     expect(richPayload?.kind == .html, "Payload resolver should prefer the first rich text candidate")
+
+    let highFidelityRichPayload = resolver.resolve(
+      pasteboardTypes: ["public.html", "com.microsoft.Excel"],
+      fileURLs: [],
+      imageCandidates: [],
+      richTextCandidates: [
+        ClipboardRichTextCandidate(
+          kind: .html,
+          data: Data("<b>1</b>".utf8),
+          pasteboardType: "public.html",
+          preferredExtension: "html",
+          fallbackTitle: "HTML",
+          representations: [
+            ClipboardRichTextRepresentation(
+              data: Data("formula".utf8),
+              pasteboardType: "com.microsoft.Excel",
+              preferredExtension: "pbdata",
+              displayOrder: 0
+            ),
+            ClipboardRichTextRepresentation(
+              data: Data("<b>1</b>".utf8),
+              pasteboardType: "public.html",
+              preferredExtension: "html",
+              displayOrder: 1
+            )
+          ]
+        )
+      ],
+      plainText: "1"
+    )
+    expect(
+      highFidelityRichPayload?.contents.map(\.pasteboardType) == ["com.microsoft.Excel", "public.html"],
+      "Payload resolver should pass through original rich text representations"
+    )
 
     let textPayload = resolver.resolve(
       pasteboardTypes: [ClipboardTextPayloadBuilder.plainTextPasteboardType],
@@ -1144,6 +1241,43 @@ func checkPasteboardRestorePlanner() {
     expect(items.map(\.pasteboardType) == ["public.html", PasteboardRestorePlanner.plainTextPasteboardType], "Restore planner should append plain text fallback for rich content")
   } else {
     fatalError("Restore planner should create an item plan for rich content")
+  }
+
+  let highFidelityRichRecord = ClipboardRecord(
+    kind: .html,
+    title: "Excel",
+    searchText: "1",
+    contentHash: "excel-html",
+    plainText: "1",
+    contents: [
+      ClipboardContentSnapshot(
+        pasteboardType: "com.microsoft.Excel",
+        storageMode: .inline,
+        inlineData: Data("formula".utf8),
+        byteSize: 7,
+        displayOrder: 0
+      ),
+      ClipboardContentSnapshot(
+        pasteboardType: "public.html",
+        storageMode: .inline,
+        inlineData: Data("<b>1</b>".utf8),
+        byteSize: 8,
+        displayOrder: 1
+      )
+    ]
+  )
+
+  if case let .items(items)? = planner.plan(for: highFidelityRichRecord) {
+    expect(
+      items.map(\.pasteboardType) == [
+        "com.microsoft.Excel",
+        "public.html",
+        PasteboardRestorePlanner.plainTextPasteboardType
+      ],
+      "Restore planner should keep private rich pasteboard types before plain fallback"
+    )
+  } else {
+    fatalError("Restore planner should create an item plan for high-fidelity rich content")
   }
 
   let missingRichRecord = ClipboardRecord(

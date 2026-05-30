@@ -4,7 +4,7 @@ import LitePasteCore
 
 @MainActor
 final class ClipboardMonitor {
-  // Large Excel ranges can expose multi-megabyte HTML/RTF payloads; keep them as plain text.
+  // Large Excel ranges can expose multi-megabyte HTML/RTF payloads; plain text remains the default.
   private static let richTextCaptureByteLimit = 512 * 1024
 
   private let pasteboard: NSPasteboard
@@ -12,6 +12,7 @@ final class ClipboardMonitor {
   private let writeTracker: ClipboardWriteTracker
   private let payloadResolver: ClipboardPayloadResolver
   private var captureGate: ClipboardCaptureGate
+  private var preserveLargeRichTextFormats: Bool
   private var timer: Timer?
   private var lastChangeCount: Int
 
@@ -22,7 +23,8 @@ final class ClipboardMonitor {
     writeTracker: ClipboardWriteTracker,
     payloadResolver: ClipboardPayloadResolver? = nil,
     privacyFilter: PrivacyFilter = PrivacyFilter(),
-    enabledTypes: Set<ClipboardKind> = Set(ClipboardKind.allCases)
+    enabledTypes: Set<ClipboardKind> = Set(ClipboardKind.allCases),
+    preserveLargeRichTextFormats: Bool = false
   ) {
     self.pasteboard = pasteboard
     self.store = store
@@ -34,6 +36,7 @@ final class ClipboardMonitor {
       enabledTypes: enabledTypes,
       privacyFilter: privacyFilter
     )
+    self.preserveLargeRichTextFormats = preserveLargeRichTextFormats
     self.lastChangeCount = pasteboard.changeCount
   }
 
@@ -59,6 +62,10 @@ final class ClipboardMonitor {
     captureGate.enabledTypes = enabledTypes
   }
 
+  func updatePreserveLargeRichTextFormats(_ enabled: Bool) {
+    preserveLargeRichTextFormats = enabled
+  }
+
   private func captureIfNeeded() {
     let changeCount = pasteboard.changeCount
     guard changeCount != lastChangeCount else {
@@ -71,12 +78,17 @@ final class ClipboardMonitor {
       return
     }
 
-    guard let payload = readPayload() else {
+    let types = readPasteboardTypes()
+    let sourceApp = NSWorkspace.shared.frontmostApplication
+    let bundleId = sourceApp?.bundleIdentifier
+
+    guard captureGate.privacyFilter.shouldRecord(sourceAppBundleId: bundleId, pasteboardTypes: types) else {
       return
     }
 
-    let sourceApp = NSWorkspace.shared.frontmostApplication
-    let bundleId = sourceApp?.bundleIdentifier
+    guard let payload = readPayload(pasteboardTypes: types, sourceAppBundleId: bundleId) else {
+      return
+    }
 
     guard captureGate.shouldRecord(payload: payload, sourceAppBundleId: bundleId) else {
       return
@@ -89,11 +101,17 @@ final class ClipboardMonitor {
     )
   }
 
-  private func readPayload() -> ClipboardPayload? {
-    let types = Set(pasteboard.types?.map(\.rawValue) ?? [])
+  private func readPasteboardTypes() -> Set<String> {
+    Set(pasteboard.types?.map(\.rawValue) ?? [])
+  }
+
+  private func readPayload(pasteboardTypes types: Set<String>, sourceAppBundleId: String?) -> ClipboardPayload? {
     let fileURLs = readFileURLs()
     let imageCandidates = readImageCandidates()
-    let richTextCandidates = readRichTextCandidates()
+    let richTextCandidates = readRichTextCandidates(
+      pasteboardTypes: types,
+      sourceAppBundleId: sourceAppBundleId
+    )
     let plainText = pasteboard.string(forType: .string)
 
     return payloadResolver.resolve(
@@ -148,27 +166,135 @@ final class ClipboardMonitor {
     return candidates
   }
 
-  private func readRichTextCandidates() -> [ClipboardRichTextCandidate] {
+  private func readRichTextCandidates(
+    pasteboardTypes: Set<String>,
+    sourceAppBundleId: String?
+  ) -> [ClipboardRichTextCandidate] {
     let candidateTypes: [(NSPasteboard.PasteboardType, ClipboardKind, String, String)] = [
       (.html, .html, "html", "HTML"),
       (.rtf, .richText, "rtf", "富文本")
     ]
 
-    return candidateTypes.compactMap { type, kind, fileExtension, fallbackTitle in
+    for (type, kind, fileExtension, fallbackTitle) in candidateTypes {
       guard let data = pasteboard.data(forType: type) else {
-        return nil
+        continue
       }
-      guard data.count <= Self.richTextCaptureByteLimit else {
-        return nil
+      let shouldPreserveOriginalFormats = shouldPreserveOriginalFormats(
+        dataSize: data.count,
+        pasteboardTypes: pasteboardTypes,
+        sourceAppBundleId: sourceAppBundleId
+      )
+      guard data.count <= Self.richTextCaptureByteLimit || shouldPreserveOriginalFormats else {
+        continue
       }
 
-      return ClipboardRichTextCandidate(
-        kind: kind,
-        data: data,
-        pasteboardType: type.rawValue,
-        preferredExtension: fileExtension,
-        fallbackTitle: fallbackTitle
-      )
+      return [
+        ClipboardRichTextCandidate(
+          kind: kind,
+          data: data,
+          pasteboardType: type.rawValue,
+          preferredExtension: fileExtension,
+          fallbackTitle: fallbackTitle,
+          representations: shouldPreserveOriginalFormats
+            ? readOriginalFormatRepresentations(primaryType: type, primaryData: data)
+            : []
+        )
+      ]
+    }
+
+    return []
+  }
+
+  private func shouldPreserveOriginalFormats(
+    dataSize: Int,
+    pasteboardTypes: Set<String>,
+    sourceAppBundleId: String?
+  ) -> Bool {
+    guard preserveLargeRichTextFormats else {
+      return false
+    }
+
+    if dataSize > Self.richTextCaptureByteLimit {
+      return true
+    }
+
+    return isExcelPasteboard(pasteboardTypes: pasteboardTypes, sourceAppBundleId: sourceAppBundleId)
+  }
+
+  private func isExcelPasteboard(pasteboardTypes: Set<String>, sourceAppBundleId: String?) -> Bool {
+    if sourceAppBundleId?.range(of: "microsoft.excel", options: .caseInsensitive) != nil {
+      return true
+    }
+
+    return pasteboardTypes.contains { type in
+      let lowercasedType = type.lowercased()
+      return lowercasedType.contains("microsoft") && lowercasedType.contains("excel")
+    }
+  }
+
+  private func readOriginalFormatRepresentations(
+    primaryType: NSPasteboard.PasteboardType,
+    primaryData: Data
+  ) -> [ClipboardRichTextRepresentation] {
+    var seenTypes = Set<String>()
+    var representations: [ClipboardRichTextRepresentation] = []
+
+    for item in pasteboard.pasteboardItems ?? [] {
+      for type in item.types where !seenTypes.contains(type.rawValue) {
+        guard let data = item.data(forType: type) else {
+          continue
+        }
+
+        seenTypes.insert(type.rawValue)
+        representations.append(
+          ClipboardRichTextRepresentation(
+            data: data,
+            pasteboardType: type.rawValue,
+            preferredExtension: preferredExtension(for: type),
+            displayOrder: representations.count
+          )
+        )
+      }
+    }
+
+    if !seenTypes.contains(primaryType.rawValue) {
+      representations.insert(primaryRepresentation(type: primaryType, data: primaryData), at: 0)
+    }
+    return representations.enumerated().map { offset, representation in
+      var orderedRepresentation = representation
+      orderedRepresentation.displayOrder = offset
+      return orderedRepresentation
+    }
+  }
+
+  private func primaryRepresentation(
+    type: NSPasteboard.PasteboardType,
+    data: Data
+  ) -> ClipboardRichTextRepresentation {
+    ClipboardRichTextRepresentation(
+      data: data,
+      pasteboardType: type.rawValue,
+      preferredExtension: preferredExtension(for: type),
+      displayOrder: 0
+    )
+  }
+
+  private func preferredExtension(for type: NSPasteboard.PasteboardType) -> String {
+    switch type {
+    case .html:
+      "html"
+    case .rtf:
+      "rtf"
+    case .string:
+      "txt"
+    case .png:
+      "png"
+    case .tiff:
+      "tiff"
+    case .pdf:
+      "pdf"
+    default:
+      "pbdata"
     }
   }
 }
