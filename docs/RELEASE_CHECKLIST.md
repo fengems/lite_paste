@@ -50,7 +50,7 @@ Scripts/prepare_manual_check.sh
 Scripts/prepare_manual_check.sh --with-smoke
 ```
 
-`Scripts/verify_release.sh` 会依次执行核心检查、debug 编译、本地 `.app` 打包、运行时采集和恢复烟测、Info.plist 校验、codesign 校验、zip/DMG 打包、DMG 校验和 SHA-256 校验。需要拆开排查时，可单独运行：
+`Scripts/verify_release.sh` 会依次执行核心检查、debug 编译、本地 `.app` 打包、运行时采集和恢复烟测、Info.plist 校验、codesign 校验、zip/DMG 打包、DMG 文件校验、DMG 内容结构校验和 SHA-256 校验。需要拆开排查时，可单独运行：
 
 ```bash
 Scripts/verify_metadata.sh
@@ -62,6 +62,7 @@ Scripts/smoke_runtime_capture.sh
 plutil -lint Build/LitePaste.app/Contents/Info.plist
 codesign --verify --deep --strict --verbose=2 Build/LitePaste.app
 Scripts/package_release.sh
+Scripts/verify_dmg_contents.sh
 ```
 
 如需定位某一类核心逻辑，可先列出检查清单，再按分组或单项运行：
@@ -101,6 +102,7 @@ find Build/LitePaste.app/Contents -maxdepth 3 -type f | sort
 
 ```bash
 hdiutil verify Build/LitePaste-0.1.0-1.dmg
+Scripts/verify_dmg_contents.sh
 shasum -a 256 -c Build/LitePaste-0.1.0-1.zip.sha256
 shasum -a 256 -c Build/LitePaste-0.1.0-1.dmg.sha256
 ```

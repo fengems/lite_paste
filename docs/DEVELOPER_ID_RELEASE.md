@@ -178,6 +178,7 @@ Scripts/create_github_release.sh
 - 当前分支是 `main`，且 `main` 与 `origin/main` 一致。
 - tag 尚不存在。
 - zip、DMG 和 SHA-256 文件存在且校验通过。
+- DMG 内包含 `LitePaste.app`、指向 `/Applications` 的快捷方式、正确版本元数据和可验证签名。
 - DMG 通过 `xcrun stapler validate` 和 `spctl --assess`。
 
 ## 6. 当前限制

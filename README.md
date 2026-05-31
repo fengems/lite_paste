@@ -80,6 +80,13 @@ Prepare a manual QA build:
 Scripts/prepare_manual_check.sh
 ```
 
+Verify the packaged DMG layout:
+
+```bash
+Scripts/package_release.sh
+Scripts/verify_dmg_contents.sh
+```
+
 Local builds use the local `LitePaste Local Code Signing` identity when available, otherwise ad-hoc signing. Local builds are useful for development and QA, but they are not a substitute for a Developer ID signed and notarized public release.
 
 ## Release

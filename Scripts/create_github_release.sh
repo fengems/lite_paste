@@ -85,6 +85,7 @@ fi
 
 shasum -a 256 -c "${DMG_CHECKSUM_PATH}" >/dev/null
 shasum -a 256 -c "${ZIP_CHECKSUM_PATH}" >/dev/null
+DMG_PATH="${DMG_PATH}" VERSION="${VERSION}" BUILD="${BUILD}" Scripts/verify_dmg_contents.sh >/dev/null
 xcrun stapler validate "${DMG_PATH}" >/dev/null
 spctl --assess --type open --verbose=4 "${DMG_PATH}" >/dev/null
 

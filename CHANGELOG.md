@@ -4,6 +4,8 @@ All notable changes to Lite Paste are documented here.
 
 ## Unreleased
 
+- Added DMG content verification for the app bundle, Applications shortcut, version metadata, and code signature before publishing.
+
 ## 0.1.2 - 2026-05-31
 
 - Added public project governance files, issue templates, CI checks, and release readiness documentation.

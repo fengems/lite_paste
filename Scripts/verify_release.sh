@@ -31,6 +31,7 @@ run plutil -lint "${APP_PATH}/Contents/Info.plist"
 run codesign --verify --deep --strict --verbose=2 "${APP_PATH}"
 run Scripts/package_release.sh
 run hdiutil verify "${DMG_PATH}"
+run Scripts/verify_dmg_contents.sh
 run shasum -a 256 -c "${ZIP_CHECKSUM_PATH}"
 run shasum -a 256 -c "${DMG_CHECKSUM_PATH}"
 
