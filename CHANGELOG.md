@@ -4,6 +4,7 @@ All notable changes to Lite Paste are documented here.
 
 ## Unreleased
 
+- Added source-only GitHub release checks and creation script for the zero-budget release path without Apple Developer Program credentials.
 - Added locale-aware Chinese/English copy for onboarding, menu-bar actions, the clipboard panel, settings, backup flows, and key alerts.
 - Added DMG content verification for the app bundle, Applications shortcut, version metadata, and code signature before publishing.
 

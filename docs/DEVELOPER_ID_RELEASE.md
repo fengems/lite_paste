@@ -1,5 +1,7 @@
 # Lite Paste Developer ID 发布流程
 
+> 当前项目因没有 Apple Developer Program 预算，默认走 source-only GitHub Release。本文档保留给未来需要发布 Developer ID 签名和 Apple 公证 DMG 时使用。
+
 本文档记录 Lite Paste 从本地试用包升级到 Developer ID 签名和公证发布包的命令行流程。Apple 官方要求直接分发的 macOS 软件使用 Developer ID 签名，并建议提交到 Apple notary service；公证上传应使用 Xcode 附带的 `notarytool`，可用 `stapler` 把票据附加到分发物。
 
 参考：

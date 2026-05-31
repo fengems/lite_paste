@@ -2,6 +2,20 @@
 
 本文档用于当前 Command Line Tools 环境下的本地试用版发布。Developer ID 签名、公证和 GitHub Actions 正式发布流程见 `docs/DEVELOPER_ID_RELEASE.md`，正式 Xcode target 发布流程后续再补。
 
+当前公开发布策略为 source-only GitHub Release，不上传未公证 DMG/ZIP 二进制包。DMG 仅用于本地验收和开发测试。
+
+源码发布前检查：
+
+```bash
+Scripts/check_source_release_ready.sh
+```
+
+创建源码发布：
+
+```bash
+Scripts/create_source_release.sh
+```
+
 ## 1. 构建
 
 生成本地 `.app`：

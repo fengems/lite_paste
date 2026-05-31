@@ -21,9 +21,15 @@ Lite Paste 是一款原生 macOS 剪贴板管理器，重点是轻量、隐私�
 
 ## Install
 
-When a notarized build is available, download the latest DMG from the [GitHub Releases](https://github.com/fengems/lite_paste/releases) page, open it, and drag `LitePaste.app` to Applications.
+Lite Paste currently publishes source-only GitHub releases because the project does not have an Apple Developer Program membership for Developer ID signing and Apple notarization.
 
-The repository is public before the first notarized release is published. Until a release appears on GitHub Releases, build Lite Paste locally with the development commands below.
+Download the latest source archive from the [GitHub Releases](https://github.com/fengems/lite_paste/releases) page or clone the repository, then build Lite Paste locally:
+
+```bash
+Scripts/build_app_bundle.sh --open
+```
+
+Local builds use local or ad-hoc signing. They are intended for developers and testers. They are not notarized public installers, so macOS Gatekeeper behavior can differ from a Developer ID release.
 
 On first launch, macOS may ask for Accessibility permission. Lite Paste uses this permission only when you trigger automatic paste, so it can return to the previous app and send the paste shortcut. Without the permission, Lite Paste still copies the selected item to the clipboard and you can paste manually.
 
@@ -92,7 +98,16 @@ Local builds use the local `LitePaste Local Code Signing` identity when availabl
 
 ## Release
 
-For a build that other users can install smoothly, use Developer ID signing and Apple notarization:
+The current zero-budget release path is source-only:
+
+```bash
+Scripts/check_source_release_ready.sh
+Scripts/create_source_release.sh
+```
+
+This creates a GitHub Release with GitHub's automatically generated source archives only. It does not upload DMG or ZIP binaries.
+
+For a future build that other users can install smoothly, use Developer ID signing and Apple notarization:
 
 ```bash
 DEVELOPER_ID_APPLICATION="Developer ID Application: Your Name (TEAMID)" \
