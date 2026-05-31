@@ -83,13 +83,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     menu.delegate = self
     menu.addItem(
       NSMenuItem(
-        title: "打开 Lite Paste",
+        title: AppText.value("打开 Lite Paste", "Open Lite Paste"),
         action: #selector(openPanelFromMenu),
         keyEquivalent: ""
       )
     )
     let pauseMonitoringItem = NSMenuItem(
-      title: "停止监听剪贴板",
+      title: AppText.value("停止监听剪贴板", "Pause Clipboard Monitoring"),
       action: #selector(toggleMonitoringPausedFromMenu),
       keyEquivalent: ""
     )
@@ -97,7 +97,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     self.pauseMonitoringMenuItem = pauseMonitoringItem
 
     let ignoreApplicationItem = NSMenuItem(
-      title: "忽略当前应用",
+      title: AppText.value("忽略当前应用", "Ignore Current App"),
       action: #selector(ignoreCurrentApplicationFromMenu),
       keyEquivalent: ""
     )
@@ -105,7 +105,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     self.ignoreApplicationMenuItem = ignoreApplicationItem
 
     let settingsItem = NSMenuItem(
-      title: "设置...",
+      title: AppText.value("设置...", "Settings..."),
       action: #selector(openSettings),
       keyEquivalent: ""
     )
@@ -113,7 +113,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     menu.addItem(.separator())
     menu.addItem(
       NSMenuItem(
-        title: "退出 Lite Paste",
+        title: AppText.value("退出 Lite Paste", "Quit Lite Paste"),
         action: #selector(quit),
         keyEquivalent: "q"
       )
@@ -232,7 +232,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     do {
       try store.reload()
     } catch {
-      showAlert(title: "导入后刷新失败", message: error.localizedDescription)
+      showAlert(title: AppText.value("导入后刷新失败", "Refresh Failed After Import"), message: error.localizedDescription)
     }
   }
 
@@ -307,7 +307,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       backing: .buffered,
       defer: false
     )
-    window.title = "Lite Paste 设置"
+    window.title = AppText.value("Lite Paste 设置", "Lite Paste Settings")
     window.contentViewController = hostingController
     window.minSize = NSSize(width: 780, height: 560)
     window.backgroundColor = .windowBackgroundColor
@@ -354,7 +354,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       backing: .buffered,
       defer: false
     )
-    window.title = "Lite Paste 权限设置"
+    window.title = AppText.value("Lite Paste 权限设置", "Lite Paste Permission Setup")
     window.contentViewController = hostingController
     window.isReleasedWhenClosed = false
     window.center()
@@ -367,10 +367,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   private func updateStatusMenuState() {
     let isMonitoringPaused = settingsStore.settings.isMonitoringPaused
-    pauseMonitoringMenuItem?.title = isMonitoringPaused ? "恢复监听剪贴板" : "停止监听剪贴板"
+    pauseMonitoringMenuItem?.title = isMonitoringPaused
+      ? AppText.value("恢复监听剪贴板", "Resume Clipboard Monitoring")
+      : AppText.value("停止监听剪贴板", "Pause Clipboard Monitoring")
     pauseMonitoringMenuItem?.state = .off
     updateIgnoreApplicationMenuItem()
-    statusItem?.button?.toolTip = isMonitoringPaused ? "Lite Paste - 已停止监听剪贴板" : "Lite Paste"
+    statusItem?.button?.toolTip = isMonitoringPaused
+      ? AppText.value("Lite Paste - 已停止监听剪贴板", "Lite Paste - Clipboard Monitoring Paused")
+      : "Lite Paste"
   }
 
   private func updateIgnoreApplicationMenuItem() {
@@ -379,14 +383,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     guard let application = activeApplicationTracker.lastExternalApplication else {
-      item.title = "忽略当前应用"
+      item.title = AppText.value("忽略当前应用", "Ignore Current App")
       item.isEnabled = false
       item.state = .off
       return
     }
 
     let isIgnored = settingsStore.settings.ignoredApps.contains(application.bundleIdentifier)
-    item.title = isIgnored ? "取消忽略当前应用：\(application.name)" : "忽略当前应用：\(application.name)"
+    item.title = isIgnored
+      ? AppText.value("取消忽略当前应用：\(application.name)", "Stop Ignoring Current App: \(application.name)")
+      : AppText.value("忽略当前应用：\(application.name)", "Ignore Current App: \(application.name)")
     item.isEnabled = true
     item.state = .off
   }
@@ -399,21 +405,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   private func showAccessibilityPermissionAlert() {
     UserAlerts.showAccessibilityPermissionRequired(
-      message: "Lite Paste 已复制该内容。授予辅助功能权限后，可以自动回到目标应用并粘贴。"
+      message: AppText.value(
+        "Lite Paste 已复制该内容。授予辅助功能权限后，可以自动回到目标应用并粘贴。",
+        "Lite Paste copied the content. Grant Accessibility permission to return to the target app and paste automatically."
+      )
     )
   }
 
   private func showMissingContentAlert() {
     showAlert(
-      title: "无法恢复该内容",
-      message: "该历史记录引用的文件或媒体数据已经不存在。你可以删除这条记录，或从备份恢复缺失的 Blobs 数据。"
+      title: AppText.value("无法恢复该内容", "Unable To Restore This Content"),
+      message: AppText.value(
+        "该历史记录引用的文件或媒体数据已经不存在。你可以删除这条记录，或从备份恢复缺失的 Blobs 数据。",
+        "The file or media data referenced by this history item no longer exists. Delete the item or restore the missing Blobs data from a backup."
+      )
     )
   }
 
   private func showTargetApplicationUnavailableAlert() {
     showAlert(
-      title: "无法自动粘贴",
-      message: "Lite Paste 已复制该内容，但无法回到目标应用。你可以手动按 ⌘V 粘贴。"
+      title: AppText.value("无法自动粘贴", "Unable To Auto Paste"),
+      message: AppText.value(
+        "Lite Paste 已复制该内容，但无法回到目标应用。你可以手动按 ⌘V 粘贴。",
+        "Lite Paste copied the content, but could not return to the target app. Press ⌘V manually to paste."
+      )
     )
   }
 
@@ -424,25 +439,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   ) {
     let requestedHotkey = PanelHotkeyCatalog.displayName(for: hotkey)
     let restoredMessage = restoredPreviousHotkey.map {
-      "已恢复为之前可用的快捷键 \(PanelHotkeyCatalog.displayName(for: $0))。"
-    } ?? "当前没有可用的面板快捷键，请在设置中选择其他组合。"
+      AppText.value(
+        "已恢复为之前可用的快捷键 \(PanelHotkeyCatalog.displayName(for: $0))。",
+        "Restored the previous available shortcut \(PanelHotkeyCatalog.displayName(for: $0))."
+      )
+    } ?? AppText.value(
+      "当前没有可用的面板快捷键，请在设置中选择其他组合。",
+      "No panel shortcut is currently available. Choose another combination in Settings."
+    )
 
     showAlert(
-      title: "无法注册面板快捷键",
-      message: "\(requestedHotkey) 无法注册。\(panelHotkeyFailureReason(for: result)) \(restoredMessage)"
+      title: AppText.value("无法注册面板快捷键", "Unable To Register Panel Shortcut"),
+      message: AppText.value(
+        "\(requestedHotkey) 无法注册。\(panelHotkeyFailureReason(for: result)) \(restoredMessage)",
+        "\(requestedHotkey) could not be registered. \(panelHotkeyFailureReason(for: result)) \(restoredMessage)"
+      )
     )
   }
 
   private func panelHotkeyFailureReason(for result: GlobalHotkeyRegistrationResult) -> String {
     switch result {
     case .registered:
-      "快捷键已注册。"
+      AppText.value("快捷键已注册。", "Shortcut registered.")
     case .invalidHotkey:
-      "该快捷键格式无效。"
+      AppText.value("该快捷键格式无效。", "The shortcut format is invalid.")
     case let .registrationFailed(status):
-      "可能已被其他应用或系统快捷键占用。系统状态码：\(status)。"
+      AppText.value(
+        "可能已被其他应用或系统快捷键占用。系统状态码：\(status)。",
+        "It may already be used by another app or a system shortcut. System status: \(status)."
+      )
     case let .handlerFailed(status):
-      "快捷键事件监听无法启动。系统状态码：\(status)。"
+      AppText.value(
+        "快捷键事件监听无法启动。系统状态码：\(status)。",
+        "Shortcut event monitoring could not start. System status: \(status)."
+      )
     }
   }
 
@@ -450,7 +480,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let alert = NSAlert()
     alert.messageText = title
     alert.informativeText = message
-    alert.addButton(withTitle: "好")
+    alert.addButton(withTitle: AppText.value("好", "OK"))
     alert.alertStyle = .informational
     alert.runModal()
   }

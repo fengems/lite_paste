@@ -6,10 +6,10 @@ import LitePasteCore
 enum NoteEditor {
   static func edit(record: ClipboardRecord) -> String? {
     let alert = NSAlert()
-    alert.messageText = "编辑备注"
+    alert.messageText = AppText.value("编辑备注", "Edit Note")
     alert.informativeText = record.title
-    alert.addButton(withTitle: "保存")
-    alert.addButton(withTitle: "取消")
+    alert.addButton(withTitle: AppText.value("保存", "Save"))
+    alert.addButton(withTitle: AppText.value("取消", "Cancel"))
     alert.alertStyle = .informational
 
     let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 420, height: 120))
@@ -31,4 +31,3 @@ enum NoteEditor {
     return textView.string
   }
 }
-

@@ -44,8 +44,8 @@ struct ClipboardFilterChip: View {
         .shadow(color: isSelected ? filter.accentColor.opacity(0.30) : .clear, radius: 9, y: 2)
     }
     .buttonStyle(.plain)
-    .accessibilityLabel(filter.displayName)
-    .panelTooltip(filter.displayName)
+    .accessibilityLabel(filter.localizedDisplayName)
+    .panelTooltip(filter.localizedDisplayName)
   }
 
   private var backgroundStyle: Color {

@@ -268,7 +268,7 @@ final class PanelCoordinator {
   private func handleActionResult(_ result: PasteActionResult, closesPanelOnSuccess: Bool = false) {
     switch result {
     case .copied:
-      presentationState.showActionMessage("已复制")
+      presentationState.showActionMessage(AppText.value("已复制", "Copied"))
     case .pasted:
       if closesPanelOnSuccess {
         hidePanel()
@@ -290,24 +290,33 @@ final class PanelCoordinator {
 
   private func showAccessibilityPermissionAlert() {
     UserAlerts.showAccessibilityPermissionRequired(
-      message: "Lite Paste 已复制该内容。授予辅助功能权限后，可以自动粘贴到上一个应用。"
+      message: AppText.value(
+        "Lite Paste 已复制该内容。授予辅助功能权限后，可以自动粘贴到上一个应用。",
+        "Lite Paste copied the content. Grant Accessibility permission to paste into the previous app automatically."
+      )
     )
   }
 
   private func showMissingContentAlert() {
     let alert = NSAlert()
-    alert.messageText = "无法恢复该内容"
-    alert.informativeText = "该历史记录引用的文件或媒体数据已经不存在。你可以删除这条记录，或从备份恢复缺失的 Blobs 数据。"
-    alert.addButton(withTitle: "好")
+    alert.messageText = AppText.value("无法恢复该内容", "Unable To Restore This Content")
+    alert.informativeText = AppText.value(
+      "该历史记录引用的文件或媒体数据已经不存在。你可以删除这条记录，或从备份恢复缺失的 Blobs 数据。",
+      "The file or media data referenced by this history item no longer exists. Delete the item or restore the missing Blobs data from a backup."
+    )
+    alert.addButton(withTitle: AppText.value("好", "OK"))
     alert.alertStyle = .warning
     alert.runModal()
   }
 
   private func showTargetApplicationUnavailableAlert() {
     let alert = NSAlert()
-    alert.messageText = "无法自动粘贴"
-    alert.informativeText = "Lite Paste 已复制该内容，但无法回到原来的目标应用。你可以手动按 ⌘V 粘贴。"
-    alert.addButton(withTitle: "好")
+    alert.messageText = AppText.value("无法自动粘贴", "Unable To Auto Paste")
+    alert.informativeText = AppText.value(
+      "Lite Paste 已复制该内容，但无法回到原来的目标应用。你可以手动按 ⌘V 粘贴。",
+      "Lite Paste copied the content, but could not return to the original target app. Press ⌘V manually to paste."
+    )
+    alert.addButton(withTitle: AppText.value("好", "OK"))
     alert.alertStyle = .informational
     alert.runModal()
   }

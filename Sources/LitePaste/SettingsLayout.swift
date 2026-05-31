@@ -16,17 +16,17 @@ enum SettingsPage: String, CaseIterable, Identifiable {
   var title: String {
     switch self {
     case .clipboard:
-      "剪贴板"
+      AppText.value("剪贴板", "Clipboard")
     case .history:
-      "历史记录"
+      AppText.value("历史记录", "History")
     case .general:
-      "通用设置"
+      AppText.value("通用设置", "General")
     case .hotkeys:
-      "快捷键"
+      AppText.value("快捷键", "Shortcuts")
     case .backup:
-      "数据备份"
+      AppText.value("数据备份", "Backups")
     case .about:
-      "关于"
+      AppText.value("关于", "About")
     }
   }
 

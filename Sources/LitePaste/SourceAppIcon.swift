@@ -28,7 +28,7 @@ struct SourceAppIcon: View {
         .stroke(Color.white.opacity(0.12), lineWidth: 1)
     )
     .shadow(color: record.kind.accentColor.opacity(0.12), radius: 8, y: 3)
-    .accessibilityLabel(record.sourceAppName ?? "来源应用")
+    .accessibilityLabel(record.sourceAppName ?? AppText.value("来源应用", "Source App"))
   }
 
   private var appIcon: NSImage? {

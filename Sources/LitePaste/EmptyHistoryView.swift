@@ -2,7 +2,7 @@ import SwiftUI
 
 struct EmptyHistoryView: View {
   var systemName = "doc.on.clipboard"
-  var title = "暂无剪贴板历史"
+  var title = AppText.value("暂无剪贴板历史", "No Clipboard History")
   var message: String?
 
   var body: some View {

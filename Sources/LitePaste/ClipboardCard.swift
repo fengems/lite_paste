@@ -44,7 +44,7 @@ struct ClipboardCard: View {
       SourceAppIcon(record: record, size: 30, cornerRadius: 8, symbolSize: 14)
 
       VStack(alignment: .leading, spacing: 2) {
-        Text(record.kind.displayName)
+        Text(record.kind.localizedDisplayName)
           .font(.system(size: 13, weight: .semibold))
           .foregroundStyle(.primary)
           .lineLimit(1)
@@ -59,7 +59,7 @@ struct ClipboardCard: View {
 
       IconButton(
         systemName: record.isPinned ? "pin.fill" : "pin",
-        accessibilityLabel: "置顶",
+        accessibilityLabel: AppText.value("置顶", "Pin"),
         isActive: record.isPinned,
         tint: .blue,
         showsInactiveBackground: false,
@@ -68,7 +68,7 @@ struct ClipboardCard: View {
 
       IconButton(
         systemName: record.isFavorite ? "star.fill" : "star",
-        accessibilityLabel: "收藏",
+        accessibilityLabel: AppText.value("收藏", "Favorite"),
         isActive: record.isFavorite,
         tint: .yellow,
         showsInactiveBackground: false,
@@ -96,25 +96,25 @@ struct ClipboardCard: View {
       Button {
         pasteAction(record)
       } label: {
-        Label("粘贴", systemImage: "arrow.turn.down.left")
+        Label(AppText.value("粘贴", "Paste"), systemImage: "arrow.turn.down.left")
       }
 
       Button {
         copyAction(record)
       } label: {
-        Label("复制", systemImage: "doc.on.doc")
+        Label(AppText.value("复制", "Copy"), systemImage: "doc.on.doc")
       }
 
       Button {
         pastePlainTextAction(record)
       } label: {
-        Label("纯文本粘贴", systemImage: "textformat")
+        Label(AppText.value("纯文本粘贴", "Paste Plain Text"), systemImage: "textformat")
       }
 
       Button {
         copyPlainTextAction(record)
       } label: {
-        Label("复制纯文本", systemImage: "doc.plaintext")
+        Label(AppText.value("复制纯文本", "Copy Plain Text"), systemImage: "doc.plaintext")
       }
 
       if let externalAction {
@@ -128,11 +128,14 @@ struct ClipboardCard: View {
       Divider()
 
       Button(action: editNote) {
-        Label(record.note.isEmpty ? "添加备注" : "编辑备注", systemImage: "note.text")
+        Label(
+          record.note.isEmpty ? AppText.value("添加备注", "Add Note") : AppText.value("编辑备注", "Edit Note"),
+          systemImage: "note.text"
+        )
       }
 
       Button(role: .destructive, action: deleteAction) {
-        Label("删除", systemImage: "trash")
+        Label(AppText.value("删除", "Delete"), systemImage: "trash")
       }
     } label: {
       Image(systemName: "ellipsis")
@@ -143,8 +146,8 @@ struct ClipboardCard: View {
     .menuStyle(.borderlessButton)
     .menuIndicator(.hidden)
     .fixedSize()
-    .accessibilityLabel("更多操作")
-    .panelTooltip("更多操作")
+    .accessibilityLabel(AppText.value("更多操作", "More Actions"))
+    .panelTooltip(AppText.value("更多操作", "More Actions"))
   }
 
   private var cardMetadata: String {

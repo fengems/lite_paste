@@ -133,7 +133,7 @@ private struct MissingImagePreview: View {
           .foregroundStyle(.secondary)
 
         if style == .card {
-          Text("图片已缺失")
+          Text(AppText.value("图片已缺失", "Image Missing"))
             .font(.system(size: 12, weight: .medium))
             .foregroundStyle(.secondary)
         }

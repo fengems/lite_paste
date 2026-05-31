@@ -35,12 +35,18 @@ final class ClipboardItemActions {
   private func openURL(_ record: ClipboardRecord) -> ClipboardExternalActionResult {
     guard let value = record.plainText?.trimmingCharacters(in: .whitespacesAndNewlines),
           let url = normalizedURL(from: value) else {
-      return .failed(title: "无法打开链接", message: "这条历史记录没有可用的 URL。")
+      return .failed(
+        title: AppText.value("无法打开链接", "Unable To Open Link"),
+        message: AppText.value("这条历史记录没有可用的 URL。", "This history item does not contain a usable URL.")
+      )
     }
 
     return NSWorkspace.shared.open(url)
-      ? .completed(message: "已打开链接")
-      : .failed(title: "无法打开链接", message: "系统无法打开：\(value)")
+      ? .completed(message: AppText.value("已打开链接", "Opened Link"))
+      : .failed(
+        title: AppText.value("无法打开链接", "Unable To Open Link"),
+        message: AppText.value("系统无法打开：\(value)", "The system could not open: \(value)")
+      )
   }
 
   private func normalizedURL(from value: String) -> URL? {
@@ -58,12 +64,18 @@ final class ClipboardItemActions {
   private func composeEmail(_ record: ClipboardRecord) -> ClipboardExternalActionResult {
     guard let value = record.plainText?.trimmingCharacters(in: .whitespacesAndNewlines),
           let url = mailtoURL(for: value) else {
-      return .failed(title: "无法发送邮件", message: "这条历史记录没有可用的邮箱地址。")
+      return .failed(
+        title: AppText.value("无法发送邮件", "Unable To Send Email"),
+        message: AppText.value("这条历史记录没有可用的邮箱地址。", "This history item does not contain a usable email address.")
+      )
     }
 
     return NSWorkspace.shared.open(url)
-      ? .completed(message: "已打开邮件")
-      : .failed(title: "无法发送邮件", message: "系统无法打开默认邮件客户端。")
+      ? .completed(message: AppText.value("已打开邮件", "Opened Mail"))
+      : .failed(
+        title: AppText.value("无法发送邮件", "Unable To Send Email"),
+        message: AppText.value("系统无法打开默认邮件客户端。", "The system could not open the default mail client.")
+      )
   }
 
   private func mailtoURL(for value: String) -> URL? {
@@ -76,20 +88,29 @@ final class ClipboardItemActions {
   private func showInFinder(_ record: ClipboardRecord) -> ClipboardExternalActionResult {
     let urls = fileURLs(from: record).filter { FileManager.default.fileExists(atPath: $0.path) }
     guard !urls.isEmpty else {
-      return .failed(title: "无法在 Finder 中显示", message: "这些文件可能已经被移动或删除。")
+      return .failed(
+        title: AppText.value("无法在 Finder 中显示", "Unable To Show In Finder"),
+        message: AppText.value("这些文件可能已经被移动或删除。", "These files may have been moved or deleted.")
+      )
     }
 
     NSWorkspace.shared.activateFileViewerSelecting(urls)
-    return .completed(message: "已在 Finder 显示")
+    return .completed(message: AppText.value("已在 Finder 显示", "Shown In Finder"))
   }
 
   private func exportImage(_ record: ClipboardRecord) -> ClipboardExternalActionResult {
     guard let sourceURL = imageSourceURL(for: record) else {
-      return .failed(title: "无法导出图片", message: "这条历史记录没有可导出的图片文件。")
+      return .failed(
+        title: AppText.value("无法导出图片", "Unable To Export Image"),
+        message: AppText.value("这条历史记录没有可导出的图片文件。", "This history item does not contain an exportable image file.")
+      )
     }
 
     guard FileManager.default.fileExists(atPath: sourceURL.path) else {
-      return .failed(title: "无法导出图片", message: "图片原始数据已经不存在。")
+      return .failed(
+        title: AppText.value("无法导出图片", "Unable To Export Image"),
+        message: AppText.value("图片原始数据已经不存在。", "The original image data no longer exists.")
+      )
     }
 
     let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
@@ -101,9 +122,9 @@ final class ClipboardItemActions {
     do {
       try FileManager.default.copyItem(at: sourceURL, to: destination)
       NSWorkspace.shared.activateFileViewerSelecting([destination])
-      return .completed(message: "图片已导出")
+      return .completed(message: AppText.value("图片已导出", "Image Exported"))
     } catch {
-      return .failed(title: "导出图片失败", message: error.localizedDescription)
+      return .failed(title: AppText.value("导出图片失败", "Image Export Failed"), message: error.localizedDescription)
     }
   }
 
@@ -203,13 +224,13 @@ enum ClipboardExternalAction {
   var accessibilityLabel: String {
     switch self {
     case .openURL:
-      "打开链接"
+      AppText.value("打开链接", "Open Link")
     case .composeEmail:
-      "发送邮件"
+      AppText.value("发送邮件", "Send Email")
     case .showInFinder:
-      "在 Finder 中显示"
+      AppText.value("在 Finder 中显示", "Show In Finder")
     case .exportImage:
-      "导出图片"
+      AppText.value("导出图片", "Export Image")
     }
   }
 }

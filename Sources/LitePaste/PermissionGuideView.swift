@@ -30,10 +30,13 @@ struct PermissionGuideView: View {
         .foregroundStyle(Color.accentColor)
 
       VStack(alignment: .leading, spacing: 6) {
-        Text("欢迎使用 Lite Paste")
+        Text(AppText.value("欢迎使用 Lite Paste", "Welcome to Lite Paste"))
           .font(.system(size: 24, weight: .bold))
 
-        Text("完成一次设置后，就可以用菜单栏和快捷键管理剪贴板。")
+        Text(AppText.value(
+          "完成一次设置后，就可以用菜单栏和快捷键管理剪贴板。",
+          "Finish this quick setup to manage your clipboard from the menu bar and keyboard."
+        ))
           .font(.system(size: 13))
           .foregroundStyle(.secondary)
           .fixedSize(horizontal: false, vertical: true)
@@ -45,18 +48,27 @@ struct PermissionGuideView: View {
     VStack(spacing: 10) {
       guideRow(
         icon: "command",
-        title: "快速打开",
-        description: "默认使用 ⌘⇧V 呼出面板，面板内支持搜索、筛选和数字快捷选择。"
+        title: AppText.value("快速打开", "Open Quickly"),
+        description: AppText.value(
+          "默认使用 ⌘⇧V 呼出面板，面板内支持搜索、筛选和数字快捷选择。",
+          "Press ⌘⇧V to open the panel, then search, filter, or choose items with number shortcuts."
+        )
       )
       guideRow(
         icon: "lock.shield",
-        title: "本地优先",
-        description: "历史记录默认保存在本机，支持停止监听和按应用忽略。"
+        title: AppText.value("本地优先", "Local First"),
+        description: AppText.value(
+          "历史记录默认保存在本机，支持停止监听和按应用忽略。",
+          "History is stored on this Mac by default. You can pause monitoring or ignore specific apps."
+        )
       )
       guideRow(
         icon: "arrow.turn.down.left",
-        title: "自动粘贴",
-        description: "授予辅助功能权限后，选择记录即可回到上一个应用并粘贴。"
+        title: AppText.value("自动粘贴", "Auto Paste"),
+        description: AppText.value(
+          "授予辅助功能权限后，选择记录即可回到上一个应用并粘贴。",
+          "After Accessibility permission is granted, selecting an item can return to the previous app and paste."
+        )
       )
     }
   }
@@ -87,7 +99,7 @@ struct PermissionGuideView: View {
           .foregroundStyle(accessibilityTrusted ? Color.green : Color.orange)
 
         VStack(alignment: .leading, spacing: 5) {
-          Text("辅助功能权限")
+          Text(AppText.value("辅助功能权限", "Accessibility Permission"))
             .font(.system(size: 15, weight: .semibold))
 
           Text(accessibilityDescription)
@@ -98,7 +110,7 @@ struct PermissionGuideView: View {
 
         Spacer(minLength: 20)
 
-        Text(accessibilityTrusted ? "已授权" : "需要授权")
+        Text(accessibilityTrusted ? AppText.value("已授权", "Allowed") : AppText.value("需要授权", "Required"))
           .font(.system(size: 12, weight: .semibold))
           .foregroundStyle(accessibilityTrusted ? .green : .orange)
       }
@@ -113,7 +125,7 @@ struct PermissionGuideView: View {
 
   private var actions: some View {
     HStack(spacing: 10) {
-      Button("稍后") {
+      Button(AppText.value("稍后", "Later")) {
         dismissForSession()
       }
       .keyboardShortcut(.cancelAction)
@@ -123,14 +135,14 @@ struct PermissionGuideView: View {
       Button {
         openSystemSettings()
       } label: {
-        Label("打开系统设置", systemImage: "gearshape")
+        Label(AppText.value("打开系统设置", "Open System Settings"), systemImage: "gearshape")
       }
 
       Button {
         requestPermission()
         refreshStatusAfterDelay()
       } label: {
-        Label("请求权限", systemImage: "hand.raised")
+        Label(AppText.value("请求权限", "Request Permission"), systemImage: "hand.raised")
       }
       .buttonStyle(.borderedProminent)
       .disabled(accessibilityTrusted)
@@ -138,7 +150,7 @@ struct PermissionGuideView: View {
       Button {
         refreshStatus()
       } label: {
-        Label("刷新", systemImage: "arrow.clockwise")
+        Label(AppText.value("刷新", "Refresh"), systemImage: "arrow.clockwise")
       }
     }
     .controlSize(.regular)
@@ -146,10 +158,13 @@ struct PermissionGuideView: View {
 
   private var accessibilityDescription: String {
     if accessibilityTrusted {
-      return "权限已就绪，可以直接使用自动粘贴。"
+      return AppText.value("权限已就绪，可以直接使用自动粘贴。", "Permission is ready. Auto paste can be used now.")
     }
 
-    return "macOS 会要求你在系统设置中允许 Lite Paste 控制本机，用于发送粘贴快捷键。"
+    return AppText.value(
+      "macOS 会要求你在系统设置中允许 Lite Paste 控制本机，用于发送粘贴快捷键。",
+      "macOS will ask you to allow Lite Paste in System Settings so it can send the paste shortcut."
+    )
   }
 
   private func refreshStatus() {

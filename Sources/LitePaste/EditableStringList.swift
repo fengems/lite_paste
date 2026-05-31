@@ -37,11 +37,11 @@ struct EditableStringList: View {
         .buttonStyle(.bordered)
         .controlSize(SettingsControlMetrics.actionButtonControlSize)
         .disabled(normalizedDraft.isEmpty)
-        .accessibilityLabel("添加")
+        .accessibilityLabel(AppText.value("添加", "Add"))
       }
 
       if sortedValues.isEmpty {
-        Text("暂无")
+        Text(AppText.value("暂无", "None"))
           .font(.caption)
           .foregroundStyle(.secondary)
       } else {
@@ -60,7 +60,7 @@ struct EditableStringList: View {
                 Image(systemName: "minus.circle")
               }
               .buttonStyle(.plain)
-              .accessibilityLabel("删除")
+              .accessibilityLabel(AppText.value("删除", "Delete"))
             }
             .padding(.horizontal, 9)
             .frame(height: 26)

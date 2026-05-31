@@ -4,6 +4,7 @@ All notable changes to Lite Paste are documented here.
 
 ## Unreleased
 
+- Added locale-aware Chinese/English copy for onboarding, menu-bar actions, the clipboard panel, settings, backup flows, and key alerts.
 - Added DMG content verification for the app bundle, Applications shortcut, version metadata, and code signature before publishing.
 
 ## 0.1.2 - 2026-05-31

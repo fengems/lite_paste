@@ -264,8 +264,8 @@ struct ClipboardPanelView: View {
 
   private var viewModePicker: some View {
     HStack(spacing: 0) {
-      viewModeButton(mode: .card, systemName: "rectangle.grid.2x2", label: "卡片视图")
-      viewModeButton(mode: .list, systemName: "list.bullet", label: "列表视图")
+      viewModeButton(mode: .card, systemName: "rectangle.grid.2x2", label: AppText.value("卡片视图", "Card View"))
+      viewModeButton(mode: .list, systemName: "list.bullet", label: AppText.value("列表视图", "List View"))
     }
     .padding(4)
     .frame(width: 82, height: 32)
@@ -312,18 +312,18 @@ struct ClipboardPanelView: View {
   private var headerActions: some View {
     HStack(spacing: 6) {
       deleteHistoryMenu
-      IconButton(systemName: "xmark", accessibilityLabel: "关闭", action: closeAction)
+      IconButton(systemName: "xmark", accessibilityLabel: AppText.value("关闭", "Close"), action: closeAction)
     }
   }
 
   private var deleteHistoryMenu: some View {
     Menu {
       Button(action: confirmClearUnpinned) {
-        Label("清空未置顶", systemImage: "trash.slash")
+        Label(AppText.value("清空未置顶", "Clear Unpinned"), systemImage: "trash.slash")
       }
 
       Button(role: .destructive, action: confirmClearAll) {
-        Label("清空全部", systemImage: "trash")
+        Label(AppText.value("清空全部", "Clear All"), systemImage: "trash")
       }
     } label: {
       Image(systemName: "trash")
@@ -340,8 +340,8 @@ struct ClipboardPanelView: View {
     .menuStyle(.borderlessButton)
     .menuIndicator(.hidden)
     .fixedSize()
-    .accessibilityLabel("清空历史")
-    .panelTooltip("清空历史")
+    .accessibilityLabel(AppText.value("清空历史", "Clear History"))
+    .panelTooltip(AppText.value("清空历史", "Clear History"))
   }
 
   private var searchBox: some View {
@@ -350,7 +350,7 @@ struct ClipboardPanelView: View {
         .font(.system(size: 12, weight: .semibold))
         .foregroundStyle(.secondary)
 
-      TextField("搜索剪贴板", text: $query)
+      TextField(AppText.value("搜索剪贴板", "Search Clipboard"), text: $query)
         .textFieldStyle(.plain)
         .font(.system(size: 13))
         .focused($searchFieldFocused)
@@ -372,8 +372,8 @@ struct ClipboardPanelView: View {
             .foregroundStyle(.secondary)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("清空搜索")
-        .panelTooltip("清空搜索")
+        .accessibilityLabel(AppText.value("清空搜索", "Clear Search"))
+        .panelTooltip(AppText.value("清空搜索", "Clear Search"))
       }
     }
     .padding(.horizontal, 10)
@@ -517,7 +517,7 @@ struct ClipboardPanelView: View {
       VStack(spacing: 8) {
         Image(systemName: "chevron.down.circle")
           .font(.system(size: 22, weight: .semibold))
-        Text("加载更多")
+        Text(AppText.value("加载更多", "Load More"))
           .font(.system(size: 12, weight: .semibold))
       }
       .frame(maxWidth: .infinity, minHeight: 44)
@@ -566,26 +566,62 @@ struct ClipboardPanelView: View {
   private var emptyState: (systemName: String, title: String, message: String?) {
     if store.allRecordCount() == 0 {
       if settingsStore.settings.isMonitoringPaused {
-        return ("pause.circle", "已停止监听剪贴板", "关闭停止监听后，新的剪贴板内容会继续保存到历史。")
+        return (
+          "pause.circle",
+          AppText.value("已停止监听剪贴板", "Clipboard Monitoring Paused"),
+          AppText.value(
+            "关闭停止监听后，新的剪贴板内容会继续保存到历史。",
+            "Resume monitoring to save new clipboard content to history."
+          )
+        )
       }
       if settingsStore.settings.enabledTypes.isEmpty {
-        return ("line.3.horizontal.decrease.circle", "没有启用记录类型", "在设置中启用至少一种剪贴板类型后才会保存历史。")
+        return (
+          "line.3.horizontal.decrease.circle",
+          AppText.value("没有启用记录类型", "No Recorded Types Enabled"),
+          AppText.value(
+            "在设置中启用至少一种剪贴板类型后才会保存历史。",
+            "Enable at least one clipboard type in Settings before history can be saved."
+          )
+        )
       }
-      return ("doc.on.clipboard", "暂无剪贴板历史", "复制文本、图片、文件或链接后会显示在这里。")
+      return (
+        "doc.on.clipboard",
+        AppText.value("暂无剪贴板历史", "No Clipboard History"),
+        AppText.value(
+          "复制文本、图片、文件或链接后会显示在这里。",
+          "Copy text, images, files, or links and they will appear here."
+        )
+      )
     }
 
     if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-      return ("magnifyingglass", "没有匹配结果", "试试其他关键词，或切换筛选类型。")
+      return (
+        "magnifyingglass",
+        AppText.value("没有匹配结果", "No Matches"),
+        AppText.value("试试其他关键词，或切换筛选类型。", "Try another keyword or switch filters.")
+      )
     }
 
     if filter != .all {
       if filterDisabledBySettings {
-        return (filter.iconName, "\(filter.displayName)记录已关闭", "在设置中启用该类型后，新内容会继续进入历史。")
+        return (
+          filter.iconName,
+          AppText.value("\(filter.localizedDisplayName)记录已关闭", "\(filter.localizedDisplayName) Recording Disabled"),
+          AppText.value(
+            "在设置中启用该类型后，新内容会继续进入历史。",
+            "Enable this type in Settings to save new matching content."
+          )
+        )
       }
-      return (filter.iconName, "没有\(filter.displayName)记录", "切换到全部，或复制对应类型的内容。")
+      return (
+        filter.iconName,
+        AppText.value("没有\(filter.localizedDisplayName)记录", "No \(filter.localizedDisplayName) Items"),
+        AppText.value("切换到全部，或复制对应类型的内容。", "Switch to All or copy matching content.")
+      )
     }
 
-    return ("tray", "没有可显示的记录", nil)
+    return ("tray", AppText.value("没有可显示的记录", "No Items To Show"), nil)
   }
 
   private var filterDisabledBySettings: Bool {
@@ -628,7 +664,13 @@ struct ClipboardPanelView: View {
     guard count > 0 else {
       return
     }
-    if confirm(title: "清空未置顶历史？", message: "将删除 \(count) 条未置顶记录，置顶记录会保留。此操作无法撤销。") {
+    if confirm(
+      title: AppText.value("清空未置顶历史？", "Clear Unpinned History?"),
+      message: AppText.value(
+        "将删除 \(count) 条未置顶记录，置顶记录会保留。此操作无法撤销。",
+        "\(count) unpinned items will be deleted. Pinned items are kept. This cannot be undone."
+      )
+    ) {
       store.clearUnpinned()
     }
   }
@@ -638,13 +680,25 @@ struct ClipboardPanelView: View {
     guard count > 0 else {
       return
     }
-    if confirm(title: "清空全部历史？", message: "将删除全部 \(count) 条剪贴板历史，包含置顶记录。此操作无法撤销。") {
+    if confirm(
+      title: AppText.value("清空全部历史？", "Clear All History?"),
+      message: AppText.value(
+        "将删除全部 \(count) 条剪贴板历史，包含置顶记录。此操作无法撤销。",
+        "All \(count) clipboard history items, including pinned items, will be deleted. This cannot be undone."
+      )
+    ) {
       store.clearAll()
     }
   }
 
   private func confirmDelete(_ record: ClipboardRecord) {
-    if confirm(title: "删除这条历史？", message: "“\(record.title)”会从剪贴板历史中移除。此操作无法撤销。") {
+    if confirm(
+      title: AppText.value("删除这条历史？", "Delete This Item?"),
+      message: AppText.value(
+        "“\(record.title)”会从剪贴板历史中移除。此操作无法撤销。",
+        "\"\(record.title)\" will be removed from clipboard history. This cannot be undone."
+      )
+    ) {
       store.delete(record.id)
       normalizeSelection()
     }
@@ -654,8 +708,8 @@ struct ClipboardPanelView: View {
     let alert = NSAlert()
     alert.messageText = title
     alert.informativeText = message
-    alert.addButton(withTitle: "确认")
-    alert.addButton(withTitle: "取消")
+    alert.addButton(withTitle: AppText.value("确认", "Confirm"))
+    alert.addButton(withTitle: AppText.value("取消", "Cancel"))
     alert.alertStyle = .warning
     return alert.runModal() == .alertFirstButtonReturn
   }
@@ -905,7 +959,7 @@ struct ClipboardPanelView: View {
     let alert = NSAlert()
     alert.messageText = title
     alert.informativeText = message
-    alert.addButton(withTitle: "好")
+    alert.addButton(withTitle: AppText.value("好", "OK"))
     alert.alertStyle = style
     alert.runModal()
   }

@@ -17,6 +17,7 @@ Lite Paste 是一款原生 macOS 剪贴板管理器，重点是轻量、隐私�
 - Large rich-text/table handling with a user setting for preserving original formats when higher fidelity matters.
 - Local backup import/export and iCloud Drive backup. iCloud backup keeps the latest backup only.
 - Launch at login, data directory reveal, runtime status, and permission status in Settings.
+- Locale-aware Chinese/English UI copy for onboarding, menu-bar actions, the clipboard panel, Settings, backup flows, and key alerts.
 
 ## Install
 

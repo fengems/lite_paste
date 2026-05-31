@@ -9,12 +9,12 @@ struct SettingsView: View {
   @State private var launchAtLoginController = LaunchAtLoginController()
   @State private var accessibilityTrusted = AccessibilityPermissionController.isTrusted
   @State private var historyCount: Int?
-  @State private var storageSizeText = "正在读取"
+  @State private var storageSizeText = AppText.value("正在读取", "Reading")
   @State private var statusErrorMessage: String?
   @State private var historyPersistenceErrorMessage: String?
   @State private var settingsSaveErrorMessage: String?
   @State private var selectedPage: SettingsPage = .clipboard
-  @State private var iCloudBackupStatusText = "正在检查"
+  @State private var iCloudBackupStatusText = AppText.value("正在检查", "Checking")
 
   var body: some View {
     HStack(spacing: 0) {
@@ -131,7 +131,7 @@ struct SettingsView: View {
       ignoredApps: ignoredApps,
       ignoredPasteboardTypes: ignoredPasteboardTypes,
       resetIgnoredPasteboardTypes: resetIgnoredPasteboardTypes,
-      historyCountText: historyCount.map { "\($0) 条" } ?? "正在读取",
+      historyCountText: historyCount.map(AppText.itemCount) ?? AppText.value("正在读取", "Reading"),
       storageSizeText: storageSizeText,
       refreshStatus: refreshStatus,
       revealDataDirectory: revealDataDirectory
@@ -187,7 +187,7 @@ struct SettingsView: View {
         try launchAtLoginController.setEnabled(value)
         store.update { $0.launchAtLogin = value }
       } catch {
-        showAlert(title: "无法更新开机启动", message: error.localizedDescription)
+        showAlert(title: AppText.value("无法更新开机启动", "Unable To Update Launch At Login"), message: error.localizedDescription)
       }
     }
   }
@@ -275,19 +275,34 @@ struct SettingsView: View {
   private var panelPositionDescription: String {
     switch store.settings.panelPosition {
     case .edgeBottom:
-      "面板贴紧当前鼠标所在屏幕的底部和左右边缘。"
+      AppText.value(
+        "面板贴紧当前鼠标所在屏幕的底部和左右边缘。",
+        "The panel attaches to the bottom and side edges of the current pointer screen."
+      )
     case .edgeTop:
-      "面板贴紧当前鼠标所在屏幕的顶部和左右边缘。"
+      AppText.value(
+        "面板贴紧当前鼠标所在屏幕的顶部和左右边缘。",
+        "The panel attaches to the top and side edges of the current pointer screen."
+      )
     case .edgeLeft:
-      "面板贴紧当前鼠标所在屏幕的左侧、顶部和底部。"
+      AppText.value(
+        "面板贴紧当前鼠标所在屏幕的左侧、顶部和底部。",
+        "The panel attaches to the left, top, and bottom edges of the current pointer screen."
+      )
     case .edgeRight:
-      "面板贴紧当前鼠标所在屏幕的右侧、顶部和底部。"
+      AppText.value(
+        "面板贴紧当前鼠标所在屏幕的右侧、顶部和底部。",
+        "The panel attaches to the right, top, and bottom edges of the current pointer screen."
+      )
     case .cursor:
-      "面板优先出现在鼠标右下角，空间不足时自动移动到完整可见的位置。"
+      AppText.value(
+        "面板优先出现在鼠标右下角，空间不足时自动移动到完整可见的位置。",
+        "The panel opens near the pointer and moves automatically when space is limited."
+      )
     case .bottomDrawer, .statusItem:
-      "旧版位置会自动迁移为靠下。"
+      AppText.value("旧版位置会自动迁移为靠下。", "Legacy positions are migrated to the bottom edge.")
     case .mouseScreenCenter:
-      "旧版居中位置会自动迁移为跟随鼠标指针。"
+      AppText.value("旧版居中位置会自动迁移为跟随鼠标指针。", "Legacy centered position is migrated to near pointer.")
     }
   }
 
@@ -340,25 +355,27 @@ struct SettingsView: View {
   }
 
   private var accessibilityStatusTitle: String {
-    accessibilityTrusted ? "辅助功能权限已授权" : "自动粘贴需要辅助功能权限"
+    accessibilityTrusted
+      ? AppText.value("辅助功能权限已授权", "Accessibility permission granted")
+      : AppText.value("自动粘贴需要辅助功能权限", "Auto paste requires Accessibility permission")
   }
 
   private var recordingStatusTitle: String {
     if store.settings.isMonitoringPaused {
-      return "已停止监听剪贴板"
+      return AppText.value("已停止监听剪贴板", "Clipboard monitoring paused")
     }
 
     if let application = activeApplicationTracker.lastExternalApplication,
        store.settings.ignoredApps.contains(application.bundleIdentifier) {
-      return "\(application.name) 已被忽略"
+      return AppText.value("\(application.name) 已被忽略", "\(application.name) is ignored")
     }
 
-    return "正在记录"
+    return AppText.value("正在记录", "Recording")
   }
 
   private var currentApplicationTitle: String {
     guard let application = activeApplicationTracker.lastExternalApplication else {
-      return "暂无"
+      return AppText.value("暂无", "None")
     }
 
     return "\(application.name) (\(application.bundleIdentifier))"
@@ -392,10 +409,10 @@ struct SettingsView: View {
 
   private var addCurrentApplicationLabel: String {
     guard let application = activeApplicationTracker.lastExternalApplication else {
-      return "添加最近使用的应用"
+      return AppText.value("添加最近使用的应用", "Add Recent App")
     }
 
-    return "忽略 \(application.name)"
+    return AppText.value("忽略 \(application.name)", "Ignore \(application.name)")
   }
 
   private func addLastExternalApplicationToIgnoredApps() {
@@ -416,7 +433,7 @@ struct SettingsView: View {
   }
 
   private func refreshICloudBackupStatus() {
-    iCloudBackupStatusText = "正在检查"
+    iCloudBackupStatusText = AppText.value("正在检查", "Checking")
     Task {
       iCloudBackupStatusText = await backupCoordinator.iCloudBackupStatusText()
     }
@@ -444,19 +461,34 @@ struct SettingsView: View {
   }
 
   private func handleSettingsSaveFailure(_ notification: Notification) {
-    let message = notification.userInfo?[SettingsNotificationUserInfoKey.errorMessage] as? String ?? "未知错误"
-    settingsSaveErrorMessage = "无法保存设置：\(message)"
-    showAlert(title: "无法保存设置", message: "本次设置变更已在当前运行中生效，但没有写入磁盘。\(message)")
+    let message = notification.userInfo?[SettingsNotificationUserInfoKey.errorMessage] as? String ??
+      AppText.value("未知错误", "Unknown error")
+    settingsSaveErrorMessage = AppText.value("无法保存设置：\(message)", "Unable to save settings: \(message)")
+    showAlert(
+      title: AppText.value("无法保存设置", "Unable To Save Settings"),
+      message: AppText.value(
+        "本次设置变更已在当前运行中生效，但没有写入磁盘。\(message)",
+        "This change is active for the current run, but was not written to disk. \(message)"
+      )
+    )
   }
 
   private func handleHistoryPersistenceFailure(_ notification: Notification) {
-    let operation = notification.userInfo?[HistoryNotificationUserInfoKey.operation] as? String ?? "保存历史"
-    let message = notification.userInfo?[HistoryNotificationUserInfoKey.errorMessage] as? String ?? "未知错误"
-    historyPersistenceErrorMessage = "\(operation)失败：\(message)"
+    let operation = notification.userInfo?[HistoryNotificationUserInfoKey.operation] as? String ??
+      AppText.value("保存历史", "Save History")
+    let message = notification.userInfo?[HistoryNotificationUserInfoKey.errorMessage] as? String ??
+      AppText.value("未知错误", "Unknown error")
+    historyPersistenceErrorMessage = AppText.value("\(operation)失败：\(message)", "\(operation) failed: \(message)")
     guard operation != "更新使用记录" else {
       return
     }
-    showAlert(title: "\(operation)失败", message: "本次历史变更可能没有写入磁盘。\(message)")
+    showAlert(
+      title: AppText.value("\(operation)失败", "\(operation) Failed"),
+      message: AppText.value(
+        "本次历史变更可能没有写入磁盘。\(message)",
+        "This history change may not have been written to disk. \(message)"
+      )
+    )
   }
 
   private func refreshHistoryStatus() {
@@ -466,7 +498,10 @@ struct SettingsView: View {
       historyCount = try SQLiteClipboardHistoryRepository().count(ClipboardHistoryQuery())
     } catch {
       historyCount = nil
-      statusErrorMessage = "无法读取历史数量：\(error.localizedDescription)"
+      statusErrorMessage = AppText.value(
+        "无法读取历史数量：\(error.localizedDescription)",
+        "Unable to read history count: \(error.localizedDescription)"
+      )
     }
 
     do {
@@ -474,8 +509,11 @@ struct SettingsView: View {
         fromByteCount: Int64(try totalSizeOfDataDirectory())
       )
     } catch {
-      storageSizeText = "读取失败"
-      statusErrorMessage = "无法读取数据目录：\(error.localizedDescription)"
+      storageSizeText = AppText.value("读取失败", "Failed to read")
+      statusErrorMessage = AppText.value(
+        "无法读取数据目录：\(error.localizedDescription)",
+        "Unable to read data folder: \(error.localizedDescription)"
+      )
     }
   }
 
@@ -484,7 +522,7 @@ struct SettingsView: View {
       try AppPaths.ensureApplicationSupportDirectoryExists()
       NSWorkspace.shared.activateFileViewerSelecting([AppPaths.applicationSupportDirectory])
     } catch {
-      showAlert(title: "无法打开数据目录", message: error.localizedDescription)
+      showAlert(title: AppText.value("无法打开数据目录", "Unable To Open Data Folder"), message: error.localizedDescription)
     }
   }
 
@@ -521,7 +559,7 @@ struct SettingsView: View {
     let alert = NSAlert()
     alert.messageText = title
     alert.informativeText = message
-    alert.addButton(withTitle: "好")
+    alert.addButton(withTitle: AppText.value("好", "OK"))
     alert.alertStyle = .warning
     alert.runModal()
   }
