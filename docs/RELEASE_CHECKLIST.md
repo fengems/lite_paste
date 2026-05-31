@@ -115,6 +115,12 @@ Scripts/sign_notarize_release.sh
 
 仓库配置发布 secrets 后，也可以从 GitHub Actions 的 `Release` workflow 手动触发正式签名、公证、打包和 GitHub Release 发布。
 
+触发前检查 GitHub 侧条件：
+
+```bash
+Scripts/check_github_release_ready.sh
+```
+
 ## 3. 首次运行检查
 
 1. 如果预检脚本没有保持应用打开，或需要重新打开应用：

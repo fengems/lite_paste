@@ -14,7 +14,7 @@ Lite Paste 的核心剪贴板管理能力已经具备公开预览版基础，但
 - 停止监听、忽略应用、敏感 pasteboard type 过滤和本地优先数据策略。
 - 本地备份和 iCloud Drive 备份，iCloud 侧只保留最新一份。
 - 首次启动权限引导，说明快捷打开、本地隐私和自动粘贴权限用途。
-- MIT License、公开 README、Developer ID 发布说明、发布环境预检脚本和 GitHub Actions 正式发布流水线。
+- MIT License、公开 README、Developer ID 发布说明、发布环境预检脚本、GitHub Actions 正式发布流水线和 GitHub 发布就绪检查脚本。
 
 ## 继续改进方向
 

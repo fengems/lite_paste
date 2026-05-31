@@ -104,6 +104,12 @@ Scripts/check_distribution_ready.sh
 
 Public releases can also be created from GitHub Actions after the release secrets are configured. Open **Actions > Release > Run workflow**, enter the version/build that already exist in app metadata, and the workflow will sign, notarize, package, verify, and publish the GitHub Release.
 
+Check the remote GitHub release prerequisites before triggering the workflow:
+
+```bash
+Scripts/check_github_release_ready.sh
+```
+
 Detailed release notes and manual QA steps are in:
 
 - [Developer ID release guide](docs/DEVELOPER_ID_RELEASE.md)

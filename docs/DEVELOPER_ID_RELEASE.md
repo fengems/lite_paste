@@ -141,6 +141,17 @@ base64 -i DeveloperIDApplication.p12 | pbcopy
 - 发布说明文件存在，例如 `docs/releases/0.1.2.md`。
 - `Actions > Release > Run workflow` 必须从 `main` 运行。
 
+触发 workflow 前先运行：
+
+```bash
+VERSION=0.1.2 \
+BUILD=1 \
+TAG=0.1.2 \
+Scripts/check_github_release_ready.sh
+```
+
+该脚本会检查仓库是否公开、开源协议是否被 GitHub 识别、`Release` workflow 是否启用、目标 release/tag 是否已存在、发布说明是否存在，以及 GitHub Actions secrets 是否齐全。
+
 workflow 会执行：
 
 - 导入 Developer ID `.p12` 到临时 keychain。
