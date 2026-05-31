@@ -19,7 +19,7 @@
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.1.1</string>
+  <string>0.1.2</string>
   <key>CFBundleVersion</key>
   <string>1</string>
   <key>LSMinimumSystemVersion</key>
@@ -27,7 +27,7 @@
   <key>LSUIElement</key>
   <true/>
   <key>NSHumanReadableCopyright</key>
-  <string>Copyright © 2026 fenge. All rights reserved.</string>
+  <string>Copyright © 2026 fenge</string>
   <key>NSAppleEventsUsageDescription</key>
   <string>Lite Paste 需要在用户触发粘贴时把内容发送到上一个活跃应用。</string>
 </dict>
