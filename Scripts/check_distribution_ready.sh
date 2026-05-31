@@ -52,7 +52,13 @@ check_notary_credentials() {
   [[ "${NOTARIZE}" == "1" ]] || return 0
 
   if [[ -n "${NOTARY_PROFILE:-}" ]]; then
-    xcrun notarytool history --keychain-profile "${NOTARY_PROFILE}" >/dev/null 2>&1 ||
+    keychain_args=()
+    if [[ -n "${NOTARY_KEYCHAIN:-}" ]]; then
+      keychain_args=(--keychain "${NOTARY_KEYCHAIN}")
+    fi
+    xcrun notarytool history \
+      --keychain-profile "${NOTARY_PROFILE}" \
+      "${keychain_args[@]}" >/dev/null 2>&1 ||
       fail "notarytool 无法使用 keychain profile：${NOTARY_PROFILE}"
     return 0
   fi

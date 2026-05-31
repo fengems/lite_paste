@@ -1,6 +1,6 @@
 # Lite Paste 可使用版本发布检查清单
 
-本文档用于当前 Command Line Tools 环境下的本地试用版发布。Developer ID 签名和公证流程见 `docs/DEVELOPER_ID_RELEASE.md`，正式 Xcode target 发布流程后续再补。
+本文档用于当前 Command Line Tools 环境下的本地试用版发布。Developer ID 签名、公证和 GitHub Actions 正式发布流程见 `docs/DEVELOPER_ID_RELEASE.md`，正式 Xcode target 发布流程后续再补。
 
 ## 1. 构建
 
@@ -112,6 +112,8 @@ DEVELOPER_ID_APPLICATION="Developer ID Application: Your Name (TEAMID)" \
 NOTARY_PROFILE="litepaste-notary" \
 Scripts/sign_notarize_release.sh
 ```
+
+仓库配置发布 secrets 后，也可以从 GitHub Actions 的 `Release` workflow 手动触发正式签名、公证、打包和 GitHub Release 发布。
 
 ## 3. 首次运行检查
 

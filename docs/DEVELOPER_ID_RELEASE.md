@@ -115,6 +115,42 @@ xcrun notarytool log SUBMISSION_ID --keychain-profile litepaste-notary
 
 ## 5. 创建 GitHub Release
 
+### 5.1 使用 GitHub Actions 发布
+
+仓库提供手动触发的 `Release` workflow。适合在本机没有 Developer ID 证书，但仓库已经配置好发布 secrets 时使用。
+
+需要先在 GitHub 仓库 `Settings > Secrets and variables > Actions` 配置：
+
+- `DEVELOPER_ID_APPLICATION`：完整签名身份，例如 `Developer ID Application: Your Name (TEAMID)`。
+- `DEVELOPER_ID_CERTIFICATE_BASE64`：导出的 `.p12` 证书文件 base64 内容。
+- `DEVELOPER_ID_CERTIFICATE_PASSWORD`：导出 `.p12` 时设置的密码。
+- `APPLE_ID`：Apple Developer 账号邮箱。
+- `APP_SPECIFIC_PASSWORD`：Apple ID app-specific password。
+- `APPLE_TEAM_ID`：Apple Developer Team ID。
+
+生成证书 secret 的示例：
+
+```bash
+base64 -i DeveloperIDApplication.p12 | pbcopy
+```
+
+发布前要求：
+
+- 版本号和构建号已经提交到 `Config/LitePaste/Info.plist` 和 `Sources/LitePasteCore/AppMetadata.swift`。
+- `main` 已经推送到 GitHub。
+- 发布说明文件存在，例如 `docs/releases/0.1.2.md`。
+- `Actions > Release > Run workflow` 必须从 `main` 运行。
+
+workflow 会执行：
+
+- 导入 Developer ID `.p12` 到临时 keychain。
+- 保存并校验 Apple 公证凭据。
+- 运行 `Scripts/sign_notarize_release.sh` 生成 Developer ID 签名并公证的 zip、DMG 和校验文件。
+- 运行 `Scripts/create_github_release.sh` 校验 artifact，并创建 GitHub Release。
+- 清理临时 keychain。
+
+### 5.2 本地创建 Release
+
 确认 DMG 已签名、公证、staple，并且 checksum 已重新生成后，使用发布脚本创建 GitHub Release：
 
 ```bash

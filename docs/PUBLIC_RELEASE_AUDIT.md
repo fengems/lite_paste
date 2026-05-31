@@ -1,6 +1,6 @@
 # Lite Paste 公开发布审计
 
-记录时间：2026-05-30 23:44:55 CST
+记录时间：2026-05-31 08:08:57 CST
 
 ## 结论
 
@@ -14,12 +14,12 @@ Lite Paste 的核心剪贴板管理能力已经具备公开预览版基础，但
 - 停止监听、忽略应用、敏感 pasteboard type 过滤和本地优先数据策略。
 - 本地备份和 iCloud Drive 备份，iCloud 侧只保留最新一份。
 - 首次启动权限引导，说明快捷打开、本地隐私和自动粘贴权限用途。
-- MIT License、公开 README、Developer ID 发布说明和发布环境预检脚本。
+- MIT License、公开 README、Developer ID 发布说明、发布环境预检脚本和 GitHub Actions 正式发布流水线。
 
 ## 继续改进方向
 
 - UI 国际化：当前 App 内文案以中文为主，公开面向全球用户时应补充英文本地化。
-- 安装体验：拿到 Developer ID 和公证凭据后，生成签名并公证的 DMG，再在干净 macOS 用户环境做首次安装验证。
+- 安装体验：配置 Developer ID 与 Apple 公证 secrets 后，使用 GitHub Actions 生成签名并公证的 DMG，再在干净 macOS 用户环境做首次安装验证。
 - 自动化测试：当前以核心检查和运行时烟测为主，后续可增加 Xcode UI 测试覆盖首次启动、权限引导和面板交互。
 - 发布页资产：正式发布前建议补充面板截图和简短演示图，降低用户理解成本。
 
@@ -41,3 +41,5 @@ TEAM_ID="TEAMID" \
 NOTARY_PROFILE="litepaste-notary" \
 Scripts/sign_notarize_release.sh
 ```
+
+也可以在 GitHub 仓库配置发布 secrets 后，从 `Actions > Release > Run workflow` 触发正式签名、公证和 GitHub Release 发布。

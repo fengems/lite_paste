@@ -37,6 +37,7 @@ Environment:
   BUILD defaults to Config/LitePaste/Info.plist CFBundleVersion.
   NOTARIZE=0  Skip notarytool submit/staple and only create a Developer ID signed package.
   TEAM_ID or TEAM_IDENTIFIER_PREFIX is used to resolve iCloud document entitlements.
+  NOTARY_KEYCHAIN can point notarytool to a CI-created temporary keychain.
 EOF
 }
 
@@ -107,6 +108,9 @@ fi
 credential_args=()
 if [[ -n "${NOTARY_PROFILE:-}" ]]; then
   credential_args=(--keychain-profile "${NOTARY_PROFILE}")
+  if [[ -n "${NOTARY_KEYCHAIN:-}" ]]; then
+    credential_args+=(--keychain "${NOTARY_KEYCHAIN}")
+  fi
 elif [[ -n "${APPLE_ID:-}" && -n "${APP_SPECIFIC_PASSWORD:-}" && -n "${TEAM_ID:-}" ]]; then
   credential_args=(
     --apple-id "${APPLE_ID}"

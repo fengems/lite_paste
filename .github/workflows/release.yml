@@ -1,0 +1,133 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version. Must match app metadata, for example 0.1.2."
+        required: true
+      build:
+        description: "Build number. Must match app metadata."
+        required: true
+        default: "1"
+      tag:
+        description: "Release tag. Defaults to version."
+        required: false
+      notes_path:
+        description: "Release notes path. Defaults to docs/releases/<tag>.md."
+        required: false
+
+jobs:
+  release:
+    name: Developer ID release
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ inputs.version }}
+      BUILD: ${{ inputs.build }}
+      TAG_INPUT: ${{ inputs.tag }}
+      NOTES_PATH_INPUT: ${{ inputs.notes_path }}
+      DEVELOPER_ID_APPLICATION: ${{ secrets.DEVELOPER_ID_APPLICATION }}
+      DEVELOPER_ID_CERTIFICATE_BASE64: ${{ secrets.DEVELOPER_ID_CERTIFICATE_BASE64 }}
+      DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APP_SPECIFIC_PASSWORD: ${{ secrets.APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate release inputs
+        run: |
+          if [[ "${GITHUB_REF_NAME}" != "main" ]]; then
+            echo "Release workflow must run from main." >&2
+            exit 1
+          fi
+
+          missing=()
+          required=(
+            DEVELOPER_ID_APPLICATION
+            DEVELOPER_ID_CERTIFICATE_BASE64
+            DEVELOPER_ID_CERTIFICATE_PASSWORD
+            APPLE_ID
+            APP_SPECIFIC_PASSWORD
+            APPLE_TEAM_ID
+          )
+          for name in "${required[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("${name}")
+            fi
+          done
+
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing required release secrets: %s\n' "${missing[*]}" >&2
+            exit 1
+          fi
+
+      - name: Import signing certificate
+        run: |
+          certificate_path="${RUNNER_TEMP}/developer-id.p12"
+          keychain_path="${RUNNER_TEMP}/litepaste-signing.keychain-db"
+          keychain_password="$(uuidgen)"
+
+          printf '%s' "${DEVELOPER_ID_CERTIFICATE_BASE64}" | base64 --decode > "${certificate_path}"
+
+          security create-keychain -p "${keychain_password}" "${keychain_path}"
+          security set-keychain-settings -lut 21600 "${keychain_path}"
+          security unlock-keychain -p "${keychain_password}" "${keychain_path}"
+          security list-keychains -d user -s "${keychain_path}"
+          security default-keychain -d user -s "${keychain_path}"
+          security import "${certificate_path}" \
+            -k "${keychain_path}" \
+            -P "${DEVELOPER_ID_CERTIFICATE_PASSWORD}" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s \
+            -k "${keychain_password}" \
+            "${keychain_path}"
+          security find-identity -v -p codesigning "${keychain_path}"
+
+          {
+            echo "LITEPASTE_KEYCHAIN=${keychain_path}"
+            echo "NOTARY_PROFILE=litepaste-notary"
+          } >> "${GITHUB_ENV}"
+
+      - name: Store notarization credentials
+        run: |
+          xcrun notarytool store-credentials "${NOTARY_PROFILE}" \
+            --apple-id "${APPLE_ID}" \
+            --team-id "${APPLE_TEAM_ID}" \
+            --password "${APP_SPECIFIC_PASSWORD}" \
+            --keychain "${LITEPASTE_KEYCHAIN}" \
+            --validate
+
+      - name: Sign and notarize package
+        run: |
+          TEAM_ID="${APPLE_TEAM_ID}" \
+          TEAM_IDENTIFIER_PREFIX="${APPLE_TEAM_ID}." \
+          NOTARY_KEYCHAIN="${LITEPASTE_KEYCHAIN}" \
+          Scripts/sign_notarize_release.sh
+
+      - name: Create GitHub Release
+        run: |
+          tag="${TAG_INPUT:-${VERSION}}"
+          notes_path="${NOTES_PATH_INPUT:-docs/releases/${tag}.md}"
+
+          ALLOW_DETACHED_HEAD=1 \
+          TAG="${tag}" \
+          NOTES_PATH="${notes_path}" \
+          Scripts/create_github_release.sh
+
+      - name: Cleanup signing keychain
+        if: always()
+        run: |
+          if [[ -n "${LITEPASTE_KEYCHAIN:-}" && -f "${LITEPASTE_KEYCHAIN}" ]]; then
+            security delete-keychain "${LITEPASTE_KEYCHAIN}"
+          fi
