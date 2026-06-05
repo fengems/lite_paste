@@ -69,7 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private func configureStatusItem() {
     let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     statusItem.button?.image = StatusItemIcon.makeImage()
-    statusItem.button?.toolTip = "Lite Paste"
+    statusItem.button?.toolTip = AppMetadata.displayName
     statusItem.button?.target = self
     statusItem.button?.action = #selector(handleStatusItemClick(_:))
     statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -83,7 +83,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     menu.delegate = self
     menu.addItem(
       NSMenuItem(
-        title: AppText.value("打开 Lite Paste", "Open Lite Paste"),
+        title: AppText.value("打开 \(AppMetadata.displayName)", "Open \(AppMetadata.displayName)"),
         action: #selector(openPanelFromMenu),
         keyEquivalent: ""
       )
@@ -113,7 +113,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     menu.addItem(.separator())
     menu.addItem(
       NSMenuItem(
-        title: AppText.value("退出 Lite Paste", "Quit Lite Paste"),
+        title: AppText.value("退出 \(AppMetadata.displayName)", "Quit \(AppMetadata.displayName)"),
         action: #selector(quit),
         keyEquivalent: "q"
       )
@@ -307,7 +307,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       backing: .buffered,
       defer: false
     )
-    window.title = AppText.value("Lite Paste 设置", "Lite Paste Settings")
+    window.title = AppText.value("\(AppMetadata.displayName) 设置", "\(AppMetadata.displayName) Settings")
     window.contentViewController = hostingController
     window.minSize = NSSize(width: 780, height: 560)
     window.backgroundColor = .windowBackgroundColor
@@ -354,7 +354,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       backing: .buffered,
       defer: false
     )
-    window.title = AppText.value("Lite Paste 权限设置", "Lite Paste Permission Setup")
+    window.title = AppText.value("\(AppMetadata.displayName) 权限设置", "\(AppMetadata.displayName) Permission Setup")
     window.contentViewController = hostingController
     window.isReleasedWhenClosed = false
     window.center()
@@ -373,8 +373,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     pauseMonitoringMenuItem?.state = .off
     updateIgnoreApplicationMenuItem()
     statusItem?.button?.toolTip = isMonitoringPaused
-      ? AppText.value("Lite Paste - 已停止监听剪贴板", "Lite Paste - Clipboard Monitoring Paused")
-      : "Lite Paste"
+      ? AppText.value(
+        "\(AppMetadata.displayName) - 已停止监听剪贴板",
+        "\(AppMetadata.displayName) - Clipboard Monitoring Paused"
+      )
+      : AppMetadata.displayName
   }
 
   private func updateIgnoreApplicationMenuItem() {

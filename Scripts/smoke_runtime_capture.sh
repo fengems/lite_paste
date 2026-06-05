@@ -2,7 +2,10 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_EXECUTABLE="${ROOT_DIR}/Build/LitePaste.app/Contents/MacOS/LitePaste"
+source "${ROOT_DIR}/Scripts/lib/app_flavor.sh"
+litepaste_configure_flavor
+
+APP_EXECUTABLE="${ROOT_DIR}/Build/${LITEPASTE_APP_BUNDLE_NAME}/Contents/MacOS/LitePaste"
 
 if [[ ! -x "${APP_EXECUTABLE}" ]]; then
   echo "Missing app executable: ${APP_EXECUTABLE}" >&2
@@ -119,7 +122,9 @@ JSON
 }
 
 start_app() {
-  LITEPASTE_APPLICATION_SUPPORT_DIR="${DATA_DIR}" "${APP_EXECUTABLE}" >"${APP_LOG}" 2>&1 &
+  LITEPASTE_FLAVOR="${LITEPASTE_FLAVOR}" \
+    LITEPASTE_APPLICATION_SUPPORT_DIR="${DATA_DIR}" \
+    "${APP_EXECUTABLE}" >"${APP_LOG}" 2>&1 &
   APP_PID="$!"
 }
 

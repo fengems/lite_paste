@@ -61,9 +61,10 @@ public enum AppPaths {
       .standardizedFileURL
     }
 
+    let flavor = AppFlavor.current(environment: environment)
     return FileManager.default
       .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-      .appending(path: "LitePaste", directoryHint: .isDirectory)
+      .appending(path: flavor.applicationSupportDirectoryName, directoryHint: .isDirectory)
   }
 
   public static var historyURL: URL {

@@ -2,6 +2,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "${ROOT_DIR}/Scripts/lib/app_flavor.sh"
+litepaste_configure_flavor
+
 INFO_PLIST="${ROOT_DIR}/Config/LitePaste/Info.plist"
 plist_value() {
   /usr/libexec/PlistBuddy -c "Print :$1" "${INFO_PLIST}"
@@ -10,8 +13,8 @@ VERSION="${VERSION:-$(plist_value CFBundleShortVersionString)}"
 BUILD="${BUILD:-$(plist_value CFBundleVersion)}"
 BUILD_APP="${BUILD_APP:-1}"
 OUTPUT_DIR="${ROOT_DIR}/Build"
-APP_PATH="${OUTPUT_DIR}/LitePaste.app"
-ARCHIVE_BASENAME="LitePaste-${VERSION}-${BUILD}"
+APP_PATH="${OUTPUT_DIR}/${LITEPASTE_APP_BUNDLE_NAME}"
+ARCHIVE_BASENAME="${LITEPASTE_ARCHIVE_PRODUCT_NAME}-${VERSION}-${BUILD}"
 ARCHIVE_PATH="${OUTPUT_DIR}/${ARCHIVE_BASENAME}.zip"
 CHECKSUM_PATH="${ARCHIVE_PATH}.sha256"
 DMG_PATH="${OUTPUT_DIR}/${ARCHIVE_BASENAME}.dmg"
@@ -30,7 +33,7 @@ VERSION="${VERSION}" BUILD="${BUILD}" Scripts/verify_metadata.sh
 if [[ "${BUILD_APP}" == "1" ]]; then
   Scripts/build_app_bundle.sh
 elif [[ ! -d "${APP_PATH}" ]]; then
-  echo "Missing ${APP_PATH}. Run Scripts/build_app_bundle.sh first, or leave BUILD_APP=1." >&2
+  echo "Missing ${APP_PATH}. Run LITEPASTE_FLAVOR=${LITEPASTE_FLAVOR} Scripts/build_app_bundle.sh first, or leave BUILD_APP=1." >&2
   exit 1
 fi
 
@@ -38,18 +41,19 @@ rm -f "${ARCHIVE_PATH}" "${CHECKSUM_PATH}" "${DMG_PATH}" "${DMG_CHECKSUM_PATH}"
 ditto -c -k --keepParent "${APP_PATH}" "${ARCHIVE_PATH}"
 shasum -a 256 "${ARCHIVE_PATH}" > "${CHECKSUM_PATH}"
 
-DMG_SOURCE_DIR="${STAGING_DIR}/Lite Paste"
+DMG_SOURCE_DIR="${STAGING_DIR}/${LITEPASTE_VOLUME_NAME}"
 mkdir -p "${DMG_SOURCE_DIR}"
-ditto "${APP_PATH}" "${DMG_SOURCE_DIR}/LitePaste.app"
+ditto "${APP_PATH}" "${DMG_SOURCE_DIR}/${LITEPASTE_APP_BUNDLE_NAME}"
 ln -s /Applications "${DMG_SOURCE_DIR}/Applications"
 hdiutil create \
-  -volname "Lite Paste" \
+  -volname "${LITEPASTE_VOLUME_NAME}" \
   -srcfolder "${DMG_SOURCE_DIR}" \
   -ov \
   -format UDZO \
   "${DMG_PATH}"
 shasum -a 256 "${DMG_PATH}" > "${DMG_CHECKSUM_PATH}"
 
+echo "构建通道 ${LITEPASTE_FLAVOR}"
 echo "Packaged ${ARCHIVE_PATH}"
 echo "Checksum ${CHECKSUM_PATH}"
 echo "Packaged ${DMG_PATH}"

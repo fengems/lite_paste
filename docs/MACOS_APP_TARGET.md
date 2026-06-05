@@ -16,6 +16,14 @@ swift run LitePaste
 Scripts/build_app_bundle.sh --open
 ```
 
+需要让开发版和已安装的正式版共存时，使用 Dev 构建通道：
+
+```bash
+LITEPASTE_FLAVOR=dev Scripts/build_app_bundle.sh --open
+```
+
+Dev 通道会生成 `Build/LitePasteDev.app`，显示名称为 `Lite Paste Dev`，Bundle Identifier 为 `com.fengems.LitePaste.dev`，数据目录为 `~/Library/Application Support/LitePaste-Dev/`，默认打开面板快捷键为 `⌘⌥⇧V`。未设置 `LITEPASTE_FLAVOR` 时仍生成正式通道的 `Build/LitePaste.app`。
+
 本地试用 zip 包和 DMG 包可通过以下命令生成，文件名版本号默认读取 `Config/LitePaste/Info.plist`：
 
 ```bash
@@ -23,6 +31,15 @@ Scripts/package_release.sh
 ```
 
 该脚本使用 SwiftPM release 产物组装 `Build/LitePaste.app`，复制 `Config/LitePaste/Info.plist`，执行 ad-hoc 签名，并生成 zip、DMG 与 SHA-256 校验文件。它适合本机试用，不替代正式 Xcode target。Developer ID 签名和公证脚本见 `Scripts/sign_notarize_release.sh` 与 `docs/DEVELOPER_ID_RELEASE.md`。
+
+Dev 通道打包命令为：
+
+```bash
+LITEPASTE_FLAVOR=dev Scripts/package_release.sh
+LITEPASTE_FLAVOR=dev Scripts/verify_dmg_contents.sh
+```
+
+Dev 通道包名使用 `LitePasteDev-版本-build.*`，不会覆盖正式通道产物。
 
 当前环境已安装完整 Xcode，`xcodebuild` 可构建现有 SwiftPM scheme。创建正式 Xcode `.app` target、签名和公证前，应确保：
 
@@ -103,6 +120,13 @@ swift Scripts/generate_app_icon.swift /tmp/LitePaste-AppIcon.icns Assets/LitePas
 - `Build/LitePaste.app/Contents/Info.plist`
 - `Build/LitePaste.app/Contents/PkgInfo`
 - `Build/LitePaste.app/Contents/Resources/AppIcon.icns`
+
+设置 `LITEPASTE_FLAVOR=dev` 时对应生成：
+
+- `Build/LitePasteDev.app/Contents/MacOS/LitePaste`
+- `Build/LitePasteDev.app/Contents/Info.plist`
+- `Build/LitePasteDev.app/Contents/PkgInfo`
+- `Build/LitePasteDev.app/Contents/Resources/AppIcon.icns`
 
 脚本默认使用 release 配置。需要改配置时可传环境变量：
 

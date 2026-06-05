@@ -2,12 +2,15 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "${ROOT_DIR}/Scripts/lib/app_flavor.sh"
+litepaste_configure_flavor
+
 CONFIGURATION="${CONFIGURATION:-release}"
 LOCAL_CODESIGN_IDENTITY="LitePaste Local Code Signing"
 CODESIGN_IDENTITY="${CODESIGN_IDENTITY:-}"
-PRODUCT_NAME="LitePaste"
-APP_DISPLAY_NAME="Lite Paste"
-APP_BUNDLE_NAME="${PRODUCT_NAME}.app"
+PRODUCT_NAME="${LITEPASTE_PRODUCT_NAME}"
+APP_DISPLAY_NAME="${LITEPASTE_APP_DISPLAY_NAME}"
+APP_BUNDLE_NAME="${LITEPASTE_APP_BUNDLE_NAME}"
 OUTPUT_DIR="${ROOT_DIR}/Build"
 APP_DIR="${OUTPUT_DIR}/${APP_BUNDLE_NAME}"
 CONTENTS_DIR="${APP_DIR}/Contents"
@@ -26,13 +29,14 @@ usage() {
 用法：
   Scripts/build_app_bundle.sh [--open]
 
-生成 Build/LitePaste.app，复制 Info.plist，生成 App 图标，并执行本地签名。
+生成本地 .app，复制 Info.plist，生成 App 图标，并执行本地签名。
 
 选项：
   --open   打包成功后直接打开 App。
   --help   显示帮助。
 
 环境变量：
+  LITEPASTE_FLAVOR  构建通道，stable 或 dev；默认 stable。
   CONFIGURATION      SwiftPM 构建配置，默认 release。
   CODESIGN_IDENTITY  代码签名身份，默认优先使用本地 LitePaste Local Code Signing，否则 ad-hoc。
   INCLUDE_ICLOUD_ENTITLEMENTS  设置为 1/true/yes 时签入 iCloud Documents entitlement；默认关闭。
@@ -75,7 +79,7 @@ is_truthy() {
 }
 
 resolved_entitlements() {
-  local destination="${OUTPUT_DIR}/LitePaste.resolved.entitlements"
+  local destination="${OUTPUT_DIR}/${LITEPASTE_ARCHIVE_PRODUCT_NAME}.resolved.entitlements"
   local team_prefix="${TEAM_IDENTIFIER_PREFIX:-}"
   if [[ -z "${team_prefix}" && -n "${TEAM_ID:-}" ]]; then
     team_prefix="${TEAM_ID}."
@@ -104,9 +108,18 @@ prepare_icloud_entitlements() {
   RESOLVED_ENTITLEMENTS_PATH="$(resolved_entitlements)"
 }
 
+configure_info_plist() {
+  /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName ${APP_DISPLAY_NAME}" "${INFO_PLIST_DESTINATION}"
+  /usr/libexec/PlistBuddy -c "Set :CFBundleName ${APP_DISPLAY_NAME}" "${INFO_PLIST_DESTINATION}"
+  /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier ${LITEPASTE_BUNDLE_IDENTIFIER}" "${INFO_PLIST_DESTINATION}"
+  /usr/libexec/PlistBuddy -c "Set :NSAppleEventsUsageDescription ${APP_DISPLAY_NAME} 需要在用户触发粘贴时把内容发送到上一个活跃应用。" "${INFO_PLIST_DESTINATION}"
+}
+
 cd "${ROOT_DIR}"
 
-step "准备 Lite Paste 本地 App 包。"
+step "准备 ${APP_DISPLAY_NAME} 本地 App 包。"
+printf '构建通道：%s\n' "${LITEPASTE_FLAVOR}"
+printf 'Bundle ID：%s\n' "${LITEPASTE_BUNDLE_IDENTIFIER}"
 
 if [[ -z "${CODESIGN_IDENTITY}" ]]; then
   step "选择代码签名身份..."
@@ -130,6 +143,7 @@ mkdir -p "${MACOS_DIR}" "${RESOURCES_DIR}"
 
 cp "${EXECUTABLE_PATH}" "${MACOS_DIR}/${PRODUCT_NAME}"
 cp "${INFO_PLIST_SOURCE}" "${INFO_PLIST_DESTINATION}"
+configure_info_plist
 step "生成 App 图标..."
 swift "${ROOT_DIR}/Scripts/generate_app_icon.swift" "${ICON_DESTINATION}"
 printf 'APPL????' > "${CONTENTS_DIR}/PkgInfo"

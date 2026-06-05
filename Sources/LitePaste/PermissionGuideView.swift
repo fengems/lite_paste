@@ -1,4 +1,5 @@
 import AppKit
+import LitePasteCore
 import SwiftUI
 
 struct PermissionGuideView: View {
@@ -30,7 +31,7 @@ struct PermissionGuideView: View {
         .foregroundStyle(Color.accentColor)
 
       VStack(alignment: .leading, spacing: 6) {
-        Text(AppText.value("欢迎使用 Lite Paste", "Welcome to Lite Paste"))
+        Text(AppText.value("欢迎使用 \(AppMetadata.displayName)", "Welcome to \(AppMetadata.displayName)"))
           .font(.system(size: 24, weight: .bold))
 
         Text(AppText.value(
@@ -50,8 +51,8 @@ struct PermissionGuideView: View {
         icon: "command",
         title: AppText.value("快速打开", "Open Quickly"),
         description: AppText.value(
-          "默认使用 ⌘⇧V 呼出面板，面板内支持搜索、筛选和数字快捷选择。",
-          "Press ⌘⇧V to open the panel, then search, filter, or choose items with number shortcuts."
+          "默认使用 \(PanelHotkeyCatalog.displayName(for: AppSettings.defaultHotkey)) 呼出面板，面板内支持搜索、筛选和数字快捷选择。",
+          "Press \(PanelHotkeyCatalog.displayName(for: AppSettings.defaultHotkey)) to open the panel, then search, filter, or choose items with number shortcuts."
         )
       )
       guideRow(
@@ -162,8 +163,8 @@ struct PermissionGuideView: View {
     }
 
     return AppText.value(
-      "macOS 会要求你在系统设置中允许 Lite Paste 控制本机，用于发送粘贴快捷键。",
-      "macOS will ask you to allow Lite Paste in System Settings so it can send the paste shortcut."
+      "macOS 会要求你在系统设置中允许 \(AppMetadata.displayName) 控制本机，用于发送粘贴快捷键。",
+      "macOS will ask you to allow \(AppMetadata.displayName) in System Settings so it can send the paste shortcut."
     )
   }
 

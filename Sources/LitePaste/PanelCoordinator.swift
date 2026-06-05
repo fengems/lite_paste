@@ -94,7 +94,7 @@ final class PanelCoordinator {
     let hostingController = NSHostingController(rootView: rootView)
     applyRoundedContentMask(to: hostingController.view)
 
-    panel.title = "Lite Paste"
+    panel.title = AppMetadata.displayName
     panel.titleVisibility = .hidden
     panel.titlebarAppearsTransparent = true
     panel.isFloatingPanel = true

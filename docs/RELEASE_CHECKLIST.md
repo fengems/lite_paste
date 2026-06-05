@@ -38,6 +38,16 @@ Scripts/package_release.sh
 - `Build/LitePaste-0.1.0-1.dmg`
 - `Build/LitePaste-0.1.0-1.dmg.sha256`
 
+如需构建可与正式版共存的开发通道包：
+
+```bash
+LITEPASTE_FLAVOR=dev Scripts/build_app_bundle.sh
+LITEPASTE_FLAVOR=dev Scripts/package_release.sh
+LITEPASTE_FLAVOR=dev Scripts/verify_dmg_contents.sh
+```
+
+Dev 通道默认输出 `Build/LitePasteDev.app`、`Build/LitePasteDev-版本-build.zip` 和 `Build/LitePasteDev-版本-build.dmg`，显示名称为 `Lite Paste Dev`，Bundle ID 为 `com.fengems.LitePaste.dev`，数据目录为 `~/Library/Application Support/LitePaste-Dev/`，默认面板快捷键为 `⌘⌥⇧V`。
+
 发布包文件名默认读取 `Config/LitePaste/Info.plist` 中的版本号和 build 号。如需覆盖版本号，覆盖值必须和 `Info.plist` / `AppMetadata.swift` 一致：
 
 ```bash

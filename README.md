@@ -72,6 +72,16 @@ Build a local app bundle:
 Scripts/build_app_bundle.sh --open
 ```
 
+Build an isolated development-channel app that can coexist with the normal app:
+
+```bash
+LITEPASTE_FLAVOR=dev Scripts/build_app_bundle.sh --open
+```
+
+The development channel is named `Lite Paste Dev`, uses bundle id
+`com.fengems.LitePaste.dev`, stores data under
+`~/Library/Application Support/LitePaste-Dev/`, and defaults to `Command + Option + Shift + V`.
+
 Run core checks:
 
 ```bash
@@ -93,6 +103,10 @@ Verify the packaged DMG layout:
 Scripts/package_release.sh
 Scripts/verify_dmg_contents.sh
 ```
+
+For the development-channel package, run the same packaging commands with
+`LITEPASTE_FLAVOR=dev`. The output names use `LitePasteDev-*` so they do not
+overwrite the normal `LitePaste-*` artifacts.
 
 Local builds use the local `LitePaste Local Code Signing` identity when available, otherwise ad-hoc signing. Local builds are useful for development and QA, but they are not a substitute for a Developer ID signed and notarized public release.
 

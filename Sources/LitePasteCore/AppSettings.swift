@@ -1,6 +1,10 @@
 import Foundation
 
 public struct AppSettings: Codable, Equatable, Sendable {
+  public static var defaultHotkey: String {
+    AppFlavor.current.defaultPanelHotkey
+  }
+
   public var hotkey: String
   public var viewMode: ClipboardPanelViewMode
   public var panelPosition: PanelPosition
@@ -21,7 +25,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
   public var launchAtLogin: Bool
 
   public init(
-    hotkey: String = "command+shift+v",
+    hotkey: String = AppSettings.defaultHotkey,
     viewMode: ClipboardPanelViewMode = .card,
     panelPosition: PanelPosition = .edgeBottom,
     maxHistoryCount: Int = 1_000,
@@ -162,7 +166,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
   }
 
   private static func normalizedHotkey(_ value: String) -> String {
-    PanelHotkeyCatalog.normalized(value) ?? "command+shift+v"
+    PanelHotkeyCatalog.normalized(value) ?? defaultHotkey
   }
 
   private static func normalizedPanelPosition(_ value: PanelPosition) -> PanelPosition {

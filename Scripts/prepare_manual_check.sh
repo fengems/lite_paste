@@ -2,8 +2,14 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_PATH="${ROOT_DIR}/Build/LitePaste.app"
+source "${ROOT_DIR}/Scripts/lib/app_flavor.sh"
+litepaste_configure_flavor
+
+APP_PATH="${ROOT_DIR}/Build/${LITEPASTE_APP_BUNDLE_NAME}"
 LOG_PATH="${ROOT_DIR}/Build/prepare_manual_check.log"
+if [[ "${LITEPASTE_FLAVOR}" == "dev" ]]; then
+  LOG_PATH="${ROOT_DIR}/Build/prepare_manual_check-dev.log"
+fi
 RUN_SMOKE=false
 OPEN_APP=true
 VERBOSE=false
@@ -14,8 +20,11 @@ usage() {
   Scripts/prepare_manual_check.sh [--with-smoke] [--no-open] [--verbose]
 
 用于准备人工验收本地 App。默认会验证 metadata、确认 Xcode 可构建
-SwiftPM scheme、运行核心检查、生成 Build/LitePaste.app、校验 Info.plist
+SwiftPM scheme、运行核心检查、生成本地 .app、校验 Info.plist
 和签名，并在成功后直接打开 App。
+
+环境变量：
+  LITEPASTE_FLAVOR  构建通道，stable 或 dev；默认 stable。
 
 选项：
   --with-smoke   额外运行真实剪贴板采集/恢复烟测。
@@ -96,18 +105,19 @@ cd "${ROOT_DIR}"
 
 mkdir -p "$(dirname "${LOG_PATH}")"
 {
-  printf 'Lite Paste 人工验收准备日志\n'
+  printf '%s 人工验收准备日志\n' "${LITEPASTE_APP_DISPLAY_NAME}"
   printf '工作目录：%s\n' "${ROOT_DIR}"
+  printf '构建通道：%s\n' "${LITEPASTE_FLAVOR}"
   printf '开始时间：%s\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')"
 } >"${LOG_PATH}"
 
-printf '开始准备 Lite Paste 人工验收包。\n'
+printf '开始准备 %s 人工验收包。\n' "${LITEPASTE_APP_DISPLAY_NAME}"
 printf '详细日志：%s\n' "${LOG_PATH}"
 
 run_step "校验项目 metadata" Scripts/verify_metadata.sh
 run_step "验证 Xcode 能构建 SwiftPM scheme" xcodebuild -scheme LitePaste -destination "platform=macOS" -configuration Debug build
-run_step "运行核心检查" swift run LitePasteCoreChecks
-run_step "生成本地 App 包" env CONFIGURATION=release Scripts/build_app_bundle.sh
+run_step "运行核心检查" env -u LITEPASTE_FLAVOR swift run LitePasteCoreChecks
+run_step "生成本地 App 包" env CONFIGURATION=release LITEPASTE_FLAVOR="${LITEPASTE_FLAVOR}" Scripts/build_app_bundle.sh
 
 if "${RUN_SMOKE}"; then
   run_step "运行真实剪贴板采集/恢复烟测" Scripts/smoke_runtime_capture.sh
@@ -116,7 +126,7 @@ fi
 run_step "校验 Info.plist" plutil -lint "${APP_PATH}/Contents/Info.plist"
 run_step "校验 App 签名" codesign --verify --deep --strict --verbose=2 "${APP_PATH}"
 
-printf '\nLite Paste 人工验收包已准备好：%s\n' "${APP_PATH}"
+printf '\n%s 人工验收包已准备好：%s\n' "${LITEPASTE_APP_DISPLAY_NAME}" "${APP_PATH}"
 
 if "${OPEN_APP}"; then
   printf '正在打开 App...\n'

@@ -163,6 +163,23 @@ func checkAppPathsEnvironmentOverride() {
     defaultURL.lastPathComponent == "LitePaste",
     "AppPaths should default to the LitePaste application support directory"
   )
+
+  let devURL = AppPaths.applicationSupportDirectory(
+    environment: [AppFlavor.environmentKey: "dev"]
+  )
+  expect(
+    devURL.lastPathComponent == "LitePaste-Dev",
+    "AppPaths should isolate the dev flavor application support directory"
+  )
+
+  expect(
+    AppFlavor.current(environment: [AppFlavor.environmentKey: "dev"]) == .dev,
+    "AppFlavor should read the dev flavor from environment"
+  )
+  expect(
+    AppFlavor.current(environment: [:], bundleIdentifier: "com.fengems.LitePaste.dev") == .dev,
+    "AppFlavor should infer dev flavor from bundle identifier"
+  )
 }
 
 @MainActor
@@ -448,6 +465,18 @@ func checkAppSettingsBackwardCompatibility() {
     expect(
       PanelHotkeyCatalog.normalized(" Command + Option + Space ") == "command+option+space",
       "Panel hotkey catalog should normalize valid formatting"
+    )
+    expect(
+      PanelHotkeyCatalog.normalized("command+option+shift+v") == "command+option+shift+v",
+      "Panel hotkey catalog should include the dev default shortcut"
+    )
+    expect(
+      PanelHotkeyCatalog.normalized("Option + Command + Shift + V") == "command+option+shift+v",
+      "Panel hotkey catalog should normalize modifier order"
+    )
+    expect(
+      PanelHotkeyCatalog.displayName(for: AppFlavor.dev.defaultPanelHotkey) == "⌘⌥⇧V",
+      "Panel hotkey catalog should display the dev default shortcut"
     )
     expect(PanelHotkeyCatalog.normalized("control+space") == nil, "Panel hotkey catalog should reject unknown hotkeys")
     expect(

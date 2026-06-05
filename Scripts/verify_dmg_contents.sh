@@ -2,6 +2,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "${ROOT_DIR}/Scripts/lib/app_flavor.sh"
+litepaste_configure_flavor
+
 INFO_PLIST="${ROOT_DIR}/Config/LitePaste/Info.plist"
 
 plist_value() {
@@ -11,7 +14,7 @@ plist_value() {
 VERSION="${VERSION:-$(plist_value CFBundleShortVersionString)}"
 BUILD="${BUILD:-$(plist_value CFBundleVersion)}"
 OUTPUT_DIR="${ROOT_DIR}/Build"
-DMG_PATH="${DMG_PATH:-${OUTPUT_DIR}/LitePaste-${VERSION}-${BUILD}.dmg}"
+DMG_PATH="${DMG_PATH:-${OUTPUT_DIR}/${LITEPASTE_ARCHIVE_PRODUCT_NAME}-${VERSION}-${BUILD}.dmg}"
 MOUNT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/litepaste-dmg-check.XXXXXX")"
 MOUNTED=0
 
@@ -56,7 +59,7 @@ hdiutil attach \
   "${DMG_PATH}" >/dev/null
 MOUNTED=1
 
-APP_PATH="${MOUNT_DIR}/LitePaste.app"
+APP_PATH="${MOUNT_DIR}/${LITEPASTE_APP_BUNDLE_NAME}"
 APP_INFO_PLIST="${APP_PATH}/Contents/Info.plist"
 
 require_dir "${APP_PATH}"
@@ -67,11 +70,17 @@ require_file "${APP_PATH}/Contents/Resources/AppIcon.icns"
 
 bundle_version="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "${APP_INFO_PLIST}")"
 bundle_build="$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "${APP_INFO_PLIST}")"
+bundle_display_name="$(/usr/libexec/PlistBuddy -c "Print :CFBundleDisplayName" "${APP_INFO_PLIST}")"
+bundle_identifier="$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "${APP_INFO_PLIST}")"
 
 [[ "${bundle_version}" == "${VERSION}" ]] ||
   fail "DMG 内 App 版本不一致：${bundle_version}，期望 ${VERSION}"
 [[ "${bundle_build}" == "${BUILD}" ]] ||
   fail "DMG 内 App build 不一致：${bundle_build}，期望 ${BUILD}"
+[[ "${bundle_display_name}" == "${LITEPASTE_APP_DISPLAY_NAME}" ]] ||
+  fail "DMG 内 App 显示名称不一致：${bundle_display_name}，期望 ${LITEPASTE_APP_DISPLAY_NAME}"
+[[ "${bundle_identifier}" == "${LITEPASTE_BUNDLE_IDENTIFIER}" ]] ||
+  fail "DMG 内 App Bundle ID 不一致：${bundle_identifier}，期望 ${LITEPASTE_BUNDLE_IDENTIFIER}"
 
 codesign --verify --deep --strict --verbose=2 "${APP_PATH}" >/dev/null
 
