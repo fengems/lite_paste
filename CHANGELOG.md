@@ -4,6 +4,8 @@ All notable changes to Lite Paste are documented here.
 
 ## Unreleased
 
+## 0.1.3 - 2026-06-05
+
 - Added a stable/dev local build channel so `Lite Paste Dev` can coexist with the normal app using a separate bundle id, data directory, default shortcut, and package output names.
 - Added source-only GitHub release checks and creation script for the zero-budget release path without Apple Developer Program credentials.
 - Added locale-aware Chinese/English copy for onboarding, menu-bar actions, the clipboard panel, settings, backup flows, and key alerts.
