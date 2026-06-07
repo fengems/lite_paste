@@ -17,6 +17,7 @@ public struct ClipboardRecord: Identifiable, Codable, Equatable, Sendable {
   public var pinShortcut: String?
   public var contentHash: String
   public var plainText: String?
+  public var ocrText: String?
   public var contents: [ClipboardContentSnapshot]
   public var previewFilePath: String?
 
@@ -37,6 +38,7 @@ public struct ClipboardRecord: Identifiable, Codable, Equatable, Sendable {
     case pinShortcut
     case contentHash
     case plainText
+    case ocrText
     case contents
     case previewFilePath
   }
@@ -58,6 +60,7 @@ public struct ClipboardRecord: Identifiable, Codable, Equatable, Sendable {
     pinShortcut: String? = nil,
     contentHash: String,
     plainText: String? = nil,
+    ocrText: String? = nil,
     contents: [ClipboardContentSnapshot] = [],
     previewFilePath: String? = nil
   ) {
@@ -77,6 +80,7 @@ public struct ClipboardRecord: Identifiable, Codable, Equatable, Sendable {
     self.pinShortcut = pinShortcut
     self.contentHash = contentHash
     self.plainText = plainText
+    self.ocrText = ocrText
     self.contents = contents
     self.previewFilePath = previewFilePath
   }
@@ -99,6 +103,7 @@ public struct ClipboardRecord: Identifiable, Codable, Equatable, Sendable {
     pinShortcut = try container.decodeIfPresent(String.self, forKey: .pinShortcut)
     contentHash = try container.decode(String.self, forKey: .contentHash)
     plainText = try container.decodeIfPresent(String.self, forKey: .plainText)
+    ocrText = try container.decodeIfPresent(String.self, forKey: .ocrText)
     contents = try container.decodeIfPresent([ClipboardContentSnapshot].self, forKey: .contents) ?? []
     previewFilePath = try container.decodeIfPresent(String.self, forKey: .previewFilePath)
   }

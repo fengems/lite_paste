@@ -6,7 +6,7 @@ public struct SQLiteClipboardHistoryRepository: ClipboardHistoryIncrementalRepos
   private static let selectColumns = """
     id, kind, title, search_text, note, source_app_bundle_id, source_app_name,
     created_at, last_copied_at, last_used_at, copy_count, is_favorite, is_pinned,
-    pin_shortcut, content_hash, plain_text, contents_json, preview_file_path
+    pin_shortcut, content_hash, plain_text, ocr_text, contents_json, preview_file_path
     """
 
   public init(url: URL = AppPaths.applicationSupportDirectory.appending(path: "history.sqlite3")) {
@@ -38,8 +38,8 @@ public struct SQLiteClipboardHistoryRepository: ClipboardHistoryIncrementalRepos
         INSERT INTO clipboard_records (
           id, kind, title, search_text, note, source_app_bundle_id, source_app_name,
           created_at, last_copied_at, last_used_at, copy_count, is_favorite, is_pinned,
-          pin_shortcut, content_hash, plain_text, contents_json, preview_file_path, position
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          pin_shortcut, content_hash, plain_text, ocr_text, contents_json, preview_file_path, position
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """)
       defer { sqlite3_finalize(statement) }
 
@@ -111,8 +111,8 @@ public struct SQLiteClipboardHistoryRepository: ClipboardHistoryIncrementalRepos
       INSERT INTO clipboard_records (
         id, kind, title, search_text, note, source_app_bundle_id, source_app_name,
         created_at, last_copied_at, last_used_at, copy_count, is_favorite, is_pinned,
-        pin_shortcut, content_hash, plain_text, contents_json, preview_file_path, position
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        pin_shortcut, content_hash, plain_text, ocr_text, contents_json, preview_file_path, position
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         kind = excluded.kind,
         title = excluded.title,
@@ -129,6 +129,7 @@ public struct SQLiteClipboardHistoryRepository: ClipboardHistoryIncrementalRepos
         pin_shortcut = excluded.pin_shortcut,
         content_hash = excluded.content_hash,
         plain_text = excluded.plain_text,
+        ocr_text = excluded.ocr_text,
         contents_json = excluded.contents_json,
         preview_file_path = excluded.preview_file_path,
         position = excluded.position
@@ -228,6 +229,7 @@ public struct SQLiteClipboardHistoryRepository: ClipboardHistoryIncrementalRepos
       var termClauses = [
         "title LIKE ? ESCAPE '\\' COLLATE NOCASE",
         "search_text LIKE ? ESCAPE '\\' COLLATE NOCASE",
+        "ocr_text LIKE ? ESCAPE '\\' COLLATE NOCASE",
         "note LIKE ? ESCAPE '\\' COLLATE NOCASE",
         "source_app_name LIKE ? ESCAPE '\\' COLLATE NOCASE",
         "source_app_bundle_id LIKE ? ESCAPE '\\' COLLATE NOCASE",
@@ -348,7 +350,7 @@ public struct SQLiteClipboardHistoryRepository: ClipboardHistoryIncrementalRepos
       throw SQLiteRepositoryError.invalidRecord
     }
 
-    let contentsData = data(at: 16, in: statement) ?? Data("[]".utf8)
+    let contentsData = data(at: 17, in: statement) ?? Data("[]".utf8)
     let contents = try JSONDecoder.litePaste.decode([ClipboardContentSnapshot].self, from: contentsData)
 
     return ClipboardRecord(
@@ -368,8 +370,9 @@ public struct SQLiteClipboardHistoryRepository: ClipboardHistoryIncrementalRepos
       pinShortcut: text(at: 13, in: statement),
       contentHash: text(at: 14, in: statement) ?? "",
       plainText: text(at: 15, in: statement),
+      ocrText: text(at: 16, in: statement),
       contents: contents,
-      previewFilePath: text(at: 17, in: statement)
+      previewFilePath: text(at: 18, in: statement)
     )
   }
 
@@ -392,14 +395,15 @@ public struct SQLiteClipboardHistoryRepository: ClipboardHistoryIncrementalRepos
     bindText(record.pinShortcut, at: 14, to: statement)
     bindText(record.contentHash, at: 15, to: statement)
     bindText(record.plainText, at: 16, to: statement)
+    bindText(record.ocrText, at: 17, to: statement)
     let bindContentsResult = contentsData.withUnsafeBytes { buffer in
-      sqlite3_bind_blob(statement, 17, buffer.baseAddress, Int32(buffer.count), sqliteTransient)
+      sqlite3_bind_blob(statement, 18, buffer.baseAddress, Int32(buffer.count), sqliteTransient)
     }
     guard bindContentsResult == SQLITE_OK else {
       throw SQLiteRepositoryError.operationFailed("Unable to bind clipboard contents")
     }
-    bindText(record.previewFilePath, at: 18, to: statement)
-    sqlite3_bind_int64(statement, 19, Int64(position))
+    bindText(record.previewFilePath, at: 19, to: statement)
+    sqlite3_bind_int64(statement, 20, Int64(position))
   }
 
   private static func optionalDate(at index: Int32, in statement: OpaquePointer?) -> Date? {
@@ -410,7 +414,7 @@ public struct SQLiteClipboardHistoryRepository: ClipboardHistoryIncrementalRepos
     return Date(timeIntervalSince1970: sqlite3_column_double(statement, index))
   }
 
-  private static func text(at index: Int32, in statement: OpaquePointer?) -> String? {
+  fileprivate static func text(at index: Int32, in statement: OpaquePointer?) -> String? {
     guard sqlite3_column_type(statement, index) != SQLITE_NULL,
           let pointer = sqlite3_column_text(statement, index) else {
       return nil
@@ -503,17 +507,47 @@ private final class SQLiteConnection {
         pin_shortcut TEXT,
         content_hash TEXT NOT NULL,
         plain_text TEXT,
+        ocr_text TEXT,
         contents_json BLOB NOT NULL,
         preview_file_path TEXT,
         position INTEGER NOT NULL
       )
       """)
+    try addColumnIfNeeded(table: "clipboard_records", column: "ocr_text", definition: "ocr_text TEXT")
     try execute("CREATE INDEX IF NOT EXISTS idx_clipboard_records_content_hash ON clipboard_records(content_hash)")
     try execute("CREATE INDEX IF NOT EXISTS idx_clipboard_records_last_copied_at ON clipboard_records(last_copied_at DESC)")
     try execute("CREATE INDEX IF NOT EXISTS idx_clipboard_records_kind ON clipboard_records(kind)")
     try execute("CREATE INDEX IF NOT EXISTS idx_clipboard_records_favorite ON clipboard_records(is_favorite, last_copied_at DESC)")
     try execute("CREATE INDEX IF NOT EXISTS idx_clipboard_records_pinned ON clipboard_records(is_pinned, last_copied_at DESC)")
     try execute("CREATE INDEX IF NOT EXISTS idx_clipboard_records_copy_count ON clipboard_records(copy_count DESC, last_copied_at DESC)")
+  }
+
+  private func addColumnIfNeeded(table: String, column: String, definition: String) throws {
+    let columns = try columnNames(in: table)
+    guard !columns.contains(column) else {
+      return
+    }
+
+    try execute("ALTER TABLE \(table) ADD COLUMN \(definition)")
+  }
+
+  private func columnNames(in table: String) throws -> Set<String> {
+    let statement = try prepare("PRAGMA table_info(\(table))")
+    defer { sqlite3_finalize(statement) }
+
+    var names = Set<String>()
+    var stepResult = sqlite3_step(statement)
+    while stepResult == SQLITE_ROW {
+      if let name = SQLiteClipboardHistoryRepository.text(at: 1, in: statement) {
+        names.insert(name)
+      }
+      stepResult = sqlite3_step(statement)
+    }
+
+    guard stepResult == SQLITE_DONE else {
+      throw SQLiteRepositoryError.operationFailed(errorMessage)
+    }
+    return names
   }
 
   func execute(_ sql: String) throws {

@@ -71,6 +71,7 @@ public struct ClipboardHistoryQueryEngine: Sendable {
     return searchTerms.allSatisfy { term in
       contains(term, in: record.title)
         || contains(term, in: record.searchText)
+        || contains(term, in: record.ocrText)
         || contains(term, in: record.note)
         || contains(term, in: record.sourceAppName)
         || contains(term, in: record.sourceAppBundleId)

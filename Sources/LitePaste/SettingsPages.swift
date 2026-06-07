@@ -9,10 +9,16 @@ struct ClipboardSettingsPage: View {
   @Binding var focusSearchOnOpen: Bool
   @Binding var clearSearchOnOpen: Bool
   @Binding var autoPasteMode: AutoPasteMode
-  @Binding var pastePlainByDefault: Bool
+  @Binding var copySoundEnabled: Bool
+  @Binding var imageOCREnabled: Bool
+  @Binding var copyPlainTextByDefault: Bool
+  @Binding var pastePlainTextByDefault: Bool
+  @Binding var visibleQuickActions: Set<ClipboardQuickAction>
+  @Binding var autoFavoriteAfterNote: Bool
   @Binding var restoreClipboardAfterPaste: Bool
   @Binding var moveDuplicatesToTop: Bool
   let panelPositionDescription: String
+  @State private var showsQuickActionEditor = false
 
   var body: some View {
     SettingsPageStack {
@@ -54,6 +60,14 @@ struct ClipboardSettingsPage: View {
         )
       }
 
+      SettingsSectionCard(title: AppText.value("音效设置", "Sound")) {
+        SettingsSwitchRow(
+          title: AppText.value("复制音效", "Copy Sound"),
+          detail: AppText.value("新内容进入历史记录时播放提示音。", "Play a sound when new content is saved."),
+          isOn: $copySoundEnabled
+        )
+      }
+
       SettingsSectionCard(title: AppText.value("搜索设置", "Search")) {
         SettingsSwitchRow(
           title: AppText.value("默认聚焦", "Focus Search"),
@@ -88,9 +102,61 @@ struct ClipboardSettingsPage: View {
         SettingsDivider()
 
         SettingsSwitchRow(
+          title: AppText.value("自动识别图片文字", "Auto Image OCR"),
+          detail: AppText.value(
+            "复制新图片时后台识别文字并加入搜索；手动复制图片文字不受此开关影响。",
+            "Recognize text in newly copied images for search. Manual image text actions still work when this is off."
+          ),
+          isOn: $imageOCREnabled
+        )
+
+        SettingsDivider()
+
+        SettingsSwitchRow(
+          title: AppText.value("复制为纯文本", "Copy Plain Text"),
+          detail: AppText.value(
+            "富文本和 HTML 默认复制时仅保留纯文本内容。",
+            "Rich text and HTML are copied as plain text by default."
+          ),
+          isOn: $copyPlainTextByDefault
+        )
+
+        SettingsDivider()
+
+        SettingsSwitchRow(
           title: AppText.value("粘贴为纯文本", "Paste Plain Text"),
-          detail: AppText.value("自动粘贴时默认只保留纯文本内容。", "Use plain text by default during auto paste."),
-          isOn: $pastePlainByDefault
+          detail: AppText.value(
+            "富文本和 HTML 默认粘贴时仅保留纯文本内容。",
+            "Rich text and HTML are pasted as plain text by default."
+          ),
+          isOn: $pastePlainTextByDefault
+        )
+
+        SettingsDivider()
+
+        SettingsRow(
+          title: AppText.value("操作按钮", "Action Buttons"),
+          detail: quickActionSummary
+        ) {
+          Button {
+            showsQuickActionEditor = true
+          } label: {
+            Label(AppText.value("自定义", "Customize"), systemImage: "slider.horizontal.3")
+          }
+        }
+        .sheet(isPresented: $showsQuickActionEditor) {
+          QuickActionSettingsSheet(visibleQuickActions: $visibleQuickActions)
+        }
+
+        SettingsDivider()
+
+        SettingsSwitchRow(
+          title: AppText.value("自动收藏", "Auto Favorite"),
+          detail: AppText.value(
+            "新增或编辑备注后自动收藏该记录。",
+            "Favorite an item automatically after a note is added or edited."
+          ),
+          isOn: $autoFavoriteAfterNote
         )
 
         SettingsDivider()
@@ -113,6 +179,18 @@ struct ClipboardSettingsPage: View {
         )
       }
     }
+  }
+
+  private var quickActionSummary: String {
+    let names = ClipboardQuickAction.displayOrder
+      .filter { visibleQuickActions.contains($0) }
+      .map(\.localizedDisplayName)
+
+    if names.isEmpty {
+      return AppText.value("仅显示更多菜单。", "Only the More menu is shown.")
+    }
+
+    return names.joined(separator: AppText.value("、", ", "))
   }
 }
 
@@ -355,6 +433,8 @@ private struct SettingsNumberStepperField: View {
 
 struct GeneralSettingsPage: View {
   @Binding var launchAtLogin: Bool
+  @Binding var showMenuBarIcon: Bool
+  @Binding var showDockIcon: Bool
   let recordingStatusTitle: String
   let currentApplicationTitle: String
   let statusErrorMessage: String?
@@ -370,6 +450,24 @@ struct GeneralSettingsPage: View {
     SettingsPageStack {
       SettingsSectionCard(title: AppText.value("应用设置", "App")) {
         SettingsSwitchRow(title: AppText.value("开机启动", "Launch At Login"), isOn: $launchAtLogin)
+        SettingsDivider()
+        SettingsSwitchRow(
+          title: AppText.value("显示菜单栏图标", "Show Menu Bar Icon"),
+          detail: AppText.value(
+            "关闭后仍可通过全局快捷键打开面板。",
+            "When hidden, the panel can still be opened with the global shortcut."
+          ),
+          isOn: $showMenuBarIcon
+        )
+        SettingsDivider()
+        SettingsSwitchRow(
+          title: AppText.value("显示 Dock 图标", "Show Dock Icon"),
+          detail: AppText.value(
+            "菜单栏和 Dock 至少保留一个可见入口。",
+            "At least one visible entry point is kept between the menu bar and Dock."
+          ),
+          isOn: $showDockIcon
+        )
       }
 
       SettingsSectionCard(title: AppText.value("运行状态", "Status")) {
@@ -416,6 +514,80 @@ struct GeneralSettingsPage: View {
             Label(AppText.value("刷新", "Refresh"), systemImage: "arrow.clockwise")
           }
         }
+      }
+    }
+  }
+}
+
+struct AppearanceSettingsPage: View {
+  @Binding var themeMode: AppThemeMode
+
+  var body: some View {
+    SettingsPageStack {
+      SettingsSectionCard(title: AppText.value("外观设置", "Appearance")) {
+        SettingsRow(title: AppText.value("主题模式", "Theme")) {
+          Picker("", selection: $themeMode) {
+            ForEach(AppThemeMode.allCases) { mode in
+              Text(mode.localizedDisplayName).tag(mode)
+            }
+          }
+          .labelsHidden()
+          .pickerStyle(.menu)
+          .controlSize(.regular)
+          .frame(width: SettingsControlMetrics.menuWidth, alignment: .trailing)
+        }
+      }
+    }
+  }
+}
+
+struct QuickActionSettingsSheet: View {
+  @Binding var visibleQuickActions: Set<ClipboardQuickAction>
+  @Environment(\.dismiss) private var dismiss
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 16) {
+      Text(AppText.value("操作按钮", "Action Buttons"))
+        .font(.system(size: 18, weight: .bold))
+
+      Text(AppText.value(
+        "最多显示 4 个快捷按钮，更多操作始终保留在菜单中。",
+        "Show up to 4 quick buttons. All actions remain available in the More menu."
+      ))
+      .font(.system(size: 12))
+      .foregroundStyle(.secondary)
+
+      VStack(spacing: 0) {
+        ForEach(ClipboardQuickAction.displayOrder) { action in
+          Toggle(isOn: binding(for: action)) {
+            Label(action.localizedDisplayName, systemImage: action.iconName)
+          }
+          .toggleStyle(.checkbox)
+          .disabled(!visibleQuickActions.contains(action) && visibleQuickActions.count >= 4)
+          .padding(.vertical, 7)
+        }
+      }
+
+      HStack {
+        Spacer()
+        Button(AppText.value("完成", "Done")) {
+          dismiss()
+        }
+        .keyboardShortcut(.defaultAction)
+      }
+    }
+    .padding(22)
+    .frame(width: 360)
+  }
+
+  private func binding(for action: ClipboardQuickAction) -> Binding<Bool> {
+    Binding {
+      visibleQuickActions.contains(action)
+    } set: { enabled in
+      if enabled {
+        visibleQuickActions.insert(action)
+      } else {
+        visibleQuickActions.remove(action)
       }
     }
   }

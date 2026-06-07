@@ -25,6 +25,7 @@ func allChecks() -> [CheckCase] {
     CheckCase(group: "capture", name: "file-payload-builder", run: checkClipboardFilePayloadBuilder),
     CheckCase(group: "capture", name: "media-payload-builder", run: checkClipboardMediaPayloadBuilder),
     CheckCase(group: "capture", name: "payload-resolver", run: checkClipboardPayloadResolver),
+    CheckCase(group: "capture", name: "ocr-policy", run: checkClipboardOCRPolicy),
     CheckCase(group: "capture", name: "capture-gate", run: checkClipboardCaptureGate),
     CheckCase(group: "history", name: "store", run: checkHistoryStore),
     CheckCase(group: "history", name: "change-notifications", run: checkHistoryChangeNotifications),
@@ -354,10 +355,19 @@ func checkAppSettingsBackwardCompatibility() {
     expect(settings.maxHistoryCount == 1_000, "Settings should default maxHistoryCount for old files")
     expect(!settings.restoreClipboardAfterPaste, "Settings should default restoreClipboardAfterPaste for old files")
     expect(!settings.preserveLargeRichTextFormats, "Settings should default large rich text preservation to off")
+    expect(!settings.copySoundEnabled, "Settings should default copy sound to off")
+    expect(!settings.imageOCREnabled, "Settings should default image OCR to off")
+    expect(!settings.copyPlainTextByDefault, "Settings should default plain-text copy to off")
+    expect(!settings.pastePlainTextByDefault, "Settings should default plain-text paste to off")
+    expect(settings.visibleQuickActions == ClipboardQuickAction.defaultVisibleActions, "Settings should default quick actions")
+    expect(!settings.autoFavoriteAfterNote, "Settings should default auto favorite after notes to off")
     expect(settings.moveDuplicatesToTop, "Settings should default moveDuplicatesToTop for old files")
     expect(settings.focusSearchOnOpen, "Settings should default focusSearchOnOpen for old files")
     expect(settings.coverMenuBarWhenEdgeAttached, "Settings should default menu bar coverage to on for old files")
     expect(!settings.isMonitoringPaused, "Settings should default paused monitoring to off for old files")
+    expect(settings.showMenuBarIcon, "Settings should default menu bar icon to on")
+    expect(!settings.showDockIcon, "Settings should default Dock icon to off")
+    expect(settings.themeMode == .system, "Settings should default theme mode to system")
     expect(
       settings.ignoredApps.contains("com.1password.1password"),
       "Settings should default ignoredApps for old files"
@@ -367,16 +377,30 @@ func checkAppSettingsBackwardCompatibility() {
     let legacyPausedSettings = try JSONDecoder.litePaste.decode(AppSettings.self, from: legacyPausedData)
     expect(legacyPausedSettings.isMonitoringPaused, "Settings should migrate legacy privacyMode to paused monitoring")
 
+    let legacyPlainTextData = Data(#"{"pastePlainByDefault":true}"#.utf8)
+    let legacyPlainTextSettings = try JSONDecoder.litePaste.decode(AppSettings.self, from: legacyPlainTextData)
+    expect(legacyPlainTextSettings.copyPlainTextByDefault, "Settings should migrate legacy plain-text copy")
+    expect(legacyPlainTextSettings.pastePlainTextByDefault, "Settings should migrate legacy plain-text paste")
+
     let custom = AppSettings(
       panelPosition: .cursor,
       ignoredPasteboardTypes: ["org.example.SecretType"],
       ignoredApps: ["com.example.SecretApp"],
+      copySoundEnabled: true,
+      imageOCREnabled: true,
+      copyPlainTextByDefault: true,
+      pastePlainTextByDefault: true,
       restoreClipboardAfterPaste: true,
       preserveLargeRichTextFormats: true,
+      visibleQuickActions: [.copy, .pastePlainText, .delete],
+      autoFavoriteAfterNote: true,
       moveDuplicatesToTop: false,
       focusSearchOnOpen: false,
       coverMenuBarWhenEdgeAttached: true,
-      isMonitoringPaused: true
+      isMonitoringPaused: true,
+      showMenuBarIcon: false,
+      showDockIcon: true,
+      themeMode: .dark
     )
     let encoded = try JSONEncoder.litePaste.encode(custom)
     let decoded = try JSONDecoder.litePaste.decode(AppSettings.self, from: encoded)
@@ -426,6 +450,12 @@ func checkAppSettingsBackwardCompatibility() {
       decoded.preserveLargeRichTextFormats,
       "Settings should preserve large rich text preservation behavior"
     )
+    expect(decoded.copySoundEnabled, "Settings should preserve copy sound")
+    expect(decoded.imageOCREnabled, "Settings should preserve image OCR")
+    expect(decoded.copyPlainTextByDefault, "Settings should preserve plain-text copy")
+    expect(decoded.pastePlainTextByDefault, "Settings should preserve plain-text paste")
+    expect(decoded.visibleQuickActions == [.copy, .pastePlainText, .delete], "Settings should preserve quick actions")
+    expect(decoded.autoFavoriteAfterNote, "Settings should preserve auto favorite after notes")
     expect(
       !decoded.moveDuplicatesToTop,
       "Settings should preserve duplicate ordering behavior"
@@ -438,6 +468,13 @@ func checkAppSettingsBackwardCompatibility() {
       decoded.coverMenuBarWhenEdgeAttached,
       "Settings should preserve menu bar coverage behavior"
     )
+    expect(!decoded.showMenuBarIcon, "Settings should preserve hidden menu bar icon")
+    expect(decoded.showDockIcon, "Settings should preserve shown Dock icon")
+    expect(decoded.themeMode == .dark, "Settings should preserve theme mode")
+
+    let hiddenEntrypoints = AppSettings(showMenuBarIcon: false, showDockIcon: false)
+    expect(hiddenEntrypoints.showMenuBarIcon, "Settings should keep at least one visible app entry point")
+    expect(!hiddenEntrypoints.showDockIcon, "Settings should not force Dock icon when restoring menu bar icon")
 
     let invalidData = Data(#"{"hotkey":"command+shift+x","maxHistoryCount":0,"retentionDays":-12}"#.utf8)
     let invalidSettings = try JSONDecoder.litePaste.decode(AppSettings.self, from: invalidData)
@@ -454,7 +491,7 @@ func checkAppSettingsBackwardCompatibility() {
       "Settings init should migrate legacy status item position"
     )
     expect(
-      AppSettings(panelPosition: .mouseScreenCenter).panelPosition == .cursor,
+      AppSettings(panelPosition: .mouseScreenCenter).panelPosition == .screenCenter,
       "Settings init should migrate legacy mouse center position"
     )
 
@@ -477,6 +514,10 @@ func checkAppSettingsBackwardCompatibility() {
     expect(
       PanelHotkeyCatalog.displayName(for: AppFlavor.dev.defaultPanelHotkey) == "⌘⌥⇧V",
       "Panel hotkey catalog should display the dev default shortcut"
+    )
+    expect(
+      ClipboardQuickAction.displayOrder.contains(.pastePlainText),
+      "Quick action order should include plain-text paste"
     )
     expect(PanelHotkeyCatalog.normalized("control+space") == nil, "Panel hotkey catalog should reject unknown hotkeys")
     expect(
@@ -506,16 +547,21 @@ func checkAppSettingsStoreNormalization() {
       $0.hotkey = "bad+hotkey"
       $0.maxHistoryCount = -99
       $0.retentionDays = -3
+      $0.showMenuBarIcon = false
+      $0.showDockIcon = false
     }
 
     expect(store.settings.hotkey == "command+shift+v", "Settings store update should normalize invalid hotkey")
     expect(store.settings.maxHistoryCount == 1, "Settings store update should normalize max history count")
     expect(store.settings.retentionDays == 0, "Settings store update should normalize retention days")
+    expect(store.settings.showMenuBarIcon, "Settings store update should keep one app entry point visible")
+    expect(!store.settings.showDockIcon, "Settings store update should restore the menu bar icon by default")
 
     let reloaded = AppSettingsStore(url: url)
     expect(reloaded.settings.hotkey == "command+shift+v", "Settings store should persist normalized hotkey")
     expect(reloaded.settings.maxHistoryCount == 1, "Settings store should persist normalized max history count")
     expect(reloaded.settings.retentionDays == 0, "Settings store should persist normalized retention days")
+    expect(reloaded.settings.showMenuBarIcon, "Settings store should persist normalized app entry point")
   } catch {
     fatalError("Settings store normalization check failed: \(error)")
   }
@@ -1123,6 +1169,57 @@ func checkClipboardPayloadResolver() {
   }
 }
 
+func checkClipboardOCRPolicy() {
+  expect(
+    ClipboardOCRPolicy.shouldSkipImageOCR(
+      pasteboardTypes: ["public.png"],
+      sourceAppBundleId: "com.apple.Preview",
+      plainText: "A\tB\n1\t2"
+    ),
+    "OCR policy should skip tabular plain text"
+  )
+  expect(
+    ClipboardOCRPolicy.shouldSkipImageOCR(
+      pasteboardTypes: ["public.png"],
+      sourceAppBundleId: "com.microsoft.Excel",
+      plainText: nil
+    ),
+    "OCR policy should skip Excel image payloads"
+  )
+  expect(
+    ClipboardOCRPolicy.shouldSkipImageOCR(
+      pasteboardTypes: ["public.png"],
+      sourceAppBundleId: "com.apple.iWork.Numbers",
+      plainText: nil
+    ),
+    "OCR policy should skip Numbers image payloads"
+  )
+  expect(
+    ClipboardOCRPolicy.shouldSkipImageOCR(
+      pasteboardTypes: ["public.png"],
+      sourceAppBundleId: "com.kingsoft.wpsoffice.mac",
+      plainText: nil
+    ),
+    "OCR policy should skip WPS image payloads"
+  )
+  expect(
+    ClipboardOCRPolicy.shouldSkipImageOCR(
+      pasteboardTypes: ["com.microsoft.Excel", "public.png"],
+      sourceAppBundleId: "com.apple.Preview",
+      plainText: nil
+    ),
+    "OCR policy should skip spreadsheet pasteboard types"
+  )
+  expect(
+    !ClipboardOCRPolicy.shouldSkipImageOCR(
+      pasteboardTypes: ["public.png"],
+      sourceAppBundleId: "com.apple.Preview",
+      plainText: nil
+    ),
+    "OCR policy should allow ordinary image payloads"
+  )
+}
+
 @MainActor
 func checkClipboardCaptureGate() {
   let payload = ClipboardTextPayloadBuilder().payload(
@@ -1297,6 +1394,28 @@ func checkPasteboardRestorePlanner() {
     fatalError("Restore planner should create an item plan for external data")
   }
 
+  let imageTextRecord = ClipboardRecord(
+    kind: .image,
+    title: "image text",
+    searchText: "image",
+    contentHash: "image-text",
+    plainText: "  ",
+    ocrText: "Recognized image text",
+    contents: [
+      ClipboardContentSnapshot(
+        pasteboardType: "public.png",
+        storageMode: .external,
+        externalFilePath: "/tmp/image.png",
+        byteSize: externalData.count,
+        displayOrder: 0
+      )
+    ]
+  )
+  expect(
+    planner.plan(for: imageTextRecord, asPlainText: true) == .plainText("Recognized image text"),
+    "Restore planner should use OCR text for explicit image plain-text restore"
+  )
+
   let richRecord = ClipboardRecord(
     kind: .html,
     title: "HTML",
@@ -1447,6 +1566,24 @@ func checkHistoryStore() {
   expect(
     store.filteredRecords(query: "saved memo", filter: .all).count == 1,
     "Notes should be searchable after update"
+  )
+  store.appendSearchText(first.id, text: "  识别\n文字  recognized text  ")
+  expect(
+    store.filteredRecords(query: "recognized", filter: .all).count == 1,
+    "Appended search text should be searchable"
+  )
+  expect(
+    store.filteredRecords(query: "hello", filter: .all).count == 1,
+    "Appending search text should preserve existing search keywords"
+  )
+  store.updateOCRText(first.id, text: "  cached\nimage text  ")
+  expect(
+    store.records.first(where: { $0.id == first.id })?.ocrText == "cached image text",
+    "HistoryStore should cache normalized OCR text"
+  )
+  expect(
+    store.filteredRecords(query: "cached", filter: .all).count == 1,
+    "OCR text should be searchable after update"
   )
   expect(
     store.records.first?.isPinned == true && store.records.first?.pinShortcut == "command+option+1",
@@ -2293,6 +2430,7 @@ func checkSQLiteHistoryRepository() {
       pinShortcut: "command+option+1",
       contentHash: "hash-1",
       plainText: nil,
+      ocrText: "recognized first image",
       contents: [
         ClipboardContentSnapshot(
           pasteboardType: "public.png",
@@ -2320,6 +2458,11 @@ func checkSQLiteHistoryRepository() {
     let loaded = try repository.load()
 
     expect(loaded == [first, second], "SQLite repository should round-trip records in saved order")
+    let ocrSearchResults = try repository.execute(ClipboardHistoryQuery(text: "recognized"), limit: nil, offset: 0)
+    expect(
+      ocrSearchResults.first?.id == first.id,
+      "SQLite repository should search OCR text"
+    )
 
     try repository.save([second])
     let overwritten = try repository.load()

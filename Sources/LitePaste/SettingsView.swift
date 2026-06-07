@@ -92,6 +92,8 @@ struct SettingsView: View {
       historySettingsPage
     case .general:
       generalSettingsPage
+    case .appearance:
+      appearanceSettingsPage
     case .hotkeys:
       hotkeySettingsPage
     case .backup:
@@ -109,7 +111,12 @@ struct SettingsView: View {
       focusSearchOnOpen: focusSearchOnOpen,
       clearSearchOnOpen: clearSearchOnOpen,
       autoPasteMode: autoPasteMode,
-      pastePlainByDefault: pastePlainByDefault,
+      copySoundEnabled: copySoundEnabled,
+      imageOCREnabled: imageOCREnabled,
+      copyPlainTextByDefault: copyPlainTextByDefault,
+      pastePlainTextByDefault: pastePlainTextByDefault,
+      visibleQuickActions: visibleQuickActions,
+      autoFavoriteAfterNote: autoFavoriteAfterNote,
       restoreClipboardAfterPaste: restoreClipboardAfterPaste,
       moveDuplicatesToTop: moveDuplicatesToTop,
       panelPositionDescription: panelPositionDescription
@@ -141,6 +148,8 @@ struct SettingsView: View {
   private var generalSettingsPage: some View {
     GeneralSettingsPage(
       launchAtLogin: launchAtLogin,
+      showMenuBarIcon: showMenuBarIcon,
+      showDockIcon: showDockIcon,
       recordingStatusTitle: recordingStatusTitle,
       currentApplicationTitle: currentApplicationTitle,
       statusErrorMessage: statusErrorMessage,
@@ -155,6 +164,10 @@ struct SettingsView: View {
       openAccessibilitySettings: AccessibilityPermissionController.openSystemSettings,
       refreshAccessibilityStatus: refreshAccessibilityStatus
     )
+  }
+
+  private var appearanceSettingsPage: some View {
+    AppearanceSettingsPage(themeMode: themeMode)
   }
 
   private var hotkeySettingsPage: some View {
@@ -200,11 +213,51 @@ struct SettingsView: View {
     }
   }
 
-  private var pastePlainByDefault: Binding<Bool> {
+  private var copySoundEnabled: Binding<Bool> {
     Binding {
-      store.settings.pastePlainByDefault
+      store.settings.copySoundEnabled
     } set: { value in
-      store.update { $0.pastePlainByDefault = value }
+      store.update { $0.copySoundEnabled = value }
+    }
+  }
+
+  private var imageOCREnabled: Binding<Bool> {
+    Binding {
+      store.settings.imageOCREnabled
+    } set: { value in
+      store.update { $0.imageOCREnabled = value }
+    }
+  }
+
+  private var copyPlainTextByDefault: Binding<Bool> {
+    Binding {
+      store.settings.copyPlainTextByDefault
+    } set: { value in
+      store.update { $0.copyPlainTextByDefault = value }
+    }
+  }
+
+  private var pastePlainTextByDefault: Binding<Bool> {
+    Binding {
+      store.settings.pastePlainTextByDefault
+    } set: { value in
+      store.update { $0.pastePlainTextByDefault = value }
+    }
+  }
+
+  private var visibleQuickActions: Binding<Set<ClipboardQuickAction>> {
+    Binding {
+      store.settings.visibleQuickActions
+    } set: { value in
+      store.update { $0.visibleQuickActions = value }
+    }
+  }
+
+  private var autoFavoriteAfterNote: Binding<Bool> {
+    Binding {
+      store.settings.autoFavoriteAfterNote
+    } set: { value in
+      store.update { $0.autoFavoriteAfterNote = value }
     }
   }
 
@@ -264,6 +317,30 @@ struct SettingsView: View {
     }
   }
 
+  private var showMenuBarIcon: Binding<Bool> {
+    Binding {
+      store.settings.showMenuBarIcon
+    } set: { value in
+      store.update { $0.showMenuBarIcon = value }
+    }
+  }
+
+  private var showDockIcon: Binding<Bool> {
+    Binding {
+      store.settings.showDockIcon
+    } set: { value in
+      store.update { $0.showDockIcon = value }
+    }
+  }
+
+  private var themeMode: Binding<AppThemeMode> {
+    Binding {
+      store.settings.themeMode
+    } set: { value in
+      store.update { $0.themeMode = value }
+    }
+  }
+
   private var panelPosition: Binding<PanelPosition> {
     Binding {
       store.settings.panelPosition
@@ -298,6 +375,11 @@ struct SettingsView: View {
       AppText.value(
         "面板优先出现在鼠标右下角，空间不足时自动移动到完整可见的位置。",
         "The panel opens near the pointer and moves automatically when space is limited."
+      )
+    case .screenCenter:
+      AppText.value(
+        "面板在当前鼠标所在屏幕的可见区域居中显示。",
+        "The panel is centered in the visible area of the current pointer screen."
       )
     case .bottomDrawer, .statusItem:
       AppText.value("旧版位置会自动迁移为靠下。", "Legacy positions are migrated to the bottom edge.")

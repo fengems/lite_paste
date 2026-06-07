@@ -14,15 +14,23 @@ public struct AppSettings: Codable, Equatable, Sendable {
   public var ignoredPasteboardTypes: Set<String>
   public var ignoredApps: Set<String>
   public var autoPasteMode: AutoPasteMode
-  public var pastePlainByDefault: Bool
+  public var copySoundEnabled: Bool
+  public var imageOCREnabled: Bool
+  public var copyPlainTextByDefault: Bool
+  public var pastePlainTextByDefault: Bool
   public var restoreClipboardAfterPaste: Bool
   public var preserveLargeRichTextFormats: Bool
+  public var visibleQuickActions: Set<ClipboardQuickAction>
+  public var autoFavoriteAfterNote: Bool
   public var moveDuplicatesToTop: Bool
   public var clearSearchOnOpen: Bool
   public var focusSearchOnOpen: Bool
   public var coverMenuBarWhenEdgeAttached: Bool
   public var isMonitoringPaused: Bool
   public var launchAtLogin: Bool
+  public var showMenuBarIcon: Bool
+  public var showDockIcon: Bool
+  public var themeMode: AppThemeMode
 
   public init(
     hotkey: String = AppSettings.defaultHotkey,
@@ -34,16 +42,28 @@ public struct AppSettings: Codable, Equatable, Sendable {
     ignoredPasteboardTypes: Set<String> = PrivacyFilter.defaultIgnoredPasteboardTypes,
     ignoredApps: Set<String> = PrivacyFilter.defaultIgnoredApps,
     autoPasteMode: AutoPasteMode = .copyOnly,
-    pastePlainByDefault: Bool = false,
+    copySoundEnabled: Bool = false,
+    imageOCREnabled: Bool = false,
+    copyPlainTextByDefault: Bool = false,
+    pastePlainTextByDefault: Bool = false,
     restoreClipboardAfterPaste: Bool = false,
     preserveLargeRichTextFormats: Bool = false,
+    visibleQuickActions: Set<ClipboardQuickAction> = ClipboardQuickAction.defaultVisibleActions,
+    autoFavoriteAfterNote: Bool = false,
     moveDuplicatesToTop: Bool = true,
     clearSearchOnOpen: Bool = true,
     focusSearchOnOpen: Bool = true,
     coverMenuBarWhenEdgeAttached: Bool = true,
     isMonitoringPaused: Bool = false,
-    launchAtLogin: Bool = false
+    launchAtLogin: Bool = false,
+    showMenuBarIcon: Bool = true,
+    showDockIcon: Bool = false,
+    themeMode: AppThemeMode = .system
   ) {
+    let normalizedVisibility = Self.normalizedAppVisibility(
+      showMenuBarIcon: showMenuBarIcon,
+      showDockIcon: showDockIcon
+    )
     self.hotkey = Self.normalizedHotkey(hotkey)
     self.viewMode = viewMode
     self.panelPosition = Self.normalizedPanelPosition(panelPosition)
@@ -53,15 +73,23 @@ public struct AppSettings: Codable, Equatable, Sendable {
     self.ignoredPasteboardTypes = Self.normalizedIgnoredPasteboardTypes(ignoredPasteboardTypes)
     self.ignoredApps = ignoredApps
     self.autoPasteMode = autoPasteMode
-    self.pastePlainByDefault = pastePlainByDefault
+    self.copySoundEnabled = copySoundEnabled
+    self.imageOCREnabled = imageOCREnabled
+    self.copyPlainTextByDefault = copyPlainTextByDefault
+    self.pastePlainTextByDefault = pastePlainTextByDefault
     self.restoreClipboardAfterPaste = restoreClipboardAfterPaste
     self.preserveLargeRichTextFormats = preserveLargeRichTextFormats
+    self.visibleQuickActions = visibleQuickActions
+    self.autoFavoriteAfterNote = autoFavoriteAfterNote
     self.moveDuplicatesToTop = moveDuplicatesToTop
     self.clearSearchOnOpen = clearSearchOnOpen
     self.focusSearchOnOpen = focusSearchOnOpen
     self.coverMenuBarWhenEdgeAttached = coverMenuBarWhenEdgeAttached
     self.isMonitoringPaused = isMonitoringPaused
     self.launchAtLogin = launchAtLogin
+    self.showMenuBarIcon = normalizedVisibility.showMenuBarIcon
+    self.showDockIcon = normalizedVisibility.showDockIcon
+    self.themeMode = themeMode
   }
 
   private enum CodingKeys: String, CodingKey {
@@ -74,9 +102,15 @@ public struct AppSettings: Codable, Equatable, Sendable {
     case ignoredPasteboardTypes
     case ignoredApps
     case autoPasteMode
+    case copySoundEnabled
+    case imageOCREnabled
+    case copyPlainTextByDefault
+    case pastePlainTextByDefault
     case pastePlainByDefault
     case restoreClipboardAfterPaste
     case preserveLargeRichTextFormats
+    case visibleQuickActions
+    case autoFavoriteAfterNote
     case moveDuplicatesToTop
     case clearSearchOnOpen
     case focusSearchOnOpen
@@ -84,6 +118,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
     case isMonitoringPaused
     case privacyMode
     case launchAtLogin
+    case showMenuBarIcon
+    case showDockIcon
+    case themeMode
   }
 
   public init(from decoder: Decoder) throws {
@@ -109,11 +146,27 @@ public struct AppSettings: Codable, Equatable, Sendable {
     )
     ignoredApps = try container.decodeIfPresent(Set<String>.self, forKey: .ignoredApps) ?? defaults.ignoredApps
     autoPasteMode = try container.decodeIfPresent(AutoPasteMode.self, forKey: .autoPasteMode) ?? defaults.autoPasteMode
-    pastePlainByDefault = try container.decodeIfPresent(Bool.self, forKey: .pastePlainByDefault) ?? defaults.pastePlainByDefault
+    copySoundEnabled = try container.decodeIfPresent(Bool.self, forKey: .copySoundEnabled) ?? defaults.copySoundEnabled
+    imageOCREnabled = try container.decodeIfPresent(Bool.self, forKey: .imageOCREnabled) ?? defaults.imageOCREnabled
+    let legacyPastePlainByDefault = try container.decodeIfPresent(Bool.self, forKey: .pastePlainByDefault)
+    copyPlainTextByDefault =
+      try container.decodeIfPresent(Bool.self, forKey: .copyPlainTextByDefault) ??
+      legacyPastePlainByDefault ??
+      defaults.copyPlainTextByDefault
+    pastePlainTextByDefault =
+      try container.decodeIfPresent(Bool.self, forKey: .pastePlainTextByDefault) ??
+      legacyPastePlainByDefault ??
+      defaults.pastePlainTextByDefault
     restoreClipboardAfterPaste = try container.decodeIfPresent(Bool.self, forKey: .restoreClipboardAfterPaste) ?? defaults.restoreClipboardAfterPaste
     preserveLargeRichTextFormats =
       try container.decodeIfPresent(Bool.self, forKey: .preserveLargeRichTextFormats) ??
       defaults.preserveLargeRichTextFormats
+    visibleQuickActions =
+      try container.decodeIfPresent(Set<ClipboardQuickAction>.self, forKey: .visibleQuickActions) ??
+      defaults.visibleQuickActions
+    autoFavoriteAfterNote =
+      try container.decodeIfPresent(Bool.self, forKey: .autoFavoriteAfterNote) ??
+      defaults.autoFavoriteAfterNote
     moveDuplicatesToTop = try container.decodeIfPresent(Bool.self, forKey: .moveDuplicatesToTop) ?? defaults.moveDuplicatesToTop
     clearSearchOnOpen = try container.decodeIfPresent(Bool.self, forKey: .clearSearchOnOpen) ?? defaults.clearSearchOnOpen
     focusSearchOnOpen = try container.decodeIfPresent(Bool.self, forKey: .focusSearchOnOpen) ?? defaults.focusSearchOnOpen
@@ -125,6 +178,13 @@ public struct AppSettings: Codable, Equatable, Sendable {
       container.decodeIfPresent(Bool.self, forKey: .privacyMode) ??
       defaults.isMonitoringPaused
     launchAtLogin = try container.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? defaults.launchAtLogin
+    let appVisibility = Self.normalizedAppVisibility(
+      showMenuBarIcon: try container.decodeIfPresent(Bool.self, forKey: .showMenuBarIcon) ?? defaults.showMenuBarIcon,
+      showDockIcon: try container.decodeIfPresent(Bool.self, forKey: .showDockIcon) ?? defaults.showDockIcon
+    )
+    showMenuBarIcon = appVisibility.showMenuBarIcon
+    showDockIcon = appVisibility.showDockIcon
+    themeMode = try container.decodeIfPresent(AppThemeMode.self, forKey: .themeMode) ?? defaults.themeMode
   }
 
   public func encode(to encoder: Encoder) throws {
@@ -138,15 +198,23 @@ public struct AppSettings: Codable, Equatable, Sendable {
     try container.encode(ignoredPasteboardTypes, forKey: .ignoredPasteboardTypes)
     try container.encode(ignoredApps, forKey: .ignoredApps)
     try container.encode(autoPasteMode, forKey: .autoPasteMode)
-    try container.encode(pastePlainByDefault, forKey: .pastePlainByDefault)
+    try container.encode(copySoundEnabled, forKey: .copySoundEnabled)
+    try container.encode(imageOCREnabled, forKey: .imageOCREnabled)
+    try container.encode(copyPlainTextByDefault, forKey: .copyPlainTextByDefault)
+    try container.encode(pastePlainTextByDefault, forKey: .pastePlainTextByDefault)
     try container.encode(restoreClipboardAfterPaste, forKey: .restoreClipboardAfterPaste)
     try container.encode(preserveLargeRichTextFormats, forKey: .preserveLargeRichTextFormats)
+    try container.encode(visibleQuickActions, forKey: .visibleQuickActions)
+    try container.encode(autoFavoriteAfterNote, forKey: .autoFavoriteAfterNote)
     try container.encode(moveDuplicatesToTop, forKey: .moveDuplicatesToTop)
     try container.encode(clearSearchOnOpen, forKey: .clearSearchOnOpen)
     try container.encode(focusSearchOnOpen, forKey: .focusSearchOnOpen)
     try container.encode(coverMenuBarWhenEdgeAttached, forKey: .coverMenuBarWhenEdgeAttached)
     try container.encode(isMonitoringPaused, forKey: .isMonitoringPaused)
     try container.encode(launchAtLogin, forKey: .launchAtLogin)
+    try container.encode(showMenuBarIcon, forKey: .showMenuBarIcon)
+    try container.encode(showDockIcon, forKey: .showDockIcon)
+    try container.encode(themeMode, forKey: .themeMode)
   }
 
   public mutating func normalize() {
@@ -155,6 +223,12 @@ public struct AppSettings: Codable, Equatable, Sendable {
     maxHistoryCount = Self.normalizedMaxHistoryCount(maxHistoryCount)
     retentionDays = Self.normalizedRetentionDays(retentionDays)
     ignoredPasteboardTypes = Self.normalizedIgnoredPasteboardTypes(ignoredPasteboardTypes)
+    let appVisibility = Self.normalizedAppVisibility(
+      showMenuBarIcon: showMenuBarIcon,
+      showDockIcon: showDockIcon
+    )
+    showMenuBarIcon = appVisibility.showMenuBarIcon
+    showDockIcon = appVisibility.showDockIcon
   }
 
   private static func normalizedMaxHistoryCount(_ value: Int) -> Int {
@@ -174,10 +248,21 @@ public struct AppSettings: Codable, Equatable, Sendable {
     case .statusItem, .bottomDrawer:
       .edgeBottom
     case .mouseScreenCenter:
-      .cursor
-    case .edgeBottom, .edgeTop, .edgeLeft, .edgeRight, .cursor:
+      .screenCenter
+    case .edgeBottom, .edgeTop, .edgeLeft, .edgeRight, .cursor, .screenCenter:
       value
     }
+  }
+
+  private static func normalizedAppVisibility(
+    showMenuBarIcon: Bool,
+    showDockIcon: Bool
+  ) -> (showMenuBarIcon: Bool, showDockIcon: Bool) {
+    if !showMenuBarIcon && !showDockIcon {
+      return (true, false)
+    }
+
+    return (showMenuBarIcon, showDockIcon)
   }
 
   private static func normalizedIgnoredPasteboardTypes(_ value: Set<String>) -> Set<String> {
@@ -210,12 +295,13 @@ public enum PanelPosition: String, Codable, Equatable, Sendable, CaseIterable, I
   case edgeLeft
   case edgeRight
   case cursor
+  case screenCenter
   case bottomDrawer
   case statusItem
   case mouseScreenCenter
 
   public static var allCases: [PanelPosition] {
-    [.edgeBottom, .edgeTop, .edgeLeft, .edgeRight, .cursor]
+    [.edgeBottom, .edgeTop, .edgeLeft, .edgeRight, .screenCenter, .cursor]
   }
 
   public var id: String {
@@ -234,6 +320,8 @@ public enum PanelPosition: String, Codable, Equatable, Sendable, CaseIterable, I
       "靠右"
     case .cursor:
       "跟随鼠标指针"
+    case .screenCenter:
+      "屏幕中心"
     case .bottomDrawer:
       "底部抽屉"
     case .statusItem:
@@ -247,7 +335,7 @@ public enum PanelPosition: String, Codable, Equatable, Sendable, CaseIterable, I
     switch self {
     case .edgeBottom, .edgeTop, .edgeLeft, .edgeRight, .bottomDrawer, .statusItem:
       true
-    case .cursor, .mouseScreenCenter:
+    case .cursor, .screenCenter, .mouseScreenCenter:
       false
     }
   }
@@ -256,9 +344,48 @@ public enum PanelPosition: String, Codable, Equatable, Sendable, CaseIterable, I
     switch self {
     case .edgeLeft, .edgeRight:
       true
-    case .edgeBottom, .edgeTop, .cursor, .bottomDrawer, .statusItem, .mouseScreenCenter:
+    case .edgeBottom, .edgeTop, .cursor, .screenCenter, .bottomDrawer, .statusItem, .mouseScreenCenter:
       false
     }
+  }
+}
+
+public enum ClipboardQuickAction: String, Codable, CaseIterable, Identifiable, Sendable {
+  case favorite
+  case pin
+  case copy
+  case copyPlainText
+  case paste
+  case pastePlainText
+  case note
+  case delete
+  case external
+
+  public static let defaultVisibleActions: Set<ClipboardQuickAction> = [.favorite, .pin]
+  public static let displayOrder: [ClipboardQuickAction] = [
+    .favorite,
+    .pin,
+    .copy,
+    .copyPlainText,
+    .paste,
+    .pastePlainText,
+    .note,
+    .external,
+    .delete
+  ]
+
+  public var id: String {
+    rawValue
+  }
+}
+
+public enum AppThemeMode: String, Codable, CaseIterable, Identifiable, Sendable {
+  case system
+  case light
+  case dark
+
+  public var id: String {
+    rawValue
   }
 }
 

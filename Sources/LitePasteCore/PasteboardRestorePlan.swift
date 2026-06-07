@@ -50,11 +50,20 @@ public struct PasteboardRestorePlanner: Sendable {
   }
 
   private func plainTextPlan(for record: ClipboardRecord) -> PasteboardRestorePlan? {
-    guard let plainText = record.plainText else {
+    guard let plainText = firstNonBlankText(record.plainText, record.ocrText) else {
       return nil
     }
 
     return .plainText(plainText)
+  }
+
+  private func firstNonBlankText(_ candidates: String?...) -> String? {
+    candidates.first { candidate in
+      guard let candidate else {
+        return false
+      }
+      return !candidate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    } ?? nil
   }
 
   private func fileURLPlan(for record: ClipboardRecord) -> PasteboardRestorePlan? {

@@ -5,6 +5,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
   case clipboard
   case history
   case general
+  case appearance
   case hotkeys
   case backup
   case about
@@ -21,6 +22,8 @@ enum SettingsPage: String, CaseIterable, Identifiable {
       AppText.value("历史记录", "History")
     case .general:
       AppText.value("通用设置", "General")
+    case .appearance:
+      AppText.value("外观设置", "Appearance")
     case .hotkeys:
       AppText.value("快捷键", "Shortcuts")
     case .backup:
@@ -38,6 +41,8 @@ enum SettingsPage: String, CaseIterable, Identifiable {
       "clock.arrow.circlepath"
     case .general:
       "gearshape"
+    case .appearance:
+      "paintpalette"
     case .hotkeys:
       "keyboard"
     case .backup:
@@ -55,6 +60,8 @@ enum SettingsPage: String, CaseIterable, Identifiable {
       Color(nsColor: NSColor(calibratedRed: 0.30, green: 0.56, blue: 0.62, alpha: 1))
     case .general:
       Color(nsColor: NSColor(calibratedRed: 0.43, green: 0.47, blue: 0.66, alpha: 1))
+    case .appearance:
+      Color(nsColor: NSColor(calibratedRed: 0.48, green: 0.45, blue: 0.60, alpha: 1))
     case .hotkeys:
       Color(nsColor: NSColor(calibratedRed: 0.54, green: 0.43, blue: 0.64, alpha: 1))
     case .backup:

@@ -31,7 +31,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var cancellables = Set<AnyCancellable>()
 
   func applicationDidFinishLaunching(_ notification: Notification) {
-    NSApp.setActivationPolicy(.accessory)
+    applyThemeMode(settingsStore.settings.themeMode)
+    applyActivationPolicy(settingsStore.settings)
 
     let writer = PasteboardWriter(store: store, writeTracker: clipboardWriteTracker)
     let panelCoordinator = PanelCoordinator(store: store, writer: writer)
@@ -44,13 +45,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ignoredPasteboardTypes: settingsStore.settings.ignoredPasteboardTypes
       ),
       enabledTypes: settingsStore.settings.enabledTypes,
-      preserveLargeRichTextFormats: settingsStore.settings.preserveLargeRichTextFormats
+      preserveLargeRichTextFormats: settingsStore.settings.preserveLargeRichTextFormats,
+      copySoundEnabled: settingsStore.settings.copySoundEnabled,
+      imageOCREnabled: settingsStore.settings.imageOCREnabled
     )
 
     self.panelCoordinator = panelCoordinator
     self.monitor = monitor
 
-    configureStatusItem()
+    syncStatusItemVisibility(showMenuBarIcon: settingsStore.settings.showMenuBarIcon)
     configureHotkey()
     observeSettings()
     observeBackupImports()
@@ -214,6 +217,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     )
     monitor?.updateEnabledTypes(settings.enabledTypes)
     monitor?.updatePreserveLargeRichTextFormats(settings.preserveLargeRichTextFormats)
+    monitor?.updateCopySoundEnabled(settings.copySoundEnabled)
+    monitor?.updateImageOCREnabled(settings.imageOCREnabled)
+    applyThemeMode(settings.themeMode)
+    applyActivationPolicy(settings)
+    syncStatusItemVisibility(showMenuBarIcon: settings.showMenuBarIcon)
     updateMonitoringActivity(isPaused: settings.isMonitoringPaused)
     store.updateMaxHistoryCount(settings.maxHistoryCount)
     store.updateRetentionDays(settings.retentionDays)
@@ -223,6 +231,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     launchAtLoginController.sync(with: settings.launchAtLogin)
     updateStatusMenuState()
+  }
+
+  private func applyThemeMode(_ themeMode: AppThemeMode) {
+    switch themeMode {
+    case .system:
+      NSApp.appearance = nil
+    case .light:
+      NSApp.appearance = NSAppearance(named: .aqua)
+    case .dark:
+      NSApp.appearance = NSAppearance(named: .darkAqua)
+    }
+  }
+
+  private func applyActivationPolicy(_ settings: AppSettings) {
+    NSApp.setActivationPolicy(settings.showDockIcon ? .regular : .accessory)
+  }
+
+  private func syncStatusItemVisibility(showMenuBarIcon: Bool) {
+    if showMenuBarIcon {
+      if statusItem == nil {
+        configureStatusItem()
+      } else {
+        updateStatusMenuState()
+      }
+      return
+    }
+
+    if let statusItem {
+      NSStatusBar.system.removeStatusItem(statusItem)
+      self.statusItem = nil
+    }
   }
 
   private func reloadImportedBackup() {

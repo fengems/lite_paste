@@ -321,9 +321,43 @@ public final class HistoryStore: ObservableObject {
     record.copyCount += 1
   }
 
-  public func updateNote(_ id: ClipboardRecord.ID, note: String) {
+  public func updateNote(_ id: ClipboardRecord.ID, note: String, autoFavorite: Bool = false) {
     update(id) { record in
-      record.note = note.trimmingCharacters(in: .whitespacesAndNewlines)
+      let normalizedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
+      record.note = normalizedNote
+      if autoFavorite && !normalizedNote.isEmpty {
+        record.isFavorite = true
+      }
+    }
+  }
+
+  public func appendSearchText(_ id: ClipboardRecord.ID, text: String) {
+    let fragment = Self.normalizedSearchTextFragment(text)
+    guard !fragment.isEmpty else {
+      return
+    }
+
+    update(id) { record in
+      guard record.searchText.range(of: fragment, options: [.caseInsensitive, .diacriticInsensitive]) == nil else {
+        return
+      }
+
+      record.searchText = Self.limitedSearchText([record.searchText, fragment].joined(separator: " "))
+    }
+  }
+
+  public func updateOCRText(_ id: ClipboardRecord.ID, text: String) {
+    let fragment = Self.normalizedSearchTextFragment(text)
+    guard !fragment.isEmpty else {
+      return
+    }
+
+    update(id) { record in
+      record.ocrText = fragment
+      guard record.searchText.range(of: fragment, options: [.caseInsensitive, .diacriticInsensitive]) == nil else {
+        return
+      }
+      record.searchText = Self.limitedSearchText([record.searchText, fragment].joined(separator: " "))
     }
   }
 
@@ -410,6 +444,27 @@ public final class HistoryStore: ObservableObject {
 
     mutate(&record)
     persistUpsert(record, position: nil)
+  }
+
+  private static func normalizedSearchTextFragment(_ text: String) -> String {
+    let compact = text
+      .split(whereSeparator: \.isWhitespace)
+      .joined(separator: " ")
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+
+    return limitedSearchText(compact)
+  }
+
+  private static func limitedSearchText(_ text: String) -> String {
+    guard let endIndex = text.index(
+      text.startIndex,
+      offsetBy: ClipboardTextPayloadBuilder.maxSearchTextLength,
+      limitedBy: text.endIndex
+    ) else {
+      return String(text.prefix(ClipboardTextPayloadBuilder.maxSearchTextLength))
+    }
+
+    return endIndex == text.endIndex ? text : String(text[..<endIndex])
   }
 
   private func trimHistoryIfNeeded(now: Date = .now, loadFullIfNeeded: Bool) {

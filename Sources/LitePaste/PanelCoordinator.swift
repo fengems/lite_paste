@@ -21,10 +21,13 @@ final class PanelCoordinator {
   private let store: HistoryStore
   private let writer: PasteboardWriter
   private let settingsStore = AppSettingsStore.shared
+  private let imageOCRService = ImageOCRService()
   private let presentationState = PanelPresentationState()
   private var panel: NSPanel?
   private var previousApplication: NSRunningApplication?
   private var edgePanelThickness: CGFloat = ClipboardPanelMetrics.edgePanelThickness
+  private var imageTextActionRevision = 0
+  private var imageTextTasks: [ClipboardRecord.ID: Int] = [:]
   private var cancellables = Set<AnyCancellable>()
 
   init(store: HistoryStore, writer: PasteboardWriter) {
@@ -82,10 +85,10 @@ final class PanelCoordinator {
         self?.paste(record, asPlainText: true)
       },
       primaryCopyAction: { [weak self] record in
-        self?.copy(record, asPlainText: self?.settingsStore.settings.pastePlainByDefault ?? false)
+        self?.copy(record, asPlainText: self?.settingsStore.settings.copyPlainTextByDefault ?? false)
       },
       primaryPasteAction: { [weak self] record in
-        self?.paste(record, asPlainText: self?.settingsStore.settings.pastePlainByDefault ?? false)
+        self?.paste(record, asPlainText: self?.settingsStore.settings.pastePlainTextByDefault ?? false)
       },
       closeAction: { [weak panel] in
         panel?.orderOut(nil)
@@ -149,9 +152,12 @@ final class PanelCoordinator {
     switch settingsStore.settings.panelPosition {
     case .edgeBottom, .edgeTop, .edgeLeft, .edgeRight, .bottomDrawer, .statusItem:
       positionEdgeAttached(panel, position: settingsStore.settings.panelPosition)
-    case .cursor, .mouseScreenCenter:
+    case .cursor:
       presentationState.updateTopObstruction(nil)
       positionNearMouse(panel)
+    case .screenCenter, .mouseScreenCenter:
+      presentationState.updateTopObstruction(nil)
+      positionScreenCenter(panel)
     }
   }
 
@@ -181,6 +187,21 @@ final class PanelCoordinator {
       y: mouseLocation.y - size.height - 10
     )
     let origin = preferredOrigin.clamped(panelSize: size, to: visibleFrame)
+    panel.setFrame(NSRect(origin: origin, size: size).roundedToScreenPoints(), display: true)
+  }
+
+  private func positionScreenCenter(_ panel: NSPanel) {
+    guard let screen = Self.screenContainingMouse() ?? NSScreen.main else {
+      panel.center()
+      return
+    }
+
+    let visibleFrame = screen.visibleFrame
+    let size = floatingPanelSize(in: visibleFrame)
+    let origin = NSPoint(
+      x: visibleFrame.midX - size.width / 2,
+      y: visibleFrame.midY - size.height / 2
+    )
     panel.setFrame(NSRect(origin: origin, size: size).roundedToScreenPoints(), display: true)
   }
 
@@ -217,7 +238,7 @@ final class PanelCoordinator {
         width: displayFrame.width,
         height: thickness
       )
-    case .cursor, .mouseScreenCenter:
+    case .cursor, .screenCenter, .mouseScreenCenter:
       return NSRect(origin: visibleFrame.origin, size: floatingPanelSize(in: visibleFrame))
     }
   }
@@ -250,11 +271,38 @@ final class PanelCoordinator {
   }
 
   private func copy(_ record: ClipboardRecord, asPlainText: Bool = false) {
+    if asPlainText, needsImageTextRecognition(record) {
+      resolveImageText(for: record) { [weak self] updatedRecord in
+        guard let self else {
+          return
+        }
+        let result = writer.copy(updatedRecord, asPlainText: true)
+        handleActionResult(result)
+      }
+      return
+    }
+
     let result = writer.copy(record, asPlainText: asPlainText)
     handleActionResult(result)
   }
 
   private func paste(_ record: ClipboardRecord, asPlainText: Bool) {
+    if asPlainText, needsImageTextRecognition(record) {
+      resolveImageText(for: record) { [weak self] updatedRecord in
+        guard let self else {
+          return
+        }
+        let result = writer.paste(
+          updatedRecord,
+          targetApplication: previousApplication,
+          asPlainText: true,
+          restorePreviousClipboard: settingsStore.settings.restoreClipboardAfterPaste
+        )
+        handleActionResult(result, closesPanelOnSuccess: true)
+      }
+      return
+    }
+
     let result = writer.paste(
       record,
       targetApplication: previousApplication,
@@ -263,6 +311,102 @@ final class PanelCoordinator {
     )
 
     handleActionResult(result, closesPanelOnSuccess: true)
+  }
+
+  private func needsImageTextRecognition(_ record: ClipboardRecord) -> Bool {
+    guard record.kind == .image else {
+      return false
+    }
+
+    return !hasUsableText(record.plainText) && !hasUsableText(record.ocrText)
+  }
+
+  private func hasUsableText(_ text: String?) -> Bool {
+    guard let text else {
+      return false
+    }
+
+    return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+  }
+
+  private func resolveImageText(
+    for record: ClipboardRecord,
+    completion: @escaping @MainActor (ClipboardRecord) -> Void
+  ) {
+    if let currentRecord = store.record(id: record.id), !needsImageTextRecognition(currentRecord) {
+      completion(currentRecord)
+      return
+    }
+
+    guard imageTextTasks[record.id] == nil else {
+      presentationState.showActionMessage(AppText.value("正在识别图片文字", "Recognizing image text"))
+      return
+    }
+
+    guard let imageData = imageData(for: record) else {
+      presentationState.showActionMessage(AppText.value("图片数据不可用", "Image data unavailable"))
+      return
+    }
+
+    guard imageData.count <= ImageOCRService.maxInputBytes else {
+      presentationState.showActionMessage(AppText.value("图片过大，已跳过识别", "Image too large for text recognition"))
+      return
+    }
+
+    imageTextActionRevision += 1
+    let actionRevision = imageTextActionRevision
+    imageTextTasks[record.id] = actionRevision
+    presentationState.showActionMessage(AppText.value("正在识别图片文字", "Recognizing image text"))
+
+    Task { [weak self] in
+      guard let self else {
+        return
+      }
+
+      let text = await imageOCRService.recognizeText(in: imageData)
+      if imageTextTasks[record.id] == actionRevision {
+        imageTextTasks[record.id] = nil
+      }
+
+      guard imageTextActionRevision == actionRevision, panel?.isVisible == true else {
+        return
+      }
+
+      guard let text, hasUsableText(text) else {
+        presentationState.showActionMessage(AppText.value("未识别到图片文字", "No image text found"))
+        return
+      }
+
+      store.updateOCRText(record.id, text: text)
+      guard let updatedRecord = store.record(id: record.id) else {
+        showMissingContentAlert()
+        return
+      }
+
+      completion(updatedRecord)
+    }
+  }
+
+  private func imageData(for record: ClipboardRecord) -> Data? {
+    for snapshot in record.contents.sorted(by: { $0.displayOrder < $1.displayOrder }) {
+      if let data = data(from: snapshot) {
+        return data
+      }
+    }
+
+    guard let previewFilePath = record.previewFilePath else {
+      return nil
+    }
+    return try? Data(contentsOf: URL(fileURLWithPath: previewFilePath))
+  }
+
+  private func data(from snapshot: ClipboardContentSnapshot) -> Data? {
+    switch snapshot.storageMode {
+    case .inline:
+      snapshot.inlineData
+    case .external:
+      snapshot.externalFilePath.flatMap { try? Data(contentsOf: URL(fileURLWithPath: $0)) }
+    }
   }
 
   private func handleActionResult(_ result: PasteActionResult, closesPanelOnSuccess: Bool = false) {
@@ -322,6 +466,8 @@ final class PanelCoordinator {
   }
 
   private func hidePanel() {
+    imageTextActionRevision += 1
+    imageTextTasks.removeAll()
     panel?.orderOut(nil)
     presentationState.updateTopObstruction(nil)
   }

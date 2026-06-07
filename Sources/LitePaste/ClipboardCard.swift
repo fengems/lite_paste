@@ -15,6 +15,7 @@ struct ClipboardCard: View {
   let toggleFavorite: () -> Void
   let togglePinned: () -> Void
   let deleteAction: () -> Void
+  let visibleQuickActions: Set<ClipboardQuickAction>
 
   var body: some View {
     ZStack(alignment: .leading) {
@@ -57,25 +58,71 @@ struct ClipboardCard: View {
 
       Spacer(minLength: 0)
 
-      IconButton(
-        systemName: record.isPinned ? "pin.fill" : "pin",
-        accessibilityLabel: AppText.value("置顶", "Pin"),
-        isActive: record.isPinned,
-        tint: .blue,
-        showsInactiveBackground: false,
-        action: togglePinned
-      )
+      quickActions
+    }
+  }
 
+  private var quickActions: some View {
+    HStack(spacing: 5) {
+      ForEach(orderedQuickActions, id: \.self) { action in
+        quickActionButton(action)
+      }
+
+      actionMenu
+    }
+  }
+
+  private var orderedQuickActions: [ClipboardQuickAction] {
+    Array(ClipboardQuickAction.displayOrder.filter { visibleQuickActions.contains($0) }.prefix(4))
+  }
+
+  @ViewBuilder
+  private func quickActionButton(_ action: ClipboardQuickAction) -> some View {
+    switch action {
+    case .favorite:
       IconButton(
         systemName: record.isFavorite ? "star.fill" : "star",
-        accessibilityLabel: AppText.value("收藏", "Favorite"),
+        accessibilityLabel: action.localizedDisplayName,
         isActive: record.isFavorite,
         tint: .yellow,
         showsInactiveBackground: false,
         action: toggleFavorite
       )
-
-      actionMenu
+    case .pin:
+      IconButton(
+        systemName: record.isPinned ? "pin.fill" : "pin",
+        accessibilityLabel: action.localizedDisplayName,
+        isActive: record.isPinned,
+        tint: .blue,
+        showsInactiveBackground: false,
+        action: togglePinned
+      )
+    case .copy:
+      IconButton(systemName: action.iconName, accessibilityLabel: action.localizedDisplayName, action: { copyAction(record) })
+    case .copyPlainText:
+      IconButton(systemName: action.iconName, accessibilityLabel: plainTextCopyLabel, action: { copyPlainTextAction(record) })
+    case .paste:
+      IconButton(systemName: action.iconName, accessibilityLabel: action.localizedDisplayName, action: { pasteAction(record) })
+    case .pastePlainText:
+      IconButton(systemName: action.iconName, accessibilityLabel: plainTextPasteLabel, action: { pastePlainTextAction(record) })
+    case .note:
+      IconButton(
+        systemName: record.note.isEmpty ? action.iconName : "note.text",
+        accessibilityLabel: action.localizedDisplayName,
+        isActive: !record.note.isEmpty,
+        tint: .blue,
+        action: editNote
+      )
+    case .delete:
+      IconButton(systemName: action.iconName, accessibilityLabel: action.localizedDisplayName, tint: .red, action: deleteAction)
+    case .external:
+      if let externalAction {
+        IconButton(
+          systemName: externalAction.iconName,
+          accessibilityLabel: externalAction.accessibilityLabel,
+          action: { performExternalAction(externalAction) }
+        )
+      }
     }
   }
 
@@ -108,13 +155,13 @@ struct ClipboardCard: View {
       Button {
         pastePlainTextAction(record)
       } label: {
-        Label(AppText.value("纯文本粘贴", "Paste Plain Text"), systemImage: "textformat")
+        Label(plainTextPasteLabel, systemImage: "textformat")
       }
 
       Button {
         copyPlainTextAction(record)
       } label: {
-        Label(AppText.value("复制纯文本", "Copy Plain Text"), systemImage: "doc.plaintext")
+        Label(plainTextCopyLabel, systemImage: "doc.plaintext")
       }
 
       if let externalAction {
@@ -154,6 +201,18 @@ struct ClipboardCard: View {
     [record.sourceAppName, record.panelRelativeTimeText]
       .compactMap { $0 }
       .joined(separator: "  •  ")
+  }
+
+  private var plainTextCopyLabel: String {
+    record.kind == .image
+      ? AppText.value("复制图片文字", "Copy Image Text")
+      : AppText.value("复制纯文本", "Copy Plain Text")
+  }
+
+  private var plainTextPasteLabel: String {
+    record.kind == .image
+      ? AppText.value("粘贴为文本", "Paste As Text")
+      : AppText.value("纯文本粘贴", "Paste Plain Text")
   }
 
   private var selectionStroke: some View {

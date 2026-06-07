@@ -77,12 +77,75 @@ extension PanelPosition {
       AppText.value("靠右", "Right Edge")
     case .cursor:
       AppText.value("跟随鼠标指针", "Near Pointer")
+    case .screenCenter:
+      AppText.value("屏幕中心", "Screen Center")
     case .bottomDrawer:
       AppText.value("底部抽屉", "Bottom Drawer")
     case .statusItem:
       AppText.value("菜单栏下方", "Below Menu Bar")
     case .mouseScreenCenter:
       AppText.value("鼠标所在屏幕居中", "Pointer Screen Center")
+    }
+  }
+}
+
+extension ClipboardQuickAction {
+  var localizedDisplayName: String {
+    switch self {
+    case .favorite:
+      AppText.value("收藏", "Favorite")
+    case .pin:
+      AppText.value("置顶", "Pin")
+    case .copy:
+      AppText.value("复制", "Copy")
+    case .copyPlainText:
+      AppText.value("复制为纯文本", "Copy Plain Text")
+    case .paste:
+      AppText.value("粘贴", "Paste")
+    case .pastePlainText:
+      AppText.value("粘贴为纯文本", "Paste Plain Text")
+    case .note:
+      AppText.value("备注", "Note")
+    case .delete:
+      AppText.value("删除", "Delete")
+    case .external:
+      AppText.value("外部操作", "External Action")
+    }
+  }
+
+  var iconName: String {
+    switch self {
+    case .favorite:
+      "star"
+    case .pin:
+      "pin"
+    case .copy:
+      "doc.on.doc"
+    case .copyPlainText:
+      "doc.plaintext"
+    case .paste:
+      "arrow.turn.down.left"
+    case .pastePlainText:
+      "textformat"
+    case .note:
+      "note.text"
+    case .delete:
+      "trash"
+    case .external:
+      "arrow.up.right.square"
+    }
+  }
+}
+
+extension AppThemeMode {
+  var localizedDisplayName: String {
+    switch self {
+    case .system:
+      AppText.value("跟随系统", "Follow System")
+    case .light:
+      AppText.value("亮色模式", "Light")
+    case .dark:
+      AppText.value("暗色模式", "Dark")
     }
   }
 }

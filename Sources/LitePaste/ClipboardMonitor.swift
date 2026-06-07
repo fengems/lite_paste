@@ -2,6 +2,11 @@ import AppKit
 import Foundation
 import LitePasteCore
 
+private struct ResolvedClipboardPayload {
+  var payload: ClipboardPayload
+  var imageOCRData: Data?
+}
+
 @MainActor
 final class ClipboardMonitor {
   // Large Excel ranges can expose multi-megabyte HTML/RTF payloads; plain text remains the default.
@@ -11,8 +16,12 @@ final class ClipboardMonitor {
   private let store: HistoryStore
   private let writeTracker: ClipboardWriteTracker
   private let payloadResolver: ClipboardPayloadResolver
+  private let imageOCRService: ImageOCRService
   private var captureGate: ClipboardCaptureGate
   private var preserveLargeRichTextFormats: Bool
+  private var copySoundEnabled: Bool
+  private var imageOCREnabled: Bool
+  private var imageOCRTasks: [ClipboardRecord.ID: Task<Void, Never>] = [:]
   private var timer: Timer?
   private var lastChangeCount: Int
 
@@ -24,11 +33,15 @@ final class ClipboardMonitor {
     payloadResolver: ClipboardPayloadResolver? = nil,
     privacyFilter: PrivacyFilter = PrivacyFilter(),
     enabledTypes: Set<ClipboardKind> = Set(ClipboardKind.allCases),
-    preserveLargeRichTextFormats: Bool = false
+    preserveLargeRichTextFormats: Bool = false,
+    copySoundEnabled: Bool = false,
+    imageOCREnabled: Bool = false,
+    imageOCRService: ImageOCRService = ImageOCRService()
   ) {
     self.pasteboard = pasteboard
     self.store = store
     self.writeTracker = writeTracker
+    self.imageOCRService = imageOCRService
     self.payloadResolver = payloadResolver ?? ClipboardPayloadResolver(
       mediaPayloadBuilder: ClipboardMediaPayloadBuilder(blobStorage: blobStorage)
     )
@@ -37,6 +50,8 @@ final class ClipboardMonitor {
       privacyFilter: privacyFilter
     )
     self.preserveLargeRichTextFormats = preserveLargeRichTextFormats
+    self.copySoundEnabled = copySoundEnabled
+    self.imageOCREnabled = imageOCREnabled
     self.lastChangeCount = pasteboard.changeCount
   }
 
@@ -55,6 +70,7 @@ final class ClipboardMonitor {
   func stop() {
     timer?.invalidate()
     timer = nil
+    cancelImageOCRTasks()
   }
 
   func updatePrivacyFilter(_ privacyFilter: PrivacyFilter) {
@@ -67,6 +83,17 @@ final class ClipboardMonitor {
 
   func updatePreserveLargeRichTextFormats(_ enabled: Bool) {
     preserveLargeRichTextFormats = enabled
+  }
+
+  func updateCopySoundEnabled(_ enabled: Bool) {
+    copySoundEnabled = enabled
+  }
+
+  func updateImageOCREnabled(_ enabled: Bool) {
+    imageOCREnabled = enabled
+    if !enabled {
+      cancelImageOCRTasks()
+    }
   }
 
   private func captureIfNeeded() {
@@ -89,26 +116,37 @@ final class ClipboardMonitor {
       return
     }
 
-    guard let payload = readPayload(pasteboardTypes: types, sourceAppBundleId: bundleId) else {
+    guard let resolvedPayload = readPayload(pasteboardTypes: types, sourceAppBundleId: bundleId) else {
       return
     }
+    let payload = resolvedPayload.payload
 
     guard captureGate.shouldRecord(payload: payload, sourceAppBundleId: bundleId) else {
       return
     }
 
-    store.ingest(
+    let record = store.ingest(
       payload,
       sourceAppBundleId: bundleId,
       sourceAppName: sourceApp?.localizedName
     )
+    playCopySoundIfNeeded(for: record)
+    scheduleImageOCRIfNeeded(record: record, imageData: resolvedPayload.imageOCRData)
+  }
+
+  private func playCopySoundIfNeeded(for record: ClipboardRecord) {
+    guard copySoundEnabled, record.copyCount == 1 else {
+      return
+    }
+
+    NSSound(named: "Tink")?.play()
   }
 
   private func readPasteboardTypes() -> Set<String> {
     Set(pasteboard.types?.map(\.rawValue) ?? [])
   }
 
-  private func readPayload(pasteboardTypes types: Set<String>, sourceAppBundleId: String?) -> ClipboardPayload? {
+  private func readPayload(pasteboardTypes types: Set<String>, sourceAppBundleId: String?) -> ResolvedClipboardPayload? {
     let fileURLs = readFileURLs()
     let plainText = pasteboard.string(forType: .string)
     let richTextCandidates = readRichTextCandidates(
@@ -119,13 +157,60 @@ final class ClipboardMonitor {
       ? []
       : readImageCandidates()
 
-    return payloadResolver.resolve(
+    guard let payload = payloadResolver.resolve(
       pasteboardTypes: types,
       fileURLs: fileURLs,
       imageCandidates: imageCandidates,
       richTextCandidates: richTextCandidates,
       plainText: plainText
+    ) else {
+      return nil
+    }
+
+    let shouldRunImageOCR = imageOCREnabled &&
+      payload.kind == .image &&
+      !ClipboardOCRPolicy.shouldSkipImageOCR(
+        pasteboardTypes: types,
+        sourceAppBundleId: sourceAppBundleId,
+        plainText: plainText
+      )
+
+    return ResolvedClipboardPayload(
+      payload: payload,
+      imageOCRData: shouldRunImageOCR ? imageCandidates.first?.data : nil
     )
+  }
+
+  private func scheduleImageOCRIfNeeded(record: ClipboardRecord, imageData: Data?) {
+    guard imageOCREnabled, record.kind == .image, record.copyCount == 1, let imageData else {
+      return
+    }
+
+    guard imageOCRTasks.isEmpty else {
+      return
+    }
+
+    let recordID = record.id
+    imageOCRTasks[recordID] = Task { [weak self] in
+      guard let self else {
+        return
+      }
+
+      let recognizedText = await imageOCRService.recognizeText(in: imageData)
+      guard !Task.isCancelled else {
+        return
+      }
+
+      if let recognizedText {
+        store.updateOCRText(recordID, text: recognizedText)
+      }
+      imageOCRTasks[recordID] = nil
+    }
+  }
+
+  private func cancelImageOCRTasks() {
+    imageOCRTasks.values.forEach { $0.cancel() }
+    imageOCRTasks.removeAll()
   }
 
   private func readFileURLs() -> [URL] {

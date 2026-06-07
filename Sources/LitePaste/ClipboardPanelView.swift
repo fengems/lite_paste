@@ -464,7 +464,7 @@ struct ClipboardPanelView: View {
     switch settingsStore.settings.panelPosition {
     case .edgeBottom, .edgeTop, .bottomDrawer, .statusItem:
       true
-    case .edgeLeft, .edgeRight, .cursor, .mouseScreenCenter:
+    case .edgeLeft, .edgeRight, .cursor, .screenCenter, .mouseScreenCenter:
       false
     }
   }
@@ -482,7 +482,7 @@ struct ClipboardPanelView: View {
       return 2
     case .edgeBottom, .edgeTop, .bottomDrawer, .statusItem:
       return 6
-    case .cursor, .mouseScreenCenter:
+    case .cursor, .screenCenter, .mouseScreenCenter:
       return 3
     }
   }
@@ -541,7 +541,8 @@ struct ClipboardPanelView: View {
       editNote: { editNote(record) },
       toggleFavorite: { store.toggleFavorite(record.id) },
       togglePinned: { store.togglePinned(record.id) },
-      deleteAction: { confirmDelete(record) }
+      deleteAction: { confirmDelete(record) },
+      visibleQuickActions: settingsStore.settings.visibleQuickActions
     )
   }
 
@@ -559,7 +560,8 @@ struct ClipboardPanelView: View {
       editNote: { editNote(record) },
       toggleFavorite: { store.toggleFavorite(record.id) },
       togglePinned: { store.togglePinned(record.id) },
-      deleteAction: { confirmDelete(record) }
+      deleteAction: { confirmDelete(record) },
+      visibleQuickActions: settingsStore.settings.visibleQuickActions
     )
   }
 
@@ -718,7 +720,11 @@ struct ClipboardPanelView: View {
     guard let note = NoteEditor.edit(record: record) else {
       return
     }
-    store.updateNote(record.id, note: note)
+    store.updateNote(
+      record.id,
+      note: note,
+      autoFavorite: settingsStore.settings.autoFavoriteAfterNote
+    )
   }
 
   private func handleExternalActionResult(_ result: ClipboardExternalActionResult) {
