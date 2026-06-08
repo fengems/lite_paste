@@ -20,9 +20,7 @@
 ## 后续阶段已实现
 
 - 自动识别图片文字：新增开关，开启后对新复制图片异步识别文字，并缓存到历史记录。OCR 结果可用于搜索，也可在图片记录执行“复制图片文字 / 粘贴为文本”时作为文本内容。手动图片文字操作不受自动识别开关影响。
-
-## 暂不进入当前阶段
-- 界面语言：当前文案通过 `AppText.value(中文, 英文)` 内联实现。支持简中、繁中、日、韩、英需要先重构本地化架构，再增加语言切换设置。
+- 界面语言：新增 `跟随系统`、简中、繁中、日、韩、英设置。第一版保留现有 `AppText.value(中文, 英文)` 调用结构，通过统一语言解析和常用文案翻译表覆盖高频界面；后续可继续迁移到标准 `.lproj` 资源文件。
 
 ## 数据结构
 
@@ -36,6 +34,7 @@
 - `imageOCREnabled: Bool`
 - `showMenuBarIcon: Bool`
 - `showDockIcon: Bool`
+- `interfaceLanguage: AppLanguage`
 - `themeMode: AppThemeMode`
 
 兼容策略：
@@ -105,6 +104,14 @@
 - 跟随系统：`NSApp.appearance = nil`
 - 亮色模式：`NSApp.appearance = NSAppearance(named: .aqua)`
 - 暗色模式：`NSApp.appearance = NSAppearance(named: .darkAqua)`
+
+### 界面语言
+
+- 默认 `跟随系统`，保持旧版本随系统语言展示中文或英文的行为。
+- 支持固定选择：简中、繁中、日、韩、英。
+- 当前第一版通过 `AppText` 统一读取 `AppSettings.interfaceLanguage` 并返回对应文案。
+- 静态高频文案优先走翻译表；未覆盖的长段落和动态错误信息使用简中或英文兜底，避免显示空字符串。
+- 后续如果要做完整国际化，应逐步迁移到标准 `.lproj` / `Localizable.strings` 资源。
 
 ## 验证
 

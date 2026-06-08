@@ -31,6 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var cancellables = Set<AnyCancellable>()
 
   func applicationDidFinishLaunching(_ notification: Notification) {
+    AppText.updateInterfaceLanguage(settingsStore.settings.interfaceLanguage)
     applyThemeMode(settingsStore.settings.themeMode)
     applyActivationPolicy(settingsStore.settings)
 
@@ -219,6 +220,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     monitor?.updatePreserveLargeRichTextFormats(settings.preserveLargeRichTextFormats)
     monitor?.updateCopySoundEnabled(settings.copySoundEnabled)
     monitor?.updateImageOCREnabled(settings.imageOCREnabled)
+    AppText.updateInterfaceLanguage(settings.interfaceLanguage)
     applyThemeMode(settings.themeMode)
     applyActivationPolicy(settings)
     syncStatusItemVisibility(showMenuBarIcon: settings.showMenuBarIcon)

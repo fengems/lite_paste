@@ -367,6 +367,7 @@ func checkAppSettingsBackwardCompatibility() {
     expect(!settings.isMonitoringPaused, "Settings should default paused monitoring to off for old files")
     expect(settings.showMenuBarIcon, "Settings should default menu bar icon to on")
     expect(!settings.showDockIcon, "Settings should default Dock icon to off")
+    expect(settings.interfaceLanguage == .system, "Settings should default interface language to system")
     expect(settings.themeMode == .system, "Settings should default theme mode to system")
     expect(
       settings.ignoredApps.contains("com.1password.1password"),
@@ -400,6 +401,7 @@ func checkAppSettingsBackwardCompatibility() {
       isMonitoringPaused: true,
       showMenuBarIcon: false,
       showDockIcon: true,
+      interfaceLanguage: .ja,
       themeMode: .dark
     )
     let encoded = try JSONEncoder.litePaste.encode(custom)
@@ -470,6 +472,7 @@ func checkAppSettingsBackwardCompatibility() {
     )
     expect(!decoded.showMenuBarIcon, "Settings should preserve hidden menu bar icon")
     expect(decoded.showDockIcon, "Settings should preserve shown Dock icon")
+    expect(decoded.interfaceLanguage == .ja, "Settings should preserve interface language")
     expect(decoded.themeMode == .dark, "Settings should preserve theme mode")
 
     let hiddenEntrypoints = AppSettings(showMenuBarIcon: false, showDockIcon: false)

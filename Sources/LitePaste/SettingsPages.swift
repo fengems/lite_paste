@@ -520,11 +520,26 @@ struct GeneralSettingsPage: View {
 }
 
 struct AppearanceSettingsPage: View {
+  @Binding var interfaceLanguage: AppLanguage
   @Binding var themeMode: AppThemeMode
 
   var body: some View {
     SettingsPageStack {
       SettingsSectionCard(title: AppText.value("外观设置", "Appearance")) {
+        SettingsRow(title: AppText.value("界面语言", "Interface Language")) {
+          Picker("", selection: $interfaceLanguage) {
+            ForEach(AppLanguage.allCases) { language in
+              Text(language.localizedDisplayName).tag(language)
+            }
+          }
+          .labelsHidden()
+          .pickerStyle(.menu)
+          .controlSize(.regular)
+          .frame(width: SettingsControlMetrics.menuWidth, alignment: .trailing)
+        }
+
+        SettingsDivider()
+
         SettingsRow(title: AppText.value("主题模式", "Theme")) {
           Picker("", selection: $themeMode) {
             ForEach(AppThemeMode.allCases) { mode in

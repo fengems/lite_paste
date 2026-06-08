@@ -167,7 +167,7 @@ struct SettingsView: View {
   }
 
   private var appearanceSettingsPage: some View {
-    AppearanceSettingsPage(themeMode: themeMode)
+    AppearanceSettingsPage(interfaceLanguage: interfaceLanguage, themeMode: themeMode)
   }
 
   private var hotkeySettingsPage: some View {
@@ -330,6 +330,15 @@ struct SettingsView: View {
       store.settings.showDockIcon
     } set: { value in
       store.update { $0.showDockIcon = value }
+    }
+  }
+
+  private var interfaceLanguage: Binding<AppLanguage> {
+    Binding {
+      store.settings.interfaceLanguage
+    } set: { value in
+      AppText.updateInterfaceLanguage(value)
+      store.update { $0.interfaceLanguage = value }
     }
   }
 

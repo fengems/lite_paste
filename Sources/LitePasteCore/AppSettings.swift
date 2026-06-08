@@ -30,6 +30,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
   public var launchAtLogin: Bool
   public var showMenuBarIcon: Bool
   public var showDockIcon: Bool
+  public var interfaceLanguage: AppLanguage
   public var themeMode: AppThemeMode
 
   public init(
@@ -58,6 +59,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     launchAtLogin: Bool = false,
     showMenuBarIcon: Bool = true,
     showDockIcon: Bool = false,
+    interfaceLanguage: AppLanguage = .system,
     themeMode: AppThemeMode = .system
   ) {
     let normalizedVisibility = Self.normalizedAppVisibility(
@@ -89,6 +91,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     self.launchAtLogin = launchAtLogin
     self.showMenuBarIcon = normalizedVisibility.showMenuBarIcon
     self.showDockIcon = normalizedVisibility.showDockIcon
+    self.interfaceLanguage = interfaceLanguage
     self.themeMode = themeMode
   }
 
@@ -120,6 +123,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     case launchAtLogin
     case showMenuBarIcon
     case showDockIcon
+    case interfaceLanguage
     case themeMode
   }
 
@@ -184,6 +188,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
     )
     showMenuBarIcon = appVisibility.showMenuBarIcon
     showDockIcon = appVisibility.showDockIcon
+    interfaceLanguage =
+      try container.decodeIfPresent(AppLanguage.self, forKey: .interfaceLanguage) ??
+      defaults.interfaceLanguage
     themeMode = try container.decodeIfPresent(AppThemeMode.self, forKey: .themeMode) ?? defaults.themeMode
   }
 
@@ -214,6 +221,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     try container.encode(launchAtLogin, forKey: .launchAtLogin)
     try container.encode(showMenuBarIcon, forKey: .showMenuBarIcon)
     try container.encode(showDockIcon, forKey: .showDockIcon)
+    try container.encode(interfaceLanguage, forKey: .interfaceLanguage)
     try container.encode(themeMode, forKey: .themeMode)
   }
 
@@ -383,6 +391,19 @@ public enum AppThemeMode: String, Codable, CaseIterable, Identifiable, Sendable 
   case system
   case light
   case dark
+
+  public var id: String {
+    rawValue
+  }
+}
+
+public enum AppLanguage: String, Codable, CaseIterable, Identifiable, Sendable {
+  case system
+  case zhHans
+  case zhHant
+  case ja
+  case ko
+  case en
 
   public var id: String {
     rawValue
