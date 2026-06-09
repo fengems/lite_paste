@@ -21,6 +21,7 @@ struct ClipboardCard: View {
   var body: some View {
     ZStack(alignment: .leading) {
       cardBackground
+      selectionInteriorGlow
       accentStrip
 
       VStack(alignment: .leading, spacing: contentInset) {
@@ -34,7 +35,7 @@ struct ClipboardCard: View {
     .frame(maxWidth: .infinity, minHeight: ClipboardPanelMetrics.cardHeight, maxHeight: ClipboardPanelMetrics.cardHeight)
     .clipShape(cardShape)
     .overlay(selectionStroke)
-    .shadow(color: isSelected ? record.kind.accentColor.opacity(0.28) : Color.black.opacity(0.10), radius: isSelected ? 13 : 6, y: 3)
+    .shadow(color: cardShadowColor, radius: cardShadowRadius, y: 3)
     .contentShape(RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cardCornerRadius))
     .contextMenu {
       actionMenuItems
@@ -93,6 +94,24 @@ struct ClipboardCard: View {
 
   private var showsQuickActions: Bool {
     isSelected || isHovering
+  }
+
+  private var selectionTintOpacity: Double {
+    if isSelected {
+      return 0.18
+    }
+    return isHovering ? 0.085 : 0.055
+  }
+
+  private var cardShadowColor: Color {
+    if isSelected {
+      return record.kind.accentColor.opacity(0.34)
+    }
+    return isHovering ? record.kind.accentColor.opacity(0.14) : Color.black.opacity(0.10)
+  }
+
+  private var cardShadowRadius: CGFloat {
+    isSelected ? 15 : (isHovering ? 9 : 6)
   }
 
   @ViewBuilder
@@ -224,11 +243,17 @@ struct ClipboardCard: View {
   }
 
   private var selectionStroke: some View {
-    cardShape
-      .strokeBorder(
-        isSelected ? record.kind.accentColor.opacity(0.95) : Color.white.opacity(0.10),
-        lineWidth: isSelected ? 2 : 1
-      )
+    ZStack {
+      cardShape
+        .strokeBorder(Color.white.opacity(isSelected ? 0.20 : 0.10), lineWidth: 1)
+
+      cardShape
+        .strokeBorder(
+          record.kind.accentColor.opacity(isSelected ? 0.96 : (isHovering ? 0.44 : 0)),
+          lineWidth: isSelected ? 2.5 : 1
+        )
+    }
+    .allowsHitTesting(false)
   }
 
   private var cardShape: RoundedRectangle {
@@ -240,7 +265,7 @@ struct ClipboardCard: View {
     cardShape
       .fill(.regularMaterial)
       .overlay(
-        cardShape.fill(record.kind.accentColor.opacity(isSelected ? 0.14 : 0.055))
+        cardShape.fill(record.kind.accentColor.opacity(selectionTintOpacity))
       )
       .overlay(
         cardShape
@@ -248,12 +273,27 @@ struct ClipboardCard: View {
       )
   }
 
+  private var selectionInteriorGlow: some View {
+    cardShape
+      .strokeBorder(
+        record.kind.accentColor.opacity(isSelected ? 0.26 : (isHovering ? 0.10 : 0)),
+        lineWidth: isSelected ? 7 : 4
+      )
+      .blur(radius: isSelected ? 4 : 2)
+      .opacity(isSelected || isHovering ? 1 : 0)
+      .allowsHitTesting(false)
+  }
+
   private var accentStrip: some View {
     RoundedRectangle(cornerRadius: 2, style: .continuous)
-      .fill(record.kind.accentColor)
+      .fill(record.kind.accentColor.opacity(isSelected ? 1 : (isHovering ? 0.92 : 0.78)))
       .frame(width: ClipboardPanelMetrics.accentStripWidth)
       .padding(.vertical, 0)
       .padding(.leading, 0)
-      .shadow(color: record.kind.accentColor.opacity(0.36), radius: 9, y: 2)
+      .shadow(
+        color: record.kind.accentColor.opacity(isSelected ? 0.58 : (isHovering ? 0.42 : 0.30)),
+        radius: isSelected ? 12 : 8,
+        y: 2
+      )
   }
 }

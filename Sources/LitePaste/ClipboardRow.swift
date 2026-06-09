@@ -16,22 +16,32 @@ struct ClipboardRow: View {
   let togglePinned: () -> Void
   let deleteAction: () -> Void
   let visibleQuickActions: Set<ClipboardQuickAction>
+  @State private var isHovering = false
 
   var body: some View {
-    HStack(spacing: 9) {
-      accentStrip
-      SourceAppIcon(record: record)
-      titleBlock
-      Spacer(minLength: 8)
-      quickActions
+    ZStack(alignment: .leading) {
+      rowBackground
+      selectionInteriorGlow
+
+      HStack(spacing: 9) {
+        accentStrip
+        SourceAppIcon(record: record)
+        titleBlock
+        Spacer(minLength: 8)
+        quickActions
+      }
+      .padding(.trailing, 8)
+      .padding(.vertical, 6)
     }
-    .padding(.trailing, 8)
-    .padding(.vertical, 6)
-    .background(rowBackground)
-    .clipShape(RoundedRectangle(cornerRadius: ClipboardPanelMetrics.compactCornerRadius, style: .continuous))
+    .clipShape(rowShape)
     .overlay(selectionStroke)
-    .shadow(color: isSelected ? record.kind.accentColor.opacity(0.28) : Color.black.opacity(0.08), radius: isSelected ? 12 : 5, y: 3)
+    .shadow(color: rowShadowColor, radius: rowShadowRadius, y: 3)
     .contentShape(RoundedRectangle(cornerRadius: ClipboardPanelMetrics.compactCornerRadius))
+    .onHover { hovering in
+      withAnimation(.easeOut(duration: 0.12)) {
+        isHovering = hovering
+      }
+    }
     .onTapGesture {
       primaryAction(record)
     }
@@ -39,9 +49,13 @@ struct ClipboardRow: View {
 
   private var accentStrip: some View {
     RoundedRectangle(cornerRadius: 2)
-      .fill(record.kind.accentColor)
+      .fill(record.kind.accentColor.opacity(isSelected ? 1 : (isHovering ? 0.92 : 0.78)))
       .frame(width: ClipboardPanelMetrics.accentStripWidth, height: 34)
-      .shadow(color: record.kind.accentColor.opacity(0.36), radius: 9, y: 2)
+      .shadow(
+        color: record.kind.accentColor.opacity(isSelected ? 0.56 : (isHovering ? 0.40 : 0.28)),
+        radius: isSelected ? 11 : 8,
+        y: 2
+      )
   }
 
   private var titleBlock: some View {
@@ -201,16 +215,57 @@ struct ClipboardRow: View {
   }
 
   private var selectionStroke: some View {
-    RoundedRectangle(cornerRadius: ClipboardPanelMetrics.compactCornerRadius)
-      .stroke(isSelected ? record.kind.accentColor.opacity(0.98) : Color.white.opacity(0.08), lineWidth: isSelected ? 2 : 1)
+    ZStack {
+      rowShape
+        .strokeBorder(Color.white.opacity(isSelected ? 0.18 : 0.08), lineWidth: 1)
+
+      rowShape
+        .strokeBorder(
+          record.kind.accentColor.opacity(isSelected ? 0.96 : (isHovering ? 0.38 : 0)),
+          lineWidth: isSelected ? 2.25 : 1
+        )
+    }
+    .allowsHitTesting(false)
   }
 
   private var rowBackground: some View {
-    RoundedRectangle(cornerRadius: ClipboardPanelMetrics.compactCornerRadius)
+    rowShape
       .fill(.regularMaterial)
       .overlay {
-        RoundedRectangle(cornerRadius: ClipboardPanelMetrics.compactCornerRadius)
-          .fill(record.kind.accentColor.opacity(isSelected ? 0.14 : 0.055))
+        rowShape.fill(record.kind.accentColor.opacity(selectionTintOpacity))
       }
+  }
+
+  private var selectionInteriorGlow: some View {
+    rowShape
+      .strokeBorder(
+        record.kind.accentColor.opacity(isSelected ? 0.22 : (isHovering ? 0.08 : 0)),
+        lineWidth: isSelected ? 6 : 3
+      )
+      .blur(radius: isSelected ? 3 : 1.5)
+      .opacity(isSelected || isHovering ? 1 : 0)
+      .allowsHitTesting(false)
+  }
+
+  private var rowShape: RoundedRectangle {
+    RoundedRectangle(cornerRadius: ClipboardPanelMetrics.compactCornerRadius, style: .continuous)
+  }
+
+  private var selectionTintOpacity: Double {
+    if isSelected {
+      return 0.17
+    }
+    return isHovering ? 0.075 : 0.055
+  }
+
+  private var rowShadowColor: Color {
+    if isSelected {
+      return record.kind.accentColor.opacity(0.32)
+    }
+    return isHovering ? record.kind.accentColor.opacity(0.12) : Color.black.opacity(0.08)
+  }
+
+  private var rowShadowRadius: CGFloat {
+    isSelected ? 13 : (isHovering ? 8 : 5)
   }
 }
