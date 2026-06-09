@@ -572,7 +572,7 @@ extension ClipboardQuickAction {
     case .paste:
       "arrow.turn.down.left"
     case .pastePlainText:
-      "textformat"
+      "text.justify.left"
     case .note:
       "note.text"
     case .delete:

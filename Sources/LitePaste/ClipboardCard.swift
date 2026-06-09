@@ -16,25 +16,34 @@ struct ClipboardCard: View {
   let togglePinned: () -> Void
   let deleteAction: () -> Void
   let visibleQuickActions: Set<ClipboardQuickAction>
+  @State private var isHovering = false
 
   var body: some View {
     ZStack(alignment: .leading) {
       cardBackground
       accentStrip
 
-      VStack(alignment: .leading, spacing: 9) {
+      VStack(alignment: .leading, spacing: contentInset) {
         header
         preview
       }
-      .padding(.vertical, 10)
-      .padding(.leading, 18)
-      .padding(.trailing, 10)
+      .padding(.vertical, contentInset)
+      .padding(.leading, ClipboardPanelMetrics.accentStripWidth + contentInset)
+      .padding(.trailing, contentInset)
     }
     .frame(maxWidth: .infinity, minHeight: ClipboardPanelMetrics.cardHeight, maxHeight: ClipboardPanelMetrics.cardHeight)
     .clipShape(cardShape)
     .overlay(selectionStroke)
     .shadow(color: isSelected ? record.kind.accentColor.opacity(0.28) : Color.black.opacity(0.10), radius: isSelected ? 13 : 6, y: 3)
     .contentShape(RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cardCornerRadius))
+    .contextMenu {
+      actionMenuItems
+    }
+    .onHover { hovering in
+      withAnimation(.easeOut(duration: 0.12)) {
+        isHovering = hovering
+      }
+    }
     .onTapGesture {
       primaryAction(record)
     }
@@ -62,18 +71,28 @@ struct ClipboardCard: View {
     }
   }
 
+  @ViewBuilder
   private var quickActions: some View {
-    HStack(spacing: 5) {
-      ForEach(orderedQuickActions, id: \.self) { action in
-        quickActionButton(action)
+    if showsQuickActions && !orderedQuickActions.isEmpty {
+      HStack(spacing: 5) {
+        ForEach(orderedQuickActions, id: \.self) { action in
+          quickActionButton(action)
+        }
       }
-
-      actionMenu
+      .transition(.opacity)
     }
   }
 
   private var orderedQuickActions: [ClipboardQuickAction] {
     Array(ClipboardQuickAction.displayOrder.filter { visibleQuickActions.contains($0) }.prefix(4))
+  }
+
+  private var contentInset: CGFloat {
+    10
+  }
+
+  private var showsQuickActions: Bool {
+    isSelected || isHovering
   }
 
   @ViewBuilder
@@ -138,63 +157,52 @@ struct ClipboardCard: View {
       )
   }
 
-  private var actionMenu: some View {
-    Menu {
-      Button {
-        pasteAction(record)
-      } label: {
-        Label(AppText.value("粘贴", "Paste"), systemImage: "arrow.turn.down.left")
-      }
-
-      Button {
-        copyAction(record)
-      } label: {
-        Label(AppText.value("复制", "Copy"), systemImage: "doc.on.doc")
-      }
-
-      Button {
-        pastePlainTextAction(record)
-      } label: {
-        Label(plainTextPasteLabel, systemImage: "textformat")
-      }
-
-      Button {
-        copyPlainTextAction(record)
-      } label: {
-        Label(plainTextCopyLabel, systemImage: "doc.plaintext")
-      }
-
-      if let externalAction {
-        Button {
-          performExternalAction(externalAction)
-        } label: {
-          Label(externalAction.accessibilityLabel, systemImage: externalAction.iconName)
-        }
-      }
-
-      Divider()
-
-      Button(action: editNote) {
-        Label(
-          record.note.isEmpty ? AppText.value("添加备注", "Add Note") : AppText.value("编辑备注", "Edit Note"),
-          systemImage: "note.text"
-        )
-      }
-
-      Button(role: .destructive, action: deleteAction) {
-        Label(AppText.value("删除", "Delete"), systemImage: "trash")
-      }
+  @ViewBuilder
+  private var actionMenuItems: some View {
+    Button {
+      pasteAction(record)
     } label: {
-      Image(systemName: "ellipsis")
-        .font(.system(size: 13, weight: .semibold))
-        .frame(width: 26, height: 26)
-        .contentShape(Rectangle())
+      Label(AppText.value("粘贴", "Paste"), systemImage: "arrow.turn.down.left")
     }
-    .menuStyle(.borderlessButton)
-    .menuIndicator(.hidden)
-    .fixedSize()
-    .accessibilityLabel(AppText.value("更多操作", "More Actions"))
-    .panelTooltip(AppText.value("更多操作", "More Actions"))
+
+    Button {
+      copyAction(record)
+    } label: {
+      Label(AppText.value("复制", "Copy"), systemImage: "doc.on.doc")
+    }
+
+    Button {
+      pastePlainTextAction(record)
+    } label: {
+      Label(plainTextPasteLabel, systemImage: ClipboardQuickAction.pastePlainText.iconName)
+    }
+
+    Button {
+      copyPlainTextAction(record)
+    } label: {
+      Label(plainTextCopyLabel, systemImage: "doc.plaintext")
+    }
+
+    if let externalAction {
+      Button {
+        performExternalAction(externalAction)
+      } label: {
+        Label(externalAction.accessibilityLabel, systemImage: externalAction.iconName)
+      }
+    }
+
+    Divider()
+
+    Button(action: editNote) {
+      Label(
+        record.note.isEmpty ? AppText.value("添加备注", "Add Note") : AppText.value("编辑备注", "Edit Note"),
+        systemImage: "note.text"
+      )
+    }
+
+    Button(role: .destructive, action: deleteAction) {
+      Label(AppText.value("删除", "Delete"), systemImage: "trash")
+    }
   }
 
   private var cardMetadata: String {

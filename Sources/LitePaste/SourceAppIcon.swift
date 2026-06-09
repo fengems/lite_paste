@@ -13,20 +13,15 @@ struct SourceAppIcon: View {
       if let image = appIcon {
         Image(nsImage: image)
           .resizable()
-          .scaledToFit()
+          .scaledToFill()
       } else {
         Image(systemName: record.kind.previewIconName)
           .font(.system(size: symbolSize, weight: .semibold))
           .foregroundStyle(record.kind.accentColor)
       }
     }
-    .padding(4)
     .frame(width: size, height: size)
-    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius))
-    .overlay(
-      RoundedRectangle(cornerRadius: cornerRadius)
-        .stroke(Color.white.opacity(0.12), lineWidth: 1)
-    )
+    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     .shadow(color: record.kind.accentColor.opacity(0.12), radius: 8, y: 3)
     .accessibilityLabel(record.sourceAppName ?? AppText.value("来源应用", "Source App"))
   }

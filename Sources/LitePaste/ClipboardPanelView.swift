@@ -32,6 +32,20 @@ struct ClipboardPanelView: View {
   @State private var pageRefreshTask: Task<Void, Never>?
   @FocusState private var searchFieldFocused: Bool
 
+  private enum RowBoundary {
+    case leading
+    case trailing
+  }
+
+  private enum PanelNavigationKey {
+    case left
+    case right
+    case up
+    case down
+    case home
+    case end
+  }
+
   private var queryRequest: ClipboardHistoryQuery {
     ClipboardHistoryQuery(text: query, filter: filter)
   }
@@ -739,10 +753,17 @@ struct ClipboardPanelView: View {
   private func handleKeyDown(_ event: NSEvent) -> Bool {
     let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
     let commandOnly = modifiers == .command
+    let controlLineBoundaryOnly = modifiers == .control || modifiers == [.control, .shift]
 
-    if commandOnly, let index = commandNumberSelectionIndex(from: event) {
-      selectRecord(at: index)
+    if commandOnly, let number = commandNumberSelectionNumber(from: event) {
+      selectRecordForCommandNumber(number)
       return true
+    }
+    if commandOnly, let boundary = commandLineBoundary(from: event) {
+      return selectRowBoundary(boundary)
+    }
+    if controlLineBoundaryOnly, let boundary = controlLineBoundary(from: event) {
+      return selectRowBoundary(boundary)
     }
     if commandOnly, event.charactersIgnoringModifiers?.lowercased() == "f" {
       focusSearchField()
@@ -772,19 +793,24 @@ struct ClipboardPanelView: View {
       return pasteSelected()
     case 117:
       return deleteSelected()
-    case 123:
-      selectRelative(-1)
-      return true
-    case 124:
-      selectRelative(1)
-      return true
-    case 126:
-      selectRelative(verticalSelectionOffset(direction: -1))
-      return true
-    case 125:
-      selectRelative(verticalSelectionOffset(direction: 1))
-      return true
     default:
+      break
+    }
+
+    switch panelNavigationKey(from: event) {
+    case .left:
+      return selectHorizontal(direction: -1)
+    case .right:
+      return selectHorizontal(direction: 1)
+    case .up:
+      return selectVertical(direction: -1)
+    case .down:
+      return selectVertical(direction: 1)
+    case .home:
+      return selectRowBoundary(.leading)
+    case .end:
+      return selectRowBoundary(.trailing)
+    case nil:
       return false
     }
   }
@@ -817,10 +843,10 @@ struct ClipboardPanelView: View {
     return true
   }
 
-  private func selectRelative(_ offset: Int) {
+  private func selectRelative(_ offset: Int) -> Bool {
     guard !records.isEmpty else {
       selectedRecordID = nil
-      return
+      return true
     }
     let currentIndex = records.firstIndex { $0.id == selectedRecordID } ?? 0
     if offset > 0, currentIndex == records.count - 1, currentPage.hasMore {
@@ -828,6 +854,75 @@ struct ClipboardPanelView: View {
     }
     let nextIndex = min(max(currentIndex + offset, 0), records.count - 1)
     selectedRecordID = records[nextIndex].id
+    return true
+  }
+
+  private func selectHorizontal(direction: Int) -> Bool {
+    guard viewMode == .card else {
+      return selectRelative(direction)
+    }
+    guard let currentIndex = selectedIndexOrFirst() else {
+      return true
+    }
+
+    let row = currentIndex / cardGridColumnCount
+    let rowStart = row * cardGridColumnCount
+    let rowEnd = min(rowStart + cardGridColumnCount, records.count) - 1
+
+    if direction < 0, currentIndex == rowStart {
+      return true
+    }
+    if direction > 0, currentIndex == rowEnd {
+      return true
+    }
+
+    selectedRecordID = records[currentIndex + direction].id
+    return true
+  }
+
+  private func selectVertical(direction: Int) -> Bool {
+    guard viewMode == .card else {
+      return selectRelative(direction)
+    }
+    guard let currentIndex = selectedIndexOrFirst() else {
+      return true
+    }
+
+    let currentRowStart = (currentIndex / cardGridColumnCount) * cardGridColumnCount
+    let targetRowStart = currentRowStart + direction * cardGridColumnCount
+    if targetRowStart < 0 {
+      return true
+    }
+    if targetRowStart >= records.count {
+      if direction > 0, currentPage.hasMore {
+        loadMoreRecords()
+      }
+      return true
+    }
+
+    let column = currentIndex - currentRowStart
+    let targetRowEnd = min(targetRowStart + cardGridColumnCount, records.count) - 1
+    let targetIndex = min(targetRowStart + column, targetRowEnd)
+    selectedRecordID = records[targetIndex].id
+    return true
+  }
+
+  private func selectRowBoundary(_ boundary: RowBoundary) -> Bool {
+    guard !records.isEmpty else {
+      selectedRecordID = nil
+      return true
+    }
+
+    guard viewMode == .card else {
+      selectedRecordID = records[boundary == .leading ? 0 : records.count - 1].id
+      return true
+    }
+
+    let currentIndex = records.firstIndex { $0.id == selectedRecordID } ?? 0
+    let rowStart = (currentIndex / cardGridColumnCount) * cardGridColumnCount
+    let rowEnd = min(rowStart + cardGridColumnCount, records.count) - 1
+    selectedRecordID = records[boundary == .leading ? rowStart : rowEnd].id
+    return true
   }
 
   private func selectRecord(at index: Int) {
@@ -838,22 +933,123 @@ struct ClipboardPanelView: View {
     selectedRecordID = records[index].id
   }
 
-  private func commandNumberSelectionIndex(from event: NSEvent) -> Int? {
+  private func commandNumberSelectionNumber(from event: NSEvent) -> Int? {
     guard let characters = event.charactersIgnoringModifiers,
           characters.count == 1,
           let number = Int(characters),
-          (1...6).contains(number) else {
+          (1...9).contains(number) else {
       return nil
     }
 
-    return number - 1
+    return number
   }
 
-  private func verticalSelectionOffset(direction: Int) -> Int {
-    guard viewMode == .card else {
-      return direction
+  private func panelNavigationKey(from event: NSEvent) -> PanelNavigationKey? {
+    if let key = panelNavigationKey(from: event.charactersIgnoringModifiers) {
+      return key
     }
-    return direction * cardGridColumnCount
+
+    switch event.keyCode {
+    case 123:
+      return .left
+    case 124:
+      return .right
+    case 126:
+      return .up
+    case 125:
+      return .down
+    case 115:
+      return .home
+    case 119:
+      return .end
+    default:
+      return nil
+    }
+  }
+
+  private func panelNavigationKey(from characters: String?) -> PanelNavigationKey? {
+    guard let characters,
+          characters.unicodeScalars.count == 1,
+          let scalar = characters.unicodeScalars.first else {
+      return nil
+    }
+
+    switch scalar.value {
+    case 0xF702:
+      return .left
+    case 0xF703:
+      return .right
+    case 0xF700:
+      return .up
+    case 0xF701:
+      return .down
+    case 0xF729:
+      return .home
+    case 0xF72B:
+      return .end
+    default:
+      return nil
+    }
+  }
+
+  private func controlLineBoundary(from event: NSEvent) -> RowBoundary? {
+    switch event.charactersIgnoringModifiers?.lowercased() {
+    case "a":
+      return .leading
+    case "e":
+      return .trailing
+    default:
+      return nil
+    }
+  }
+
+  private func commandLineBoundary(from event: NSEvent) -> RowBoundary? {
+    switch panelNavigationKey(from: event) {
+    case .left, .home:
+      return .leading
+    case .right, .end:
+      return .trailing
+    case .up, .down, nil:
+      return nil
+    }
+  }
+
+  private func selectRecordForCommandNumber(_ number: Int) {
+    guard (1...9).contains(number) else {
+      return
+    }
+
+    switch viewMode {
+    case .card:
+      selectCardRecord(numberInCurrentRow: number)
+    case .list:
+      selectRecord(at: number - 1)
+    }
+  }
+
+  private func selectCardRecord(numberInCurrentRow number: Int) {
+    guard let currentIndex = selectedIndexOrFirst(),
+          number <= cardGridColumnCount else {
+      return
+    }
+
+    let rowStart = (currentIndex / cardGridColumnCount) * cardGridColumnCount
+    let rowEnd = min(rowStart + cardGridColumnCount, records.count)
+    let targetIndex = rowStart + number - 1
+    guard targetIndex < rowEnd else {
+      return
+    }
+
+    selectedRecordID = records[targetIndex].id
+  }
+
+  private func selectedIndexOrFirst() -> Int? {
+    guard !records.isEmpty else {
+      selectedRecordID = nil
+      return nil
+    }
+
+    return records.firstIndex { $0.id == selectedRecordID } ?? 0
   }
 
   private func normalizeSelection() {

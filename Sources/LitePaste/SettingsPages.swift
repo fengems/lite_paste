@@ -187,7 +187,7 @@ struct ClipboardSettingsPage: View {
       .map(\.localizedDisplayName)
 
     if names.isEmpty {
-      return AppText.value("仅显示更多菜单。", "Only the More menu is shown.")
+      return AppText.value("仅显示右键菜单。", "Only the context menu is shown.")
     }
 
     return names.joined(separator: AppText.value("、", ", "))
@@ -566,13 +566,13 @@ struct QuickActionSettingsSheet: View {
         .font(.system(size: 18, weight: .bold))
 
       Text(AppText.value(
-        "最多显示 4 个快捷按钮，更多操作始终保留在菜单中。",
-        "Show up to 4 quick buttons. All actions remain available in the More menu."
+        "最多显示 4 个快捷按钮，更多操作始终保留在右键菜单中。",
+        "Show up to 4 quick buttons. All actions remain available in the context menu."
       ))
       .font(.system(size: 12))
       .foregroundStyle(.secondary)
 
-      VStack(spacing: 0) {
+      VStack(alignment: .leading, spacing: 0) {
         ForEach(ClipboardQuickAction.displayOrder) { action in
           Toggle(isOn: binding(for: action)) {
             Label(action.localizedDisplayName, systemImage: action.iconName)
@@ -580,8 +580,10 @@ struct QuickActionSettingsSheet: View {
           .toggleStyle(.checkbox)
           .disabled(!visibleQuickActions.contains(action) && visibleQuickActions.count >= 4)
           .padding(.vertical, 7)
+          .frame(maxWidth: .infinity, alignment: .leading)
         }
       }
+      .frame(maxWidth: .infinity, alignment: .leading)
 
       HStack {
         Spacer()
@@ -628,7 +630,9 @@ struct HotkeySettingsPage: View {
       }
 
       SettingsSectionCard(title: AppText.value("面板快捷键", "Panel Shortcuts")) {
-        SettingsInfoRow(title: AppText.value("选择条目", "Select Item"), value: AppText.value("⌘1 到 ⌘6", "⌘1 to ⌘6"))
+        SettingsInfoRow(title: AppText.value("选择条目", "Select Item"), value: AppText.value("⌘1 到 ⌘9", "⌘1 to ⌘9"))
+        SettingsDivider()
+        SettingsInfoRow(title: AppText.value("行首/行尾", "Row Start/End"), value: AppText.value("⌘← / ⌘→", "⌘← / ⌘→"))
         SettingsDivider()
         SettingsInfoRow(title: AppText.value("确认粘贴", "Paste Selected"), value: "Return")
         SettingsDivider()

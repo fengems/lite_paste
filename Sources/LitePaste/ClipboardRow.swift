@@ -148,7 +148,7 @@ struct ClipboardRow: View {
       Button {
         pastePlainTextAction(record)
       } label: {
-        Label(plainTextPasteLabel, systemImage: "textformat")
+        Label(plainTextPasteLabel, systemImage: ClipboardQuickAction.pastePlainText.iconName)
       }
 
       Button {
