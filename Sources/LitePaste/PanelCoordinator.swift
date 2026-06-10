@@ -20,6 +20,7 @@ final class ClipboardPanelWindow: NSPanel {
 final class PanelCoordinator {
   private let store: HistoryStore
   private let writer: PasteboardWriter
+  private let openSettingsAction: () -> Void
   private let settingsStore = AppSettingsStore.shared
   private let imageOCRService = ImageOCRService()
   private let presentationState = PanelPresentationState()
@@ -30,9 +31,10 @@ final class PanelCoordinator {
   private var imageTextTasks: [ClipboardRecord.ID: Int] = [:]
   private var cancellables = Set<AnyCancellable>()
 
-  init(store: HistoryStore, writer: PasteboardWriter) {
+  init(store: HistoryStore, writer: PasteboardWriter, openSettingsAction: @escaping () -> Void) {
     self.store = store
     self.writer = writer
+    self.openSettingsAction = openSettingsAction
     observeAppDeactivation()
     observePanelSettings()
   }
@@ -89,6 +91,9 @@ final class PanelCoordinator {
       },
       primaryPasteAction: { [weak self] record in
         self?.paste(record, asPlainText: self?.settingsStore.settings.pastePlainTextByDefault ?? false)
+      },
+      openSettingsAction: { [weak self] in
+        self?.openSettingsAction()
       },
       closeAction: { [weak panel] in
         panel?.orderOut(nil)

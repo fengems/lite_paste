@@ -35,7 +35,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     applyActivationPolicy(settingsStore.settings)
 
     let writer = PasteboardWriter(store: store, writeTracker: clipboardWriteTracker)
-    let panelCoordinator = PanelCoordinator(store: store, writer: writer)
+    let panelCoordinator = PanelCoordinator(
+      store: store,
+      writer: writer,
+      openSettingsAction: { [weak self] in
+        self?.openSettings()
+      }
+    )
     let monitor = ClipboardMonitor(
       store: store,
       writeTracker: clipboardWriteTracker,
@@ -271,13 +277,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   @objc private func handleStatusItemClick(_ sender: NSStatusBarButton) {
-    guard NSApp.currentEvent?.type == .rightMouseUp,
-          let statusItem,
-          let statusMenu else {
-      togglePanel()
+    showStatusMenu()
+  }
+
+  private func showStatusMenu() {
+    guard let statusItem, let statusMenu else {
       return
     }
-
     statusItem.menu = statusMenu
     statusItem.button?.performClick(nil)
     statusItem.menu = nil

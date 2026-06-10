@@ -15,6 +15,7 @@ struct ClipboardPanelView: View {
   let pastePlainTextAction: (ClipboardRecord) -> Void
   let primaryCopyAction: (ClipboardRecord) -> Void
   let primaryPasteAction: (ClipboardRecord) -> Void
+  let openSettingsAction: () -> Void
   let closeAction: () -> Void
 
   @ObservedObject private var settingsStore = AppSettingsStore.shared
@@ -325,6 +326,11 @@ struct ClipboardPanelView: View {
 
   private var headerActions: some View {
     HStack(spacing: 6) {
+      IconButton(
+        systemName: "gearshape",
+        accessibilityLabel: AppText.value("设置", "Settings"),
+        action: openSettingsAction
+      )
       deleteHistoryMenu
       IconButton(systemName: "xmark", accessibilityLabel: AppText.value("关闭", "Close"), action: closeAction)
     }
