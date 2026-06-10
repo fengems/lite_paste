@@ -104,9 +104,11 @@ Lite Paste 的 iCloud 备份优先使用 iCloud Documents entitlement，并只�
 
 仓库已提供正式 target 可直接接入的 AppIcon 基线：
 
+- `Assets/Brand/AppIconSource.png`
+- `Assets/Brand/MenuBarIconSource.png`
 - `Assets/LitePaste.xcassets/AppIcon.appiconset`
 
-菜单栏当前使用 `StatusItemIcon` 程序化绘制 template 图标，能在 SwiftPM 和本地 `.app` bundle 中保持一致。未来完整 Xcode target 可按需迁移为 asset catalog 里的模板资源。本地 bundle 脚本会用 `Scripts/generate_app_icon.swift` 生成 `AppIcon.icns`；如需刷新 Xcode AppIcon，可执行：
+AppIcon 使用 `Assets/Brand/AppIconSource.png` 作为源图，由 `Scripts/generate_app_icon.swift` 裁切并导出 `.appiconset` 和 `AppIcon.icns`。菜单栏当前使用 `StatusItemIcon` 按 `Assets/Brand/MenuBarIconSource.png` 的轮廓程序化绘制 template 图标，能在 SwiftPM 和本地 `.app` bundle 中保持一致。未来完整 Xcode target 可按需迁移为 asset catalog 里的模板资源。本地 bundle 脚本会用同一生成脚本生成 `AppIcon.icns`；如需刷新 Xcode AppIcon，可执行：
 
 ```bash
 swift Scripts/generate_app_icon.swift /tmp/LitePaste-AppIcon.icns Assets/LitePaste.xcassets/AppIcon.appiconset
