@@ -22,8 +22,6 @@ Lite Paste does not run a server and does not upload clipboard history automatic
 
 Lite Paste watches the system pasteboard while monitoring is enabled. You can stop monitoring from the menu-bar menu or Settings. When monitoring is stopped, new clipboard changes are not saved.
 
-Lite Paste also supports ignored apps and ignored pasteboard types. Password managers and concealed/transient pasteboard types are ignored by default.
-
 ## Accessibility Permission
 
 Accessibility permission is used only for automatic paste. When you select an item to paste, Lite Paste restores that content to the system pasteboard and can send the paste shortcut to the previous app.

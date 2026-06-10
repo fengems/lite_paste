@@ -16,7 +16,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var statusItem: NSStatusItem?
   private var statusMenu: NSMenu?
   private var pauseMonitoringMenuItem: NSMenuItem?
-  private var ignoreApplicationMenuItem: NSMenuItem?
   private var monitor: ClipboardMonitor?
   private var panelCoordinator: PanelCoordinator?
   private var settingsWindow: NSWindow?
@@ -41,11 +40,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       store: store,
       writeTracker: clipboardWriteTracker,
       privacyFilter: PrivacyFilter(
-        isMonitoringPaused: settingsStore.settings.isMonitoringPaused,
-        ignoredApps: settingsStore.settings.ignoredApps,
-        ignoredPasteboardTypes: settingsStore.settings.ignoredPasteboardTypes
+        isMonitoringPaused: settingsStore.settings.isMonitoringPaused
       ),
-      enabledTypes: settingsStore.settings.enabledTypes,
       preserveLargeRichTextFormats: settingsStore.settings.preserveLargeRichTextFormats,
       copySoundEnabled: settingsStore.settings.copySoundEnabled,
       imageOCREnabled: settingsStore.settings.imageOCREnabled
@@ -99,14 +95,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     )
     menu.addItem(pauseMonitoringItem)
     self.pauseMonitoringMenuItem = pauseMonitoringItem
-
-    let ignoreApplicationItem = NSMenuItem(
-      title: AppText.value("忽略当前应用", "Ignore Current App"),
-      action: #selector(ignoreCurrentApplicationFromMenu),
-      keyEquivalent: ""
-    )
-    menu.addItem(ignoreApplicationItem)
-    self.ignoreApplicationMenuItem = ignoreApplicationItem
 
     let settingsItem = NSMenuItem(
       title: AppText.value("设置...", "Settings..."),
@@ -211,12 +199,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private func apply(_ settings: AppSettings) {
     monitor?.updatePrivacyFilter(
       PrivacyFilter(
-        isMonitoringPaused: settings.isMonitoringPaused,
-        ignoredApps: settings.ignoredApps,
-        ignoredPasteboardTypes: settings.ignoredPasteboardTypes
+        isMonitoringPaused: settings.isMonitoringPaused
       )
     )
-    monitor?.updateEnabledTypes(settings.enabledTypes)
     monitor?.updatePreserveLargeRichTextFormats(settings.preserveLargeRichTextFormats)
     monitor?.updateCopySoundEnabled(settings.copySoundEnabled)
     monitor?.updateImageOCREnabled(settings.imageOCREnabled)
@@ -309,21 +294,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     updateStatusMenuState()
   }
 
-  @objc private func ignoreCurrentApplicationFromMenu() {
-    guard let application = activeApplicationTracker.lastExternalApplication else {
-      return
-    }
-
-    settingsStore.update { settings in
-      if settings.ignoredApps.contains(application.bundleIdentifier) {
-        settings.ignoredApps.remove(application.bundleIdentifier)
-      } else {
-        settings.ignoredApps.insert(application.bundleIdentifier)
-      }
-    }
-    updateStatusMenuState()
-  }
-
   @objc private func openSettings() {
     panelCoordinator?.hide()
     let window = settingsWindow ?? makeSettingsWindow()
@@ -412,33 +382,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       ? AppText.value("恢复监听剪贴板", "Resume Clipboard Monitoring")
       : AppText.value("停止监听剪贴板", "Pause Clipboard Monitoring")
     pauseMonitoringMenuItem?.state = .off
-    updateIgnoreApplicationMenuItem()
     statusItem?.button?.toolTip = isMonitoringPaused
       ? AppText.value(
         "\(AppMetadata.displayName) - 已停止监听剪贴板",
         "\(AppMetadata.displayName) - Clipboard Monitoring Paused"
       )
       : AppMetadata.displayName
-  }
-
-  private func updateIgnoreApplicationMenuItem() {
-    guard let item = ignoreApplicationMenuItem else {
-      return
-    }
-
-    guard let application = activeApplicationTracker.lastExternalApplication else {
-      item.title = AppText.value("忽略当前应用", "Ignore Current App")
-      item.isEnabled = false
-      item.state = .off
-      return
-    }
-
-    let isIgnored = settingsStore.settings.ignoredApps.contains(application.bundleIdentifier)
-    item.title = isIgnored
-      ? AppText.value("取消忽略当前应用：\(application.name)", "Stop Ignoring Current App: \(application.name)")
-      : AppText.value("忽略当前应用：\(application.name)", "Ignore Current App: \(application.name)")
-    item.isEnabled = true
-    item.state = .off
   }
 
   private func removeMenuItemImages(in menu: NSMenu) {

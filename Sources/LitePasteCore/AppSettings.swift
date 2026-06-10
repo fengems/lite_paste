@@ -10,9 +10,6 @@ public struct AppSettings: Codable, Equatable, Sendable {
   public var panelPosition: PanelPosition
   public var maxHistoryCount: Int
   public var retentionDays: Int
-  public var enabledTypes: Set<ClipboardKind>
-  public var ignoredPasteboardTypes: Set<String>
-  public var ignoredApps: Set<String>
   public var autoPasteMode: AutoPasteMode
   public var copySoundEnabled: Bool
   public var imageOCREnabled: Bool
@@ -39,9 +36,6 @@ public struct AppSettings: Codable, Equatable, Sendable {
     panelPosition: PanelPosition = .edgeBottom,
     maxHistoryCount: Int = 1_000,
     retentionDays: Int = 0,
-    enabledTypes: Set<ClipboardKind> = Set(ClipboardKind.allCases),
-    ignoredPasteboardTypes: Set<String> = PrivacyFilter.defaultIgnoredPasteboardTypes,
-    ignoredApps: Set<String> = PrivacyFilter.defaultIgnoredApps,
     autoPasteMode: AutoPasteMode = .copyOnly,
     copySoundEnabled: Bool = false,
     imageOCREnabled: Bool = false,
@@ -71,9 +65,6 @@ public struct AppSettings: Codable, Equatable, Sendable {
     self.panelPosition = Self.normalizedPanelPosition(panelPosition)
     self.maxHistoryCount = Self.normalizedMaxHistoryCount(maxHistoryCount)
     self.retentionDays = Self.normalizedRetentionDays(retentionDays)
-    self.enabledTypes = enabledTypes
-    self.ignoredPasteboardTypes = Self.normalizedIgnoredPasteboardTypes(ignoredPasteboardTypes)
-    self.ignoredApps = ignoredApps
     self.autoPasteMode = autoPasteMode
     self.copySoundEnabled = copySoundEnabled
     self.imageOCREnabled = imageOCREnabled
@@ -101,9 +92,6 @@ public struct AppSettings: Codable, Equatable, Sendable {
     case panelPosition
     case maxHistoryCount
     case retentionDays
-    case enabledTypes
-    case ignoredPasteboardTypes
-    case ignoredApps
     case autoPasteMode
     case copySoundEnabled
     case imageOCREnabled
@@ -144,11 +132,6 @@ public struct AppSettings: Codable, Equatable, Sendable {
     retentionDays = Self.normalizedRetentionDays(
       try container.decodeIfPresent(Int.self, forKey: .retentionDays) ?? defaults.retentionDays
     )
-    enabledTypes = try container.decodeIfPresent(Set<ClipboardKind>.self, forKey: .enabledTypes) ?? defaults.enabledTypes
-    ignoredPasteboardTypes = Self.normalizedIgnoredPasteboardTypes(
-      try container.decodeIfPresent(Set<String>.self, forKey: .ignoredPasteboardTypes) ?? defaults.ignoredPasteboardTypes
-    )
-    ignoredApps = try container.decodeIfPresent(Set<String>.self, forKey: .ignoredApps) ?? defaults.ignoredApps
     autoPasteMode = try container.decodeIfPresent(AutoPasteMode.self, forKey: .autoPasteMode) ?? defaults.autoPasteMode
     copySoundEnabled = try container.decodeIfPresent(Bool.self, forKey: .copySoundEnabled) ?? defaults.copySoundEnabled
     imageOCREnabled = try container.decodeIfPresent(Bool.self, forKey: .imageOCREnabled) ?? defaults.imageOCREnabled
@@ -201,9 +184,6 @@ public struct AppSettings: Codable, Equatable, Sendable {
     try container.encode(panelPosition, forKey: .panelPosition)
     try container.encode(maxHistoryCount, forKey: .maxHistoryCount)
     try container.encode(retentionDays, forKey: .retentionDays)
-    try container.encode(enabledTypes, forKey: .enabledTypes)
-    try container.encode(ignoredPasteboardTypes, forKey: .ignoredPasteboardTypes)
-    try container.encode(ignoredApps, forKey: .ignoredApps)
     try container.encode(autoPasteMode, forKey: .autoPasteMode)
     try container.encode(copySoundEnabled, forKey: .copySoundEnabled)
     try container.encode(imageOCREnabled, forKey: .imageOCREnabled)
@@ -230,7 +210,6 @@ public struct AppSettings: Codable, Equatable, Sendable {
     panelPosition = Self.normalizedPanelPosition(panelPosition)
     maxHistoryCount = Self.normalizedMaxHistoryCount(maxHistoryCount)
     retentionDays = Self.normalizedRetentionDays(retentionDays)
-    ignoredPasteboardTypes = Self.normalizedIgnoredPasteboardTypes(ignoredPasteboardTypes)
     let appVisibility = Self.normalizedAppVisibility(
       showMenuBarIcon: showMenuBarIcon,
       showDockIcon: showDockIcon
@@ -273,23 +252,6 @@ public struct AppSettings: Codable, Equatable, Sendable {
     return (showMenuBarIcon, showDockIcon)
   }
 
-  private static func normalizedIgnoredPasteboardTypes(_ value: Set<String>) -> Set<String> {
-    guard legacyDefaultIgnoredPasteboardTypes.isSubset(of: value) else {
-      return value
-    }
-
-    return value.subtracting(legacyRecordablePasteboardTypes)
-  }
-
-  private static let legacyRecordablePasteboardTypes: Set<String> = [
-    "com.apple.finder.node",
-    "com.apple.pasteboard.promised-file-url",
-    "com.apple.webarchive",
-    "com.apple.flat-rtfd"
-  ]
-
-  private static let legacyDefaultIgnoredPasteboardTypes =
-    PrivacyFilter.defaultIgnoredPasteboardTypes.union(legacyRecordablePasteboardTypes)
 }
 
 public enum ClipboardPanelViewMode: String, Codable, Equatable, Sendable {

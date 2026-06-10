@@ -369,10 +369,6 @@ func checkAppSettingsBackwardCompatibility() {
     expect(!settings.showDockIcon, "Settings should default Dock icon to off")
     expect(settings.interfaceLanguage == .system, "Settings should default interface language to system")
     expect(settings.themeMode == .system, "Settings should default theme mode to system")
-    expect(
-      settings.ignoredApps.contains("com.1password.1password"),
-      "Settings should default ignoredApps for old files"
-    )
 
     let legacyPausedData = Data(#"{"privacyMode":true}"#.utf8)
     let legacyPausedSettings = try JSONDecoder.litePaste.decode(AppSettings.self, from: legacyPausedData)
@@ -385,8 +381,6 @@ func checkAppSettingsBackwardCompatibility() {
 
     let custom = AppSettings(
       panelPosition: .cursor,
-      ignoredPasteboardTypes: ["org.example.SecretType"],
-      ignoredApps: ["com.example.SecretApp"],
       copySoundEnabled: true,
       imageOCREnabled: true,
       copyPlainTextByDefault: true,
@@ -407,39 +401,7 @@ func checkAppSettingsBackwardCompatibility() {
     let encoded = try JSONEncoder.litePaste.encode(custom)
     let decoded = try JSONDecoder.litePaste.decode(AppSettings.self, from: encoded)
 
-    expect(
-      decoded.ignoredApps.contains("com.example.SecretApp"),
-      "Settings should preserve ignored apps"
-    )
-    expect(
-      decoded.ignoredPasteboardTypes.contains("org.example.SecretType"),
-      "Settings should preserve ignored pasteboard types"
-    )
     expect(decoded.isMonitoringPaused, "Settings should preserve paused monitoring")
-    let legacyIgnoredPasteboardTypes = PrivacyFilter.defaultIgnoredPasteboardTypes.union([
-      "com.apple.finder.node",
-      "com.apple.pasteboard.promised-file-url",
-      "com.apple.webarchive",
-      "com.apple.flat-rtfd",
-      "org.example.SecretType"
-    ])
-    let migratedSettings = AppSettings(ignoredPasteboardTypes: legacyIgnoredPasteboardTypes)
-    expect(
-      !migratedSettings.ignoredPasteboardTypes.contains("com.apple.finder.node"),
-      "Settings should migrate legacy ignored types that block file capture"
-    )
-    expect(
-      !migratedSettings.ignoredPasteboardTypes.contains("com.apple.webarchive"),
-      "Settings should migrate legacy ignored types that block HTML capture"
-    )
-    expect(
-      migratedSettings.ignoredPasteboardTypes.contains("org.example.SecretType"),
-      "Settings should preserve custom ignored types during ignored type migration"
-    )
-    expect(
-      migratedSettings.ignoredPasteboardTypes.contains("org.nspasteboard.ConcealedType"),
-      "Settings should preserve privacy ignored types during ignored type migration"
-    )
     expect(
       decoded.panelPosition == PanelPosition.cursor,
       "Settings should preserve panel position"
@@ -717,59 +679,14 @@ func checkContentHasher() {
 func checkPrivacyFilter() {
   let pausedFilter = PrivacyFilter(isMonitoringPaused: true)
   expect(
-    !pausedFilter.shouldRecord(
-      sourceAppBundleId: "com.apple.TextEdit",
-      pasteboardTypes: ["public.utf8-plain-text"]
-    ),
+    !pausedFilter.shouldRecord(),
     "Paused monitoring should stop recording"
-  )
-
-  let ignoredAppFilter = PrivacyFilter(ignoredApps: ["com.example.Secret"])
-  expect(
-    !ignoredAppFilter.shouldRecord(
-      sourceAppBundleId: "com.example.Secret",
-      pasteboardTypes: ["public.utf8-plain-text"]
-    ),
-    "Ignored apps should stop recording"
-  )
-
-  let defaultIgnoredAppFilter = PrivacyFilter()
-  expect(
-    !defaultIgnoredAppFilter.shouldRecord(
-      sourceAppBundleId: "com.1password.1password",
-      pasteboardTypes: ["public.utf8-plain-text"]
-    ),
-    "Default ignored password managers should stop recording"
   )
 
   let normalFilter = PrivacyFilter()
   expect(
-    normalFilter.shouldRecord(
-      sourceAppBundleId: "com.apple.TextEdit",
-      pasteboardTypes: ["public.utf8-plain-text"]
-    ),
-    "Plain text should be recordable"
-  )
-  expect(
-    normalFilter.shouldRecord(
-      sourceAppBundleId: "com.apple.finder",
-      pasteboardTypes: ["public.file-url", "com.apple.finder.node"]
-    ),
-    "Finder file marker types should not block recordable file URLs"
-  )
-  expect(
-    normalFilter.shouldRecord(
-      sourceAppBundleId: "com.apple.Safari",
-      pasteboardTypes: ["public.html", "com.apple.webarchive"]
-    ),
-    "Web archive marker types should not block recordable HTML"
-  )
-  expect(
-    !normalFilter.shouldRecord(
-      sourceAppBundleId: "com.apple.TextEdit",
-      pasteboardTypes: ["public.utf8-plain-text", "org.nspasteboard.ConcealedType"]
-    ),
-    "Concealed pasteboard types should stop recording"
+    normalFilter.shouldRecord(),
+    "Monitoring should record while it is not paused"
   )
 }
 
@@ -1235,35 +1152,16 @@ func checkClipboardCaptureGate() {
 
   let defaultGate = ClipboardCaptureGate()
   expect(
-    defaultGate.shouldRecord(payload: payload, sourceAppBundleId: "com.apple.TextEdit"),
-    "Capture gate should allow enabled non-private payloads"
-  )
-
-  let disabledTextGate = ClipboardCaptureGate(
-    enabledTypes: [.image],
-    privacyFilter: PrivacyFilter()
-  )
-  expect(
-    !disabledTextGate.shouldRecord(payload: payload, sourceAppBundleId: "com.apple.TextEdit"),
-    "Capture gate should reject disabled payload kinds"
+    defaultGate.shouldRecord(payload: payload),
+    "Capture gate should allow payloads while monitoring is active"
   )
 
   let pausedMonitoringGate = ClipboardCaptureGate(
-    enabledTypes: Set(ClipboardKind.allCases),
     privacyFilter: PrivacyFilter(isMonitoringPaused: true)
   )
   expect(
-    !pausedMonitoringGate.shouldRecord(payload: payload, sourceAppBundleId: "com.apple.TextEdit"),
+    !pausedMonitoringGate.shouldRecord(payload: payload),
     "Capture gate should reject payloads while monitoring is paused"
-  )
-
-  let ignoredAppGate = ClipboardCaptureGate(
-    enabledTypes: Set(ClipboardKind.allCases),
-    privacyFilter: PrivacyFilter(ignoredApps: ["com.example.Secret"])
-  )
-  expect(
-    !ignoredAppGate.shouldRecord(payload: payload, sourceAppBundleId: "com.example.Secret"),
-    "Capture gate should reject ignored source apps"
   )
 
   let sensitivePayload = ClipboardPayload(
@@ -1274,21 +1172,20 @@ func checkClipboardCaptureGate() {
     pasteboardTypes: ["org.nspasteboard.ConcealedType"]
   )
   expect(
-    !defaultGate.shouldRecord(payload: sensitivePayload, sourceAppBundleId: "com.apple.TextEdit"),
-    "Capture gate should reject ignored pasteboard types"
+    defaultGate.shouldRecord(payload: sensitivePayload),
+    "Capture gate should not filter pasteboard types while monitoring is active"
   )
 
   let tracker = ClipboardWriteTracker()
   tracker.markIgnoredChangeCount(100)
   let shouldSkipSelfWrite = tracker.shouldIgnore(changeCount: 100)
   let shouldRecordAfterSkip = !shouldSkipSelfWrite && defaultGate.shouldRecord(
-    payload: payload,
-    sourceAppBundleId: "com.apple.TextEdit"
+    payload: payload
   )
   expect(shouldSkipSelfWrite, "Capture gate integration should skip Lite Paste self writes before payload checks")
   expect(!shouldRecordAfterSkip, "Self-write changes should not be recorded")
   expect(
-    !tracker.shouldIgnore(changeCount: 100) && defaultGate.shouldRecord(payload: payload, sourceAppBundleId: "com.apple.TextEdit"),
+    !tracker.shouldIgnore(changeCount: 100) && defaultGate.shouldRecord(payload: payload),
     "A consumed self-write marker should not block later captures"
   )
 }

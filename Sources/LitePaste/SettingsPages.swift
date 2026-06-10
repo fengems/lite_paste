@@ -198,16 +198,7 @@ struct HistorySettingsPage: View {
   @Binding var maxHistoryCount: Int
   @Binding var retentionDays: Int
   @Binding var preserveLargeRichTextFormats: Bool
-  let recordableKinds: [ClipboardKind]
-  let enabledTypeBinding: (ClipboardKind) -> Binding<Bool>
   @Binding var isMonitoringPaused: Bool
-  let addCurrentApplicationLabel: String
-  let canAddCurrentApplication: Bool
-  let addCurrentApplication: () -> Void
-  let resetIgnoredApps: () -> Void
-  @Binding var ignoredApps: Set<String>
-  @Binding var ignoredPasteboardTypes: Set<String>
-  let resetIgnoredPasteboardTypes: () -> Void
   let historyCountText: String
   let storageSizeText: String
   let refreshStatus: () -> Void
@@ -216,8 +207,7 @@ struct HistorySettingsPage: View {
   var body: some View {
     SettingsPageStack {
       historySettingsCard
-      recordTypesCard
-      privacySettingsCard
+      monitoringSettingsCard
       dataStatusCard
     }
   }
@@ -263,20 +253,8 @@ struct HistorySettingsPage: View {
     }
   }
 
-  private var recordTypesCard: some View {
-    SettingsSectionCard(title: AppText.value("记录类型", "Recorded Types")) {
-      ForEach(Array(recordableKinds.enumerated()), id: \.element) { index, kind in
-        SettingsSwitchRow(title: kind.localizedDisplayName, isOn: enabledTypeBinding(kind))
-
-        if index < recordableKinds.count - 1 {
-          SettingsDivider()
-        }
-      }
-    }
-  }
-
-  private var privacySettingsCard: some View {
-    SettingsSectionCard(title: AppText.value("监听与过滤", "Monitoring And Filters")) {
+  private var monitoringSettingsCard: some View {
+    SettingsSectionCard(title: AppText.value("监听", "Monitoring")) {
       SettingsSwitchRow(
         title: AppText.value("停止监听", "Pause Monitoring"),
         detail: AppText.value(
@@ -285,45 +263,6 @@ struct HistorySettingsPage: View {
         ),
         isOn: $isMonitoringPaused
       )
-
-      SettingsDivider()
-
-      SettingsActionRow {
-        Button(action: addCurrentApplication) {
-          Label(addCurrentApplicationLabel, systemImage: "app.badge")
-        }
-        .disabled(!canAddCurrentApplication)
-
-        Button(action: resetIgnoredApps) {
-          Label(AppText.value("恢复默认应用", "Restore Default Apps"), systemImage: "arrow.counterclockwise")
-        }
-      }
-
-      SettingsDivider()
-
-      EditableStringList(
-        title: AppText.value("忽略应用 Bundle ID", "Ignored App Bundle IDs"),
-        placeholder: "com.example.SecretApp",
-        values: $ignoredApps
-      )
-      .padding(16)
-
-      SettingsDivider()
-
-      EditableStringList(
-        title: AppText.value("忽略剪贴板类型", "Ignored Pasteboard Types"),
-        placeholder: "org.nspasteboard.TransientType",
-        values: $ignoredPasteboardTypes
-      )
-      .padding(16)
-
-      SettingsDivider()
-
-      SettingsActionRow {
-        Button(action: resetIgnoredPasteboardTypes) {
-          Label(AppText.value("恢复默认忽略类型", "Restore Default Types"), systemImage: "arrow.counterclockwise")
-        }
-      }
     }
   }
 

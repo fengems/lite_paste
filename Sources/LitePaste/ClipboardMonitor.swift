@@ -32,7 +32,6 @@ final class ClipboardMonitor {
     writeTracker: ClipboardWriteTracker,
     payloadResolver: ClipboardPayloadResolver? = nil,
     privacyFilter: PrivacyFilter = PrivacyFilter(),
-    enabledTypes: Set<ClipboardKind> = Set(ClipboardKind.allCases),
     preserveLargeRichTextFormats: Bool = false,
     copySoundEnabled: Bool = false,
     imageOCREnabled: Bool = false,
@@ -45,10 +44,7 @@ final class ClipboardMonitor {
     self.payloadResolver = payloadResolver ?? ClipboardPayloadResolver(
       mediaPayloadBuilder: ClipboardMediaPayloadBuilder(blobStorage: blobStorage)
     )
-    self.captureGate = ClipboardCaptureGate(
-      enabledTypes: enabledTypes,
-      privacyFilter: privacyFilter
-    )
+    self.captureGate = ClipboardCaptureGate(privacyFilter: privacyFilter)
     self.preserveLargeRichTextFormats = preserveLargeRichTextFormats
     self.copySoundEnabled = copySoundEnabled
     self.imageOCREnabled = imageOCREnabled
@@ -75,10 +71,6 @@ final class ClipboardMonitor {
 
   func updatePrivacyFilter(_ privacyFilter: PrivacyFilter) {
     captureGate.privacyFilter = privacyFilter
-  }
-
-  func updateEnabledTypes(_ enabledTypes: Set<ClipboardKind>) {
-    captureGate.enabledTypes = enabledTypes
   }
 
   func updatePreserveLargeRichTextFormats(_ enabled: Bool) {
@@ -108,20 +100,20 @@ final class ClipboardMonitor {
       return
     }
 
+    guard captureGate.privacyFilter.shouldRecord() else {
+      return
+    }
+
     let types = readPasteboardTypes()
     let sourceApp = NSWorkspace.shared.frontmostApplication
     let bundleId = sourceApp?.bundleIdentifier
-
-    guard captureGate.privacyFilter.shouldRecord(sourceAppBundleId: bundleId, pasteboardTypes: types) else {
-      return
-    }
 
     guard let resolvedPayload = readPayload(pasteboardTypes: types, sourceAppBundleId: bundleId) else {
       return
     }
     let payload = resolvedPayload.payload
 
-    guard captureGate.shouldRecord(payload: payload, sourceAppBundleId: bundleId) else {
+    guard captureGate.shouldRecord(payload: payload) else {
       return
     }
 

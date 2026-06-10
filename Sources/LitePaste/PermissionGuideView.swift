@@ -59,8 +59,8 @@ struct PermissionGuideView: View {
         icon: "lock.shield",
         title: AppText.value("本地优先", "Local First"),
         description: AppText.value(
-          "历史记录默认保存在本机，支持停止监听和按应用忽略。",
-          "History is stored on this Mac by default. You can pause monitoring or ignore specific apps."
+          "历史记录默认保存在本机，需要时可以随时停止监听剪贴板。",
+          "History is stored on this Mac by default. You can pause clipboard monitoring whenever needed."
         )
       )
       guideRow(

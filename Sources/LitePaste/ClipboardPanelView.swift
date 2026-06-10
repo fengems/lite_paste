@@ -591,16 +591,6 @@ struct ClipboardPanelView: View {
           )
         )
       }
-      if settingsStore.settings.enabledTypes.isEmpty {
-        return (
-          "line.3.horizontal.decrease.circle",
-          AppText.value("没有启用记录类型", "No Recorded Types Enabled"),
-          AppText.value(
-            "在设置中启用至少一种剪贴板类型后才会保存历史。",
-            "Enable at least one clipboard type in Settings before history can be saved."
-          )
-        )
-      }
       return (
         "doc.on.clipboard",
         AppText.value("暂无剪贴板历史", "No Clipboard History"),
@@ -620,16 +610,6 @@ struct ClipboardPanelView: View {
     }
 
     if filter != .all {
-      if filterDisabledBySettings {
-        return (
-          filter.iconName,
-          AppText.value("\(filter.localizedDisplayName)记录已关闭", "\(filter.localizedDisplayName) Recording Disabled"),
-          AppText.value(
-            "在设置中启用该类型后，新内容会继续进入历史。",
-            "Enable this type in Settings to save new matching content."
-          )
-        )
-      }
       return (
         filter.iconName,
         AppText.value("没有\(filter.localizedDisplayName)记录", "No \(filter.localizedDisplayName) Items"),
@@ -638,24 +618,6 @@ struct ClipboardPanelView: View {
     }
 
     return ("tray", AppText.value("没有可显示的记录", "No Items To Show"), nil)
-  }
-
-  private var filterDisabledBySettings: Bool {
-    let enabledTypes = settingsStore.settings.enabledTypes
-    switch filter {
-    case .all, .favorites, .pinned:
-      return false
-    case .text:
-      return enabledTypes.intersection([.text, .richText, .html]).isEmpty
-    case .images:
-      return !enabledTypes.contains(.image)
-    case .files:
-      return !enabledTypes.contains(.files)
-    case .links:
-      return enabledTypes.intersection([.url, .email]).isEmpty
-    case .colors:
-      return !enabledTypes.contains(.color)
-    }
   }
 
   private var keyboardBridge: some View {

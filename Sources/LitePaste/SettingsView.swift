@@ -128,16 +128,7 @@ struct SettingsView: View {
       maxHistoryCount: maxHistoryCount,
       retentionDays: retentionDays,
       preserveLargeRichTextFormats: preserveLargeRichTextFormats,
-      recordableKinds: recordableKinds,
-      enabledTypeBinding: enabledTypeBinding,
       isMonitoringPaused: isMonitoringPaused,
-      addCurrentApplicationLabel: addCurrentApplicationLabel,
-      canAddCurrentApplication: activeApplicationTracker.lastExternalApplication != nil,
-      addCurrentApplication: addLastExternalApplicationToIgnoredApps,
-      resetIgnoredApps: resetIgnoredApps,
-      ignoredApps: ignoredApps,
-      ignoredPasteboardTypes: ignoredPasteboardTypes,
-      resetIgnoredPasteboardTypes: resetIgnoredPasteboardTypes,
       historyCountText: historyCount.map(AppText.itemCount) ?? AppText.value("正在读取", "Reading"),
       storageSizeText: storageSizeText,
       refreshStatus: refreshStatus,
@@ -421,22 +412,6 @@ struct SettingsView: View {
     }
   }
 
-  private var ignoredApps: Binding<Set<String>> {
-    Binding {
-      store.settings.ignoredApps
-    } set: { value in
-      store.update { $0.ignoredApps = value }
-    }
-  }
-
-  private var ignoredPasteboardTypes: Binding<Set<String>> {
-    Binding {
-      store.settings.ignoredPasteboardTypes
-    } set: { value in
-      store.update { $0.ignoredPasteboardTypes = value }
-    }
-  }
-
   private var autoPasteMode: Binding<AutoPasteMode> {
     Binding {
       store.settings.autoPasteMode
@@ -456,11 +431,6 @@ struct SettingsView: View {
       return AppText.value("已停止监听剪贴板", "Clipboard monitoring paused")
     }
 
-    if let application = activeApplicationTracker.lastExternalApplication,
-       store.settings.ignoredApps.contains(application.bundleIdentifier) {
-      return AppText.value("\(application.name) 已被忽略", "\(application.name) is ignored")
-    }
-
     return AppText.value("正在记录", "Recording")
   }
 
@@ -470,48 +440,6 @@ struct SettingsView: View {
     }
 
     return "\(application.name) (\(application.bundleIdentifier))"
-  }
-
-  private var recordableKinds: [ClipboardKind] {
-    [.text, .richText, .html, .image, .files, .url, .email, .color]
-  }
-
-  private func enabledTypeBinding(_ kind: ClipboardKind) -> Binding<Bool> {
-    Binding {
-      store.settings.enabledTypes.contains(kind)
-    } set: { enabled in
-      store.update { settings in
-        if enabled {
-          settings.enabledTypes.insert(kind)
-        } else {
-          settings.enabledTypes.remove(kind)
-        }
-      }
-    }
-  }
-
-  private func resetIgnoredPasteboardTypes() {
-    store.update { $0.ignoredPasteboardTypes = PrivacyFilter.defaultIgnoredPasteboardTypes }
-  }
-
-  private func resetIgnoredApps() {
-    store.update { $0.ignoredApps = PrivacyFilter.defaultIgnoredApps }
-  }
-
-  private var addCurrentApplicationLabel: String {
-    guard let application = activeApplicationTracker.lastExternalApplication else {
-      return AppText.value("添加最近使用的应用", "Add Recent App")
-    }
-
-    return AppText.value("忽略 \(application.name)", "Ignore \(application.name)")
-  }
-
-  private func addLastExternalApplicationToIgnoredApps() {
-    guard let application = activeApplicationTracker.lastExternalApplication else {
-      return
-    }
-
-    store.update { $0.ignoredApps.insert(application.bundleIdentifier) }
   }
 
   private func refreshAccessibilityStatus() {
