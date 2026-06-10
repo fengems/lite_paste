@@ -5,7 +5,7 @@ enum StatusItemIcon {
     let symbolName = SettingsPage.clipboard.systemImage
     let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: AppText.value("剪贴板", "Clipboard"))
       ?? NSImage(size: NSSize(width: 18, height: 18))
-    let configuredImage = image.withSymbolConfiguration(.init(pointSize: 16, weight: .regular)) ?? image
+    let configuredImage = image.withSymbolConfiguration(.init(pointSize: 15, weight: .medium)) ?? image
     configuredImage.isTemplate = true
     configuredImage.size = NSSize(width: 18, height: 18)
     return configuredImage
