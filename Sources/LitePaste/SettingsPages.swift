@@ -569,7 +569,7 @@ struct HotkeySettingsPage: View {
       }
 
       SettingsSectionCard(title: AppText.value("面板快捷键", "Panel Shortcuts")) {
-        SettingsInfoRow(title: AppText.value("选择条目", "Select Item"), value: AppText.value("⌘1 到 ⌘9", "⌘1 to ⌘9"))
+        SettingsInfoRow(title: AppText.value("快速粘贴", "Quick Paste"), value: AppText.value("⌘1 到 ⌘9", "⌘1 to ⌘9"))
         SettingsDivider()
         SettingsInfoRow(title: AppText.value("行首/行尾", "Row Start/End"), value: AppText.value("⌘← / ⌘→", "⌘← / ⌘→"))
         SettingsDivider()

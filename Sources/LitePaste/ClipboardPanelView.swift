@@ -724,8 +724,7 @@ struct ClipboardPanelView: View {
     let controlLineBoundaryOnly = modifiers == .control || modifiers == [.control, .shift]
 
     if commandOnly, let number = commandNumberSelectionNumber(from: event) {
-      selectRecordForCommandNumber(number)
-      return true
+      return pasteRecordForCommandNumber(number)
     }
     if commandOnly, let boundary = commandLineBoundary(from: event) {
       return selectRowBoundary(boundary)
@@ -893,14 +892,6 @@ struct ClipboardPanelView: View {
     return true
   }
 
-  private func selectRecord(at index: Int) {
-    guard records.indices.contains(index) else {
-      return
-    }
-
-    selectedRecordID = records[index].id
-  }
-
   private func commandNumberSelectionNumber(from event: NSEvent) -> Int? {
     guard let characters = event.charactersIgnoringModifiers,
           characters.count == 1,
@@ -982,33 +973,43 @@ struct ClipboardPanelView: View {
     }
   }
 
-  private func selectRecordForCommandNumber(_ number: Int) {
-    guard (1...9).contains(number) else {
-      return
+  private func pasteRecordForCommandNumber(_ number: Int) -> Bool {
+    guard let record = recordForCommandNumber(number) else {
+      return true
     }
 
+    selectedRecordID = record.id
+    primaryPasteAction(record)
+    return true
+  }
+
+  private func recordForCommandNumber(_ number: Int) -> ClipboardRecord? {
+    guard (1...9).contains(number) else {
+      return nil
+    }
     switch viewMode {
     case .card:
-      selectCardRecord(numberInCurrentRow: number)
+      return cardRecord(numberInCurrentRow: number)
     case .list:
-      selectRecord(at: number - 1)
+      let targetIndex = number - 1
+      return records.indices.contains(targetIndex) ? records[targetIndex] : nil
     }
   }
 
-  private func selectCardRecord(numberInCurrentRow number: Int) {
+  private func cardRecord(numberInCurrentRow number: Int) -> ClipboardRecord? {
     guard let currentIndex = selectedIndexOrFirst(),
           number <= cardGridColumnCount else {
-      return
+      return nil
     }
 
     let rowStart = (currentIndex / cardGridColumnCount) * cardGridColumnCount
     let rowEnd = min(rowStart + cardGridColumnCount, records.count)
     let targetIndex = rowStart + number - 1
     guard targetIndex < rowEnd else {
-      return
+      return nil
     }
 
-    selectedRecordID = records[targetIndex].id
+    return records[targetIndex]
   }
 
   private func selectedIndexOrFirst() -> Int? {

@@ -51,8 +51,8 @@ struct PermissionGuideView: View {
         icon: "command",
         title: AppText.value("快速打开", "Open Quickly"),
         description: AppText.value(
-          "默认使用 \(PanelHotkeyCatalog.displayName(for: AppSettings.defaultHotkey)) 呼出面板，面板内支持搜索、筛选和数字快捷选择。",
-          "Press \(PanelHotkeyCatalog.displayName(for: AppSettings.defaultHotkey)) to open the panel, then search, filter, or choose items with number shortcuts."
+          "默认使用 \(PanelHotkeyCatalog.displayName(for: AppSettings.defaultHotkey)) 呼出面板，面板内支持搜索、筛选和数字快捷粘贴。",
+          "Press \(PanelHotkeyCatalog.displayName(for: AppSettings.defaultHotkey)) to open the panel, then search, filter, or paste items with number shortcuts."
         )
       )
       guideRow(

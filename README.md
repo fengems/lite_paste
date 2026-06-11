@@ -10,7 +10,7 @@ Lite Paste 是一款原生 macOS 剪贴板管理器，重点是轻量、隐私�
 
 - Native menu-bar app for macOS 15 and later.
 - Card and list views with search, type filters, favorites, pinned items, notes, and delete/clear actions.
-- Global panel hotkey, keyboard navigation, `Command + 1` to `Command + 6` quick selection, copy, paste, and paste-as-plain-text shortcuts.
+- Global panel hotkey, keyboard navigation, `Command + 1` to `Command + 9` quick paste, copy, paste, and paste-as-plain-text shortcuts.
 - Automatic paste back to the previous app after Accessibility permission is granted.
 - Local SQLite storage with external blob files for large media.
 - Privacy controls: pause monitoring, ignore specific apps, ignore sensitive pasteboard types, and keep data local by default.
@@ -38,7 +38,7 @@ On first launch, macOS may ask for Accessibility permission. Lite Paste uses thi
 - Open the panel from the menu bar icon or the default hotkey `Command + Shift + V`.
 - Search with `Command + F`.
 - Use arrow keys to move selection, Return to paste, `Command + C` to copy, Delete to delete, and Escape to close.
-- Use `Command + 1` through `Command + 6` to select the corresponding visible item.
+- Use `Command + 1` through `Command + 9` to paste the corresponding item.
 - Use the menu-bar menu to pause clipboard monitoring or ignore the current app.
 
 ## Privacy
