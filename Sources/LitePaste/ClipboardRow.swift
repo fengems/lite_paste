@@ -83,112 +83,15 @@ struct ClipboardRow: View {
 
   private var quickActions: some View {
     HStack(spacing: 5) {
-      ForEach(orderedQuickActions, id: \.self) { action in
-        quickActionButton(action)
-      }
+      ClipboardQuickActionButtons(context: actionContext, visibleQuickActions: visibleQuickActions)
 
       actionMenu
     }
   }
 
-  private var orderedQuickActions: [ClipboardQuickAction] {
-    Array(ClipboardQuickAction.displayOrder.filter { visibleQuickActions.contains($0) }.prefix(4))
-  }
-
-  @ViewBuilder
-  private func quickActionButton(_ action: ClipboardQuickAction) -> some View {
-    switch action {
-    case .favorite:
-      IconButton(
-        systemName: record.isFavorite ? "star.fill" : "star",
-        accessibilityLabel: action.localizedDisplayName,
-        isActive: record.isFavorite,
-        tint: .yellow,
-        showsInactiveBackground: false,
-        action: toggleFavorite
-      )
-    case .pin:
-      IconButton(
-        systemName: record.isPinned ? "pin.fill" : "pin",
-        accessibilityLabel: action.localizedDisplayName,
-        isActive: record.isPinned,
-        tint: .blue,
-        showsInactiveBackground: false,
-        action: togglePinned
-      )
-    case .copy:
-      IconButton(systemName: action.iconName, accessibilityLabel: action.localizedDisplayName, action: { copyAction(record) })
-    case .copyPlainText:
-      IconButton(systemName: action.iconName, accessibilityLabel: plainTextCopyLabel, action: { copyPlainTextAction(record) })
-    case .paste:
-      IconButton(systemName: action.iconName, accessibilityLabel: action.localizedDisplayName, action: { pasteAction(record) })
-    case .pastePlainText:
-      IconButton(systemName: action.iconName, accessibilityLabel: plainTextPasteLabel, action: { pastePlainTextAction(record) })
-    case .note:
-      IconButton(
-        systemName: record.note.isEmpty ? action.iconName : "note.text",
-        accessibilityLabel: action.localizedDisplayName,
-        isActive: !record.note.isEmpty,
-        tint: .blue,
-        action: editNote
-      )
-    case .delete:
-      IconButton(systemName: action.iconName, accessibilityLabel: action.localizedDisplayName, tint: .red, action: deleteAction)
-    case .external:
-      if let externalAction {
-        IconButton(
-          systemName: externalAction.iconName,
-          accessibilityLabel: externalAction.accessibilityLabel,
-          action: { performExternalAction(externalAction) }
-        )
-      }
-    }
-  }
-
   private var actionMenu: some View {
     Menu {
-      Button {
-        pasteAction(record)
-      } label: {
-        Label(AppText.value("粘贴", "Paste"), systemImage: "arrow.turn.down.left")
-      }
-
-      Button {
-        copyAction(record)
-      } label: {
-        Label(AppText.value("复制", "Copy"), systemImage: "doc.on.doc")
-      }
-
-      Button {
-        pastePlainTextAction(record)
-      } label: {
-        Label(plainTextPasteLabel, systemImage: ClipboardQuickAction.pastePlainText.iconName)
-      }
-
-      Button {
-        copyPlainTextAction(record)
-      } label: {
-        Label(plainTextCopyLabel, systemImage: "doc.plaintext")
-      }
-
-      if let externalAction {
-        Button {
-          performExternalAction(externalAction)
-        } label: {
-          Label(externalAction.accessibilityLabel, systemImage: externalAction.iconName)
-        }
-      }
-
-      Button(action: editNote) {
-        Label(
-          record.note.isEmpty ? AppText.value("添加备注", "Add Note") : AppText.value("编辑备注", "Edit Note"),
-          systemImage: "note.text"
-        )
-      }
-
-      Button(role: .destructive, action: deleteAction) {
-        Label(AppText.value("删除", "Delete"), systemImage: "trash")
-      }
+      ClipboardItemActionMenuItems(context: actionContext)
     } label: {
       Image(systemName: "ellipsis")
         .font(.system(size: 13, weight: .semibold))
@@ -202,16 +105,20 @@ struct ClipboardRow: View {
     .panelTooltip(AppText.value("更多操作", "More Actions"))
   }
 
-  private var plainTextCopyLabel: String {
-    record.kind == .image
-      ? AppText.value("复制图片文字", "Copy Image Text")
-      : AppText.value("复制纯文本", "Copy Plain Text")
-  }
-
-  private var plainTextPasteLabel: String {
-    record.kind == .image
-      ? AppText.value("粘贴为文本", "Paste As Text")
-      : AppText.value("纯文本粘贴", "Paste Plain Text")
+  private var actionContext: ClipboardItemActionContext {
+    ClipboardItemActionContext(
+      record: record,
+      externalAction: externalAction,
+      copyAction: copyAction,
+      copyPlainTextAction: copyPlainTextAction,
+      pasteAction: pasteAction,
+      pastePlainTextAction: pastePlainTextAction,
+      performExternalAction: performExternalAction,
+      editNote: editNote,
+      toggleFavorite: toggleFavorite,
+      togglePinned: togglePinned,
+      deleteAction: deleteAction
+    )
   }
 
   private var selectionStroke: some View {

@@ -1,4 +1,4 @@
-import AppKit
+import Foundation
 import LitePasteCore
 import SwiftUI
 
@@ -19,7 +19,7 @@ struct ClipboardPanelView: View {
   let closeAction: () -> Void
 
   @ObservedObject private var settingsStore = AppSettingsStore.shared
-  @State private var itemActions = ClipboardItemActions()
+  @State private var recordActions = ClipboardRecordActions()
   @State private var query = ""
   @State private var filter: ClipboardFilter = .all
   @State private var viewMode: ClipboardPanelViewMode = AppSettingsStore.shared.settings.viewMode
@@ -33,20 +33,6 @@ struct ClipboardPanelView: View {
   @State private var pageRefreshTask: Task<Void, Never>?
   @FocusState private var searchFieldFocused: Bool
 
-  private enum RowBoundary {
-    case leading
-    case trailing
-  }
-
-  private enum PanelNavigationKey {
-    case left
-    case right
-    case up
-    case down
-    case home
-    case end
-  }
-
   private var queryRequest: ClipboardHistoryQuery {
     ClipboardHistoryQuery(text: query, filter: filter)
   }
@@ -56,7 +42,9 @@ struct ClipboardPanelView: View {
   }
 
   var body: some View {
-    panelSurface
+    ClipboardPanelSurface {
+      panelContent
+    }
     .frame(minWidth: 420, minHeight: ClipboardPanelMetrics.edgePanelThickness)
     .compositingGroup()
     .background(keyboardBridge)
@@ -85,60 +73,6 @@ struct ClipboardPanelView: View {
     .animation(.easeOut(duration: 0.18), value: presentationState.actionMessage)
   }
 
-  private var panelCornerShape: RoundedRectangle {
-    RoundedRectangle(cornerRadius: ClipboardPanelMetrics.cornerRadius, style: .continuous)
-  }
-
-  private var panelBorder: some View {
-    panelCornerShape
-      .stroke(
-        LinearGradient(
-          colors: [
-            Color.cyan.opacity(0.75),
-            Color.blue.opacity(0.55),
-            Color.purple.opacity(0.48),
-            Color.orange.opacity(0.70)
-          ],
-          startPoint: .bottomLeading,
-          endPoint: .topTrailing
-        ),
-        lineWidth: 1.4
-      )
-  }
-
-  private var panelSurface: some View {
-    ZStack {
-      VisualEffectBackground(material: .hudWindow, blendingMode: .behindWindow)
-        .ignoresSafeArea()
-      panelContent
-    }
-    .clipShape(panelCornerShape)
-    .overlay(panelInnerGlow)
-    .overlay(panelBorder)
-    .shadow(color: Color.black.opacity(0.20), radius: 18, y: 8)
-  }
-
-  private var panelInnerGlow: some View {
-    panelCornerShape
-      .stroke(
-        LinearGradient(
-          colors: [
-            Color.cyan.opacity(0.45),
-            Color.blue.opacity(0.28),
-            Color.purple.opacity(0.24),
-            Color.orange.opacity(0.38)
-          ],
-          startPoint: .bottomLeading,
-          endPoint: .topTrailing
-        ),
-        lineWidth: 5
-      )
-      .blur(radius: 7)
-      .opacity(0.62)
-      .clipShape(panelCornerShape)
-      .allowsHitTesting(false)
-  }
-
   private var panelContent: some View {
     VStack(spacing: ClipboardPanelMetrics.panelContentSpacing) {
       topToolbar
@@ -152,399 +86,35 @@ struct ClipboardPanelView: View {
 
   @ViewBuilder
   private var topToolbar: some View {
-    if let topObstruction = presentationState.topObstruction {
-      notchAwareToolbar(for: topObstruction)
-    } else {
-      ViewThatFits(in: .horizontal) {
-        toolbarLine
-        compactToolbar
-      }
-    }
-  }
-
-  private var toolbarLine: some View {
-    HStack(spacing: 8) {
-      searchBox
-        .frame(minWidth: 180, idealWidth: 240, maxWidth: 300)
-
-      toolbarDivider
-      filterGroup(for: ClipboardFilter.allCases)
-
-      if let actionMessage = presentationState.actionMessage {
-        PanelStatusBadge(message: actionMessage)
-      }
-
-      toolbarDivider
-      viewModePicker
-      toolbarDivider
-      headerActions
-    }
-  }
-
-  private var compactToolbar: some View {
-    VStack(spacing: 7) {
-      HStack(spacing: 8) {
-        searchBox
-
-        if let actionMessage = presentationState.actionMessage {
-          PanelStatusBadge(message: actionMessage)
-        }
-
-        viewModePicker
-        headerActions
-      }
-
-      HStack(spacing: 8) {
-        filterGroup(for: ClipboardFilter.allCases)
-
-        Spacer(minLength: 0)
-      }
-    }
-  }
-
-  private func notchAwareToolbar(for obstruction: PanelTopObstruction) -> some View {
-    GeometryReader { proxy in
-      let layout = obstruction.padded(by: ClipboardPanelMetrics.notchAvoidanceMargin, in: proxy.size.width)
-
-      HStack(spacing: 0) {
-        notchLeftToolbar(width: layout.leadingWidth)
-          .frame(width: layout.leadingWidth, alignment: .leading)
-
-        Color.clear
-          .frame(width: layout.gapWidth)
-          .accessibilityHidden(true)
-
-        notchRightToolbar
-          .frame(width: layout.trailingWidth, alignment: .trailing)
-      }
-      .frame(width: proxy.size.width, height: proxy.size.height, alignment: .leading)
-    }
-    .frame(height: ClipboardPanelMetrics.toolbarControlHeight)
-  }
-
-  private func notchLeftToolbar(width: CGFloat) -> some View {
-    HStack(spacing: 8) {
-      searchBox
-        .frame(width: notchSearchWidth(for: width))
-
-      filterGroup(for: notchLeftFilters, minWidth: 0)
-    }
-    .frame(maxWidth: .infinity, alignment: .leading)
-  }
-
-  private var notchRightToolbar: some View {
-    HStack(spacing: 8) {
-      filterGroup(for: notchRightFilters, minWidth: 0, alignment: .trailing)
-
-      if let actionMessage = presentationState.actionMessage {
-        PanelStatusBadge(message: actionMessage)
-      }
-
-      viewModePicker
-      headerActions
-    }
-    .frame(maxWidth: .infinity, alignment: .trailing)
-  }
-
-  private var notchLeftFilters: [ClipboardFilter] {
-    Array(ClipboardFilter.allCases.prefix(4))
-  }
-
-  private var notchRightFilters: [ClipboardFilter] {
-    Array(ClipboardFilter.allCases.dropFirst(4))
-  }
-
-  private func notchSearchWidth(for availableWidth: CGFloat) -> CGFloat {
-    min(max(availableWidth * 0.42, 160), min(260, availableWidth))
-  }
-
-  private func filterGroup(
-    for filters: [ClipboardFilter],
-    minWidth: CGFloat = 180,
-    alignment: Alignment = .leading
-  ) -> some View {
-    filterChips(for: filters)
-      .frame(minWidth: minWidth, maxWidth: .infinity, alignment: alignment)
-  }
-
-  private func filterChips(for filters: [ClipboardFilter]) -> some View {
-    HStack(spacing: 8) {
-      ForEach(filters) { option in
-        ClipboardFilterChip(filter: option, isSelected: filter == option) {
-          filter = option
-        }
-      }
-    }
-  }
-
-  private var viewModePicker: some View {
-    HStack(spacing: 0) {
-      viewModeButton(mode: .card, systemName: "rectangle.grid.2x2", label: AppText.value("卡片视图", "Card View"))
-      viewModeButton(mode: .list, systemName: "list.bullet", label: AppText.value("列表视图", "List View"))
-    }
-    .padding(4)
-    .frame(width: 82, height: 32)
-    .background(Color.primary.opacity(0.060), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-    .overlay(
-      RoundedRectangle(cornerRadius: 8, style: .continuous)
-        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+    ClipboardPanelToolbar(
+      query: $query,
+      filter: $filter,
+      viewMode: $viewMode,
+      searchFieldFocused: $searchFieldFocused,
+      topObstruction: presentationState.topObstruction,
+      actionMessage: presentationState.actionMessage,
+      openSettingsAction: openSettingsAction,
+      clearUnpinnedAction: confirmClearUnpinned,
+      clearAllAction: confirmClearAll,
+      closeAction: closeAction,
+      viewModeDidChange: persistViewMode
     )
-  }
-
-  private func viewModeButton(mode: ClipboardPanelViewMode, systemName: String, label: String) -> some View {
-    let isSelected = viewMode == mode
-
-    return Button {
-      guard viewMode != mode else {
-        return
-      }
-      viewMode = mode
-      persistViewMode()
-    } label: {
-      Image(systemName: systemName)
-        .font(.system(size: 13, weight: .semibold))
-        .frame(maxWidth: .infinity, minHeight: 24)
-        .foregroundStyle(isSelected ? Color.white : Color.secondary)
-        .background(
-          isSelected ? Color.white.opacity(0.12) : Color.clear,
-          in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-        )
-        .overlay(alignment: .bottom) {
-          if isSelected {
-            Capsule()
-              .fill(Color.blue)
-              .frame(width: 20, height: 2)
-              .offset(y: 5)
-          }
-        }
-        .contentShape(Rectangle())
-    }
-    .buttonStyle(.plain)
-    .accessibilityLabel(label)
-    .panelTooltip(label)
-  }
-
-  private var headerActions: some View {
-    HStack(spacing: 6) {
-      IconButton(
-        systemName: "gearshape",
-        accessibilityLabel: AppText.value("设置", "Settings"),
-        action: openSettingsAction
-      )
-      deleteHistoryMenu
-      IconButton(systemName: "xmark", accessibilityLabel: AppText.value("关闭", "Close"), action: closeAction)
-    }
-  }
-
-  private var deleteHistoryMenu: some View {
-    Menu {
-      Button(action: confirmClearUnpinned) {
-        Label(AppText.value("清空未置顶", "Clear Unpinned"), systemImage: "trash.slash")
-      }
-
-      Button(role: .destructive, action: confirmClearAll) {
-        Label(AppText.value("清空全部", "Clear All"), systemImage: "trash")
-      }
-    } label: {
-      Image(systemName: "trash")
-        .font(.system(size: 13, weight: .semibold))
-        .frame(width: 26, height: 26)
-        .foregroundStyle(Color.secondary)
-        .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-        .overlay(
-          RoundedRectangle(cornerRadius: 7, style: .continuous)
-            .stroke(Color.white.opacity(0.08), lineWidth: 1)
-        )
-        .contentShape(Rectangle())
-    }
-    .menuStyle(.borderlessButton)
-    .menuIndicator(.hidden)
-    .fixedSize()
-    .accessibilityLabel(AppText.value("清空历史", "Clear History"))
-    .panelTooltip(AppText.value("清空历史", "Clear History"))
-  }
-
-  private var searchBox: some View {
-    HStack(spacing: 8) {
-      Image(systemName: "magnifyingglass")
-        .font(.system(size: 12, weight: .semibold))
-        .foregroundStyle(.secondary)
-
-      TextField(AppText.value("搜索剪贴板", "Search Clipboard"), text: $query)
-        .textFieldStyle(.plain)
-        .font(.system(size: 13))
-        .focused($searchFieldFocused)
-
-      if query.isEmpty {
-        Text("⌘F")
-          .font(.system(size: 11, weight: .semibold, design: .rounded))
-          .foregroundStyle(.secondary)
-          .padding(.horizontal, 6)
-          .frame(height: 18)
-          .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
-          .accessibilityHidden(true)
-      } else {
-        Button {
-          query = ""
-        } label: {
-          Image(systemName: "xmark.circle.fill")
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(.secondary)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(AppText.value("清空搜索", "Clear Search"))
-        .panelTooltip(AppText.value("清空搜索", "Clear Search"))
-      }
-    }
-    .padding(.horizontal, 10)
-    .padding(.vertical, 7)
-    .frame(maxWidth: .infinity, minHeight: 32)
-    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-    .overlay(
-      RoundedRectangle(cornerRadius: 8, style: .continuous)
-        .stroke(Color.white.opacity(0.10), lineWidth: 1)
-    )
-  }
-
-  private var toolbarDivider: some View {
-    Rectangle()
-      .fill(Color.white.opacity(0.10))
-      .frame(width: 1, height: 24)
-      .padding(.horizontal, 8)
   }
 
   @ViewBuilder
   private var contentArea: some View {
-    if records.isEmpty {
-      EmptyHistoryView(
-        systemName: emptyState.systemName,
-        title: emptyState.title,
-        message: emptyState.message
-      )
-      .frame(maxWidth: .infinity, maxHeight: .infinity)
-      .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 12))
-    } else {
-      switch viewMode {
-      case .card:
-        cardContent
-      case .list:
-        listContent
-      }
-    }
-  }
-
-  private var cardContent: some View {
-    ScrollViewReader { proxy in
-      ScrollView {
-        LazyVGrid(columns: cardGridColumns, alignment: .leading, spacing: ClipboardPanelMetrics.cardGridSpacing) {
-          ForEach(records) { record in
-            card(for: record)
-              .id(record.id)
-          }
-
-          if currentPage.hasMore {
-            loadMoreButton
-              .frame(maxWidth: .infinity, minHeight: ClipboardPanelMetrics.cardHeight)
-          }
-        }
-        .padding(.top, ClipboardPanelMetrics.cardContentTopPadding)
-        .padding(.bottom, cardContentBottomPadding)
-      }
-      .scrollIndicators(.hidden)
-      .frame(
-        maxWidth: .infinity,
-        minHeight: cardContentMinimumHeight,
-        maxHeight: cardContentMaximumHeight,
-        alignment: .topLeading
-      )
-      .onChange(of: selectedRecordID) { _, recordID in
-        scrollToSelectedRecord(recordID, proxy: proxy, anchor: .center)
-      }
-      .onChange(of: presentationState.openRevision) {
-        scrollToSelectedRecord(selectedRecordID, proxy: proxy, anchor: .top)
-      }
-    }
-  }
-
-  private var cardContentMinimumHeight: CGFloat {
-    cardContentUsesFixedEdgeHeight ? ClipboardPanelMetrics.edgeCardContentHeight : 0
-  }
-
-  private var cardContentMaximumHeight: CGFloat? {
-    cardContentUsesFixedEdgeHeight ? ClipboardPanelMetrics.edgeCardContentHeight : .infinity
-  }
-
-  private var cardContentBottomPadding: CGFloat {
-    cardContentUsesFixedEdgeHeight
-      ? ClipboardPanelMetrics.edgeCardContentBottomPadding
-      : ClipboardPanelMetrics.cardContentBottomPadding
-  }
-
-  private var cardContentUsesFixedEdgeHeight: Bool {
-    switch settingsStore.settings.panelPosition {
-    case .edgeBottom, .edgeTop, .bottomDrawer, .statusItem:
-      true
-    case .edgeLeft, .edgeRight, .cursor, .screenCenter, .mouseScreenCenter:
-      false
-    }
-  }
-
-  private var cardGridColumns: [GridItem] {
-    Array(
-      repeating: GridItem(.flexible(), spacing: ClipboardPanelMetrics.cardGridSpacing),
-      count: cardGridColumnCount
+    ClipboardPanelContentArea(
+      records: records,
+      currentPage: currentPage,
+      viewMode: viewMode,
+      panelPosition: settingsStore.settings.panelPosition,
+      selectedRecordID: selectedRecordID,
+      openRevision: presentationState.openRevision,
+      emptyState: emptyState,
+      loadMoreRecords: loadMoreRecords,
+      cardContent: { card(for: $0) },
+      rowContent: { row(for: $0) }
     )
-  }
-
-  private var cardGridColumnCount: Int {
-    switch settingsStore.settings.panelPosition {
-    case .edgeLeft, .edgeRight:
-      return 2
-    case .edgeBottom, .edgeTop, .bottomDrawer, .statusItem:
-      return 6
-    case .cursor, .screenCenter, .mouseScreenCenter:
-      return 3
-    }
-  }
-
-  private var listContent: some View {
-    ScrollViewReader { proxy in
-      ScrollView {
-        LazyVStack(spacing: 6) {
-          ForEach(records) { record in
-            row(for: record)
-              .id(record.id)
-          }
-
-          if currentPage.hasMore {
-            loadMoreButton
-          }
-        }
-        .padding(.vertical, 1)
-      }
-      .scrollIndicators(.hidden)
-      .onChange(of: selectedRecordID) { _, recordID in
-        scrollToSelectedRecord(recordID, proxy: proxy, anchor: .center)
-      }
-      .onChange(of: presentationState.openRevision) {
-        scrollToSelectedRecord(selectedRecordID, proxy: proxy, anchor: .top)
-      }
-    }
-  }
-
-  private var loadMoreButton: some View {
-    Button(action: loadMoreRecords) {
-      VStack(spacing: 8) {
-        Image(systemName: "chevron.down.circle")
-          .font(.system(size: 22, weight: .semibold))
-        Text(AppText.value("加载更多", "Load More"))
-          .font(.system(size: 12, weight: .semibold))
-      }
-      .frame(maxWidth: .infinity, minHeight: 44)
-    }
-    .buttonStyle(.plain)
-    .padding(.horizontal, 12)
-    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
   }
 
   private func card(for record: ClipboardRecord) -> some View {
@@ -556,8 +126,8 @@ struct ClipboardPanelView: View {
       copyPlainTextAction: copyPlainTextAction,
       pasteAction: pasteAction,
       pastePlainTextAction: pastePlainTextAction,
-      externalAction: itemActions.primaryExternalAction(for: record),
-      performExternalAction: { handleExternalActionResult(itemActions.perform($0, for: record)) },
+      externalAction: recordActions.primaryExternalAction(for: record),
+      performExternalAction: { handleExternalActionResult(recordActions.perform($0, for: record)) },
       editNote: { editNote(record) },
       toggleFavorite: { store.toggleFavorite(record.id) },
       togglePinned: { store.togglePinned(record.id) },
@@ -575,8 +145,8 @@ struct ClipboardPanelView: View {
       copyPlainTextAction: copyPlainTextAction,
       pasteAction: pasteAction,
       pastePlainTextAction: pastePlainTextAction,
-      externalAction: itemActions.primaryExternalAction(for: record),
-      performExternalAction: { handleExternalActionResult(itemActions.perform($0, for: record)) },
+      externalAction: recordActions.primaryExternalAction(for: record),
+      performExternalAction: { handleExternalActionResult(recordActions.perform($0, for: record)) },
       editNote: { editNote(record) },
       toggleFavorite: { store.toggleFavorite(record.id) },
       togglePinned: { store.togglePinned(record.id) },
@@ -585,52 +155,33 @@ struct ClipboardPanelView: View {
     )
   }
 
-  private var emptyState: (systemName: String, title: String, message: String?) {
-    if store.allRecordCount() == 0 {
-      if settingsStore.settings.isMonitoringPaused {
-        return (
-          "pause.circle",
-          AppText.value("已停止监听剪贴板", "Clipboard Monitoring Paused"),
-          AppText.value(
-            "关闭停止监听后，新的剪贴板内容会继续保存到历史。",
-            "Resume monitoring to save new clipboard content to history."
-          )
-        )
-      }
-      return (
-        "doc.on.clipboard",
-        AppText.value("暂无剪贴板历史", "No Clipboard History"),
-        AppText.value(
-          "复制文本、图片、文件或链接后会显示在这里。",
-          "Copy text, images, files, or links and they will appear here."
-        )
-      )
-    }
-
-    if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-      return (
-        "magnifyingglass",
-        AppText.value("没有匹配结果", "No Matches"),
-        AppText.value("试试其他关键词，或切换筛选类型。", "Try another keyword or switch filters.")
-      )
-    }
-
-    if filter != .all {
-      return (
-        filter.iconName,
-        AppText.value("没有\(filter.localizedDisplayName)记录", "No \(filter.localizedDisplayName) Items"),
-        AppText.value("切换到全部，或复制对应类型的内容。", "Switch to All or copy matching content.")
-      )
-    }
-
-    return ("tray", AppText.value("没有可显示的记录", "No Items To Show"), nil)
+  private var emptyState: ClipboardPanelEmptyState {
+    ClipboardPanelEmptyState.resolve(
+      allRecordCount: store.allRecordCount(),
+      isMonitoringPaused: settingsStore.settings.isMonitoringPaused,
+      query: query,
+      filter: filter
+    )
   }
 
   private var keyboardBridge: some View {
     PanelKeyboardBridge { event in
-      handleKeyDown(event)
+      keyboardActions.handle(event)
     }
     .frame(width: 0, height: 0)
+  }
+
+  private var keyboardActions: ClipboardPanelKeyboardActions {
+    ClipboardPanelKeyboardActions(
+      close: closeAction,
+      copySelected: copySelected,
+      deleteSelected: deleteSelected,
+      focusSearch: focusSearchField,
+      navigate: navigateSelection,
+      pasteNumber: pasteRecordForCommandNumber,
+      pasteSelected: pasteSelected,
+      selectRowBoundary: selectRowBoundary
+    )
   }
 
   private func primaryAction(_ record: ClipboardRecord) {
@@ -645,57 +196,23 @@ struct ClipboardPanelView: View {
 
   private func confirmClearUnpinned() {
     let count = store.unpinnedRecordCount()
-    guard count > 0 else {
-      return
-    }
-    if confirm(
-      title: AppText.value("清空未置顶历史？", "Clear Unpinned History?"),
-      message: AppText.value(
-        "将删除 \(count) 条未置顶记录，置顶记录会保留。此操作无法撤销。",
-        "\(count) unpinned items will be deleted. Pinned items are kept. This cannot be undone."
-      )
-    ) {
+    if ClipboardPanelConfirmations.confirmClearUnpinned(count: count) {
       store.clearUnpinned()
     }
   }
 
   private func confirmClearAll() {
     let count = store.allRecordCount()
-    guard count > 0 else {
-      return
-    }
-    if confirm(
-      title: AppText.value("清空全部历史？", "Clear All History?"),
-      message: AppText.value(
-        "将删除全部 \(count) 条剪贴板历史，包含置顶记录。此操作无法撤销。",
-        "All \(count) clipboard history items, including pinned items, will be deleted. This cannot be undone."
-      )
-    ) {
+    if ClipboardPanelConfirmations.confirmClearAll(count: count) {
       store.clearAll()
     }
   }
 
   private func confirmDelete(_ record: ClipboardRecord) {
-    if confirm(
-      title: AppText.value("删除这条历史？", "Delete This Item?"),
-      message: AppText.value(
-        "“\(record.title)”会从剪贴板历史中移除。此操作无法撤销。",
-        "\"\(record.title)\" will be removed from clipboard history. This cannot be undone."
-      )
-    ) {
+    if ClipboardPanelConfirmations.confirmDelete(recordTitle: record.title) {
       store.delete(record.id)
       normalizeSelection()
     }
-  }
-
-  private func confirm(title: String, message: String) -> Bool {
-    let alert = NSAlert()
-    alert.messageText = title
-    alert.informativeText = message
-    alert.addButton(withTitle: AppText.value("确认", "Confirm"))
-    alert.addButton(withTitle: AppText.value("取消", "Cancel"))
-    alert.alertStyle = .warning
-    return alert.runModal() == .alertFirstButtonReturn
   }
 
   private func editNote(_ record: ClipboardRecord) {
@@ -714,71 +231,7 @@ struct ClipboardPanelView: View {
     case let .completed(message):
       presentationState.showActionMessage(message)
     case let .failed(title, message):
-      showAlert(title: title, message: message, style: .warning)
-    }
-  }
-
-  private func handleKeyDown(_ event: NSEvent) -> Bool {
-    let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
-    let commandOnly = modifiers == .command
-    let controlLineBoundaryOnly = modifiers == .control || modifiers == [.control, .shift]
-
-    if commandOnly, let number = commandNumberSelectionNumber(from: event) {
-      return pasteRecordForCommandNumber(number)
-    }
-    if commandOnly, let boundary = commandLineBoundary(from: event) {
-      return selectRowBoundary(boundary)
-    }
-    if controlLineBoundaryOnly, let boundary = controlLineBoundary(from: event) {
-      return selectRowBoundary(boundary)
-    }
-    if commandOnly, event.charactersIgnoringModifiers?.lowercased() == "f" {
-      focusSearchField()
-      return true
-    }
-    if commandOnly, event.charactersIgnoringModifiers?.lowercased() == "c" {
-      return copySelected()
-    }
-    if modifiers == [.command, .shift], event.charactersIgnoringModifiers?.lowercased() == "c" {
-      return copySelected(asPlainText: true)
-    }
-    if commandOnly, event.keyCode == 51 {
-      return deleteSelected()
-    }
-    if modifiers == [.command, .shift], [36, 76].contains(event.keyCode) {
-      return pasteSelected(asPlainText: true)
-    }
-    guard modifiers.isEmpty else {
-      return false
-    }
-
-    switch event.keyCode {
-    case 53:
-      closeAction()
-      return true
-    case 36, 76:
-      return pasteSelected()
-    case 117:
-      return deleteSelected()
-    default:
-      break
-    }
-
-    switch panelNavigationKey(from: event) {
-    case .left:
-      return selectHorizontal(direction: -1)
-    case .right:
-      return selectHorizontal(direction: 1)
-    case .up:
-      return selectVertical(direction: -1)
-    case .down:
-      return selectVertical(direction: 1)
-    case .home:
-      return selectRowBoundary(.leading)
-    case .end:
-      return selectRowBoundary(.trailing)
-    case nil:
-      return false
+      UserAlerts.showMessage(title: title, message: message, style: .warning)
     }
   }
 
@@ -810,167 +263,69 @@ struct ClipboardPanelView: View {
     return true
   }
 
-  private func selectRelative(_ offset: Int) -> Bool {
-    guard !records.isEmpty else {
-      selectedRecordID = nil
-      return true
-    }
-    let currentIndex = records.firstIndex { $0.id == selectedRecordID } ?? 0
-    if offset > 0, currentIndex == records.count - 1, currentPage.hasMore {
-      loadMoreRecords()
-    }
-    let nextIndex = min(max(currentIndex + offset, 0), records.count - 1)
-    selectedRecordID = records[nextIndex].id
-    return true
-  }
-
   private func selectHorizontal(direction: Int) -> Bool {
-    guard viewMode == .card else {
-      return selectRelative(direction)
-    }
-    guard let currentIndex = selectedIndexOrFirst() else {
-      return true
-    }
-
-    let row = currentIndex / cardGridColumnCount
-    let rowStart = row * cardGridColumnCount
-    let rowEnd = min(rowStart + cardGridColumnCount, records.count) - 1
-
-    if direction < 0, currentIndex == rowStart {
-      return true
-    }
-    if direction > 0, currentIndex == rowEnd {
-      return true
-    }
-
-    selectedRecordID = records[currentIndex + direction].id
+    applySelection(
+      ClipboardPanelSelection.selectHorizontal(
+        direction: direction,
+        records: records,
+        selectedRecordID: selectedRecordID,
+        viewMode: viewMode,
+        cardGridColumnCount: cardGridColumnCount,
+        hasMore: currentPage.hasMore
+      )
+    )
     return true
   }
 
   private func selectVertical(direction: Int) -> Bool {
-    guard viewMode == .card else {
-      return selectRelative(direction)
-    }
-    guard let currentIndex = selectedIndexOrFirst() else {
-      return true
-    }
-
-    let currentRowStart = (currentIndex / cardGridColumnCount) * cardGridColumnCount
-    let targetRowStart = currentRowStart + direction * cardGridColumnCount
-    if targetRowStart < 0 {
-      return true
-    }
-    if targetRowStart >= records.count {
-      if direction > 0, currentPage.hasMore {
-        loadMoreRecords()
-      }
-      return true
-    }
-
-    let column = currentIndex - currentRowStart
-    let targetRowEnd = min(targetRowStart + cardGridColumnCount, records.count) - 1
-    let targetIndex = min(targetRowStart + column, targetRowEnd)
-    selectedRecordID = records[targetIndex].id
+    applySelection(
+      ClipboardPanelSelection.selectVertical(
+        direction: direction,
+        records: records,
+        selectedRecordID: selectedRecordID,
+        viewMode: viewMode,
+        cardGridColumnCount: cardGridColumnCount,
+        hasMore: currentPage.hasMore
+      )
+    )
     return true
   }
 
-  private func selectRowBoundary(_ boundary: RowBoundary) -> Bool {
-    guard !records.isEmpty else {
-      selectedRecordID = nil
-      return true
+  private func navigateSelection(_ key: PanelNavigationKey) -> Bool {
+    switch key {
+    case .left:
+      return selectHorizontal(direction: -1)
+    case .right:
+      return selectHorizontal(direction: 1)
+    case .up:
+      return selectVertical(direction: -1)
+    case .down:
+      return selectVertical(direction: 1)
+    case .home:
+      return selectRowBoundary(.leading)
+    case .end:
+      return selectRowBoundary(.trailing)
     }
+  }
 
-    guard viewMode == .card else {
-      selectedRecordID = records[boundary == .leading ? 0 : records.count - 1].id
-      return true
-    }
-
-    let currentIndex = records.firstIndex { $0.id == selectedRecordID } ?? 0
-    let rowStart = (currentIndex / cardGridColumnCount) * cardGridColumnCount
-    let rowEnd = min(rowStart + cardGridColumnCount, records.count) - 1
-    selectedRecordID = records[boundary == .leading ? rowStart : rowEnd].id
+  private func selectRowBoundary(_ boundary: PanelRowBoundary) -> Bool {
+    applySelection(
+      ClipboardPanelSelection.selectRowBoundary(
+        boundary,
+        records: records,
+        selectedRecordID: selectedRecordID,
+        viewMode: viewMode,
+        cardGridColumnCount: cardGridColumnCount
+      )
+    )
     return true
   }
 
-  private func commandNumberSelectionNumber(from event: NSEvent) -> Int? {
-    guard let characters = event.charactersIgnoringModifiers,
-          characters.count == 1,
-          let number = Int(characters),
-          (1...9).contains(number) else {
-      return nil
+  private func applySelection(_ result: ClipboardPanelSelection.Result) {
+    if result.shouldLoadMore {
+      loadMoreRecords()
     }
-
-    return number
-  }
-
-  private func panelNavigationKey(from event: NSEvent) -> PanelNavigationKey? {
-    if let key = panelNavigationKey(from: event.charactersIgnoringModifiers) {
-      return key
-    }
-
-    switch event.keyCode {
-    case 123:
-      return .left
-    case 124:
-      return .right
-    case 126:
-      return .up
-    case 125:
-      return .down
-    case 115:
-      return .home
-    case 119:
-      return .end
-    default:
-      return nil
-    }
-  }
-
-  private func panelNavigationKey(from characters: String?) -> PanelNavigationKey? {
-    guard let characters,
-          characters.unicodeScalars.count == 1,
-          let scalar = characters.unicodeScalars.first else {
-      return nil
-    }
-
-    switch scalar.value {
-    case 0xF702:
-      return .left
-    case 0xF703:
-      return .right
-    case 0xF700:
-      return .up
-    case 0xF701:
-      return .down
-    case 0xF729:
-      return .home
-    case 0xF72B:
-      return .end
-    default:
-      return nil
-    }
-  }
-
-  private func controlLineBoundary(from event: NSEvent) -> RowBoundary? {
-    switch event.charactersIgnoringModifiers?.lowercased() {
-    case "a":
-      return .leading
-    case "e":
-      return .trailing
-    default:
-      return nil
-    }
-  }
-
-  private func commandLineBoundary(from event: NSEvent) -> RowBoundary? {
-    switch panelNavigationKey(from: event) {
-    case .left, .home:
-      return .leading
-    case .right, .end:
-      return .trailing
-    case .up, .down, nil:
-      return nil
-    }
+    selectedRecordID = result.selectedRecordID
   }
 
   private func pasteRecordForCommandNumber(_ number: Int) -> Bool {
@@ -984,56 +339,28 @@ struct ClipboardPanelView: View {
   }
 
   private func recordForCommandNumber(_ number: Int) -> ClipboardRecord? {
-    guard (1...9).contains(number) else {
-      return nil
-    }
-    switch viewMode {
-    case .card:
-      return cardRecord(numberInCurrentRow: number)
-    case .list:
-      let targetIndex = number - 1
-      return records.indices.contains(targetIndex) ? records[targetIndex] : nil
-    }
-  }
-
-  private func cardRecord(numberInCurrentRow number: Int) -> ClipboardRecord? {
-    guard let currentIndex = selectedIndexOrFirst(),
-          number <= cardGridColumnCount else {
-      return nil
-    }
-
-    let rowStart = (currentIndex / cardGridColumnCount) * cardGridColumnCount
-    let rowEnd = min(rowStart + cardGridColumnCount, records.count)
-    let targetIndex = rowStart + number - 1
-    guard targetIndex < rowEnd else {
-      return nil
-    }
-
-    return records[targetIndex]
-  }
-
-  private func selectedIndexOrFirst() -> Int? {
-    guard !records.isEmpty else {
-      selectedRecordID = nil
-      return nil
-    }
-
-    return records.firstIndex { $0.id == selectedRecordID } ?? 0
+    ClipboardPanelSelection.recordForCommandNumber(
+      number,
+      records: records,
+      selectedRecordID: selectedRecordID,
+      viewMode: viewMode,
+      cardGridColumnCount: cardGridColumnCount
+    )
   }
 
   private func normalizeSelection() {
-    guard !records.isEmpty else {
-      selectedRecordID = nil
-      return
-    }
-    if let selectedRecordID, records.contains(where: { $0.id == selectedRecordID }) {
-      return
-    }
-    selectedRecordID = records[0].id
+    selectedRecordID = ClipboardPanelSelection.normalizedSelectionID(
+      in: records,
+      selectedRecordID: selectedRecordID
+    )
   }
 
   private var selectedRecord: ClipboardRecord? {
-    records.first { $0.id == selectedRecordID }
+    ClipboardPanelSelection.selectedRecord(in: records, selectedRecordID: selectedRecordID)
+  }
+
+  private var cardGridColumnCount: Int {
+    ClipboardPanelLayout.cardGridColumnCount(for: settingsStore.settings.panelPosition)
   }
 
   private func prepareForOpen() {
@@ -1106,19 +433,6 @@ struct ClipboardPanelView: View {
     }
   }
 
-  private func scrollToSelectedRecord(
-    _ recordID: ClipboardRecord.ID?,
-    proxy: ScrollViewProxy,
-    anchor: UnitPoint
-  ) {
-    guard let recordID else {
-      return
-    }
-    withAnimation(.easeOut(duration: 0.16)) {
-      proxy.scrollTo(recordID, anchor: anchor)
-    }
-  }
-
   private func persistViewMode() {
     guard settingsStore.settings.viewMode != viewMode else {
       return
@@ -1126,12 +440,4 @@ struct ClipboardPanelView: View {
     settingsStore.update { $0.viewMode = viewMode }
   }
 
-  private func showAlert(title: String, message: String, style: NSAlert.Style) {
-    let alert = NSAlert()
-    alert.messageText = title
-    alert.informativeText = message
-    alert.addButton(withTitle: AppText.value("好", "OK"))
-    alert.alertStyle = style
-    alert.runModal()
-  }
 }

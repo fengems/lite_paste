@@ -13,7 +13,7 @@ Lite Paste 是一款原生 macOS 剪贴板管理器，重点是轻量、隐私�
 - Global panel hotkey, keyboard navigation, `Command + 1` to `Command + 9` quick paste, copy, paste, and paste-as-plain-text shortcuts.
 - Automatic paste back to the previous app after Accessibility permission is granted.
 - Local SQLite storage with external blob files for large media.
-- Privacy controls: pause monitoring, ignore specific apps, ignore sensitive pasteboard types, and keep data local by default.
+- Privacy controls: pause monitoring and keep data local by default.
 - Large rich-text/table handling with a user setting for preserving original formats when higher fidelity matters.
 - Local backup import/export and iCloud Drive backup. iCloud backup keeps the latest backup only.
 - Launch at login, data directory reveal, runtime status, and permission status in Settings.
@@ -39,7 +39,7 @@ On first launch, macOS may ask for Accessibility permission. Lite Paste uses thi
 - Search with `Command + F`.
 - Use arrow keys to move selection, Return to paste, `Command + C` to copy, Delete to delete, and Escape to close.
 - Use `Command + 1` through `Command + 9` to paste the corresponding item.
-- Use the menu-bar menu to pause clipboard monitoring or ignore the current app.
+- Use the menu-bar menu to pause clipboard monitoring.
 
 ## Privacy
 
@@ -47,10 +47,10 @@ Lite Paste is designed as a local-first utility:
 
 - Clipboard history is stored under `~/Library/Application Support/LitePaste/`.
 - Lite Paste ignores its own pasteboard writes to avoid recording loops.
-- Password managers and concealed/transient pasteboard types are ignored by default.
+- Use pause monitoring when copying content that should not be saved.
 - iCloud backup is explicit and user-triggered. It is not real-time sync.
 
-Read the [Privacy Notes](docs/PRIVACY.md) for details about local storage, Accessibility permission, ignored apps, and backups.
+Read the [Privacy Notes](docs/PRIVACY.md) for details about local storage, Accessibility permission, clipboard monitoring, and backups.
 
 ## Development
 
@@ -65,6 +65,9 @@ Run from SwiftPM:
 ```bash
 swift run LitePaste
 ```
+
+Start with the [Architecture Overview](docs/ARCHITECTURE.md) if you are reading
+the codebase for the first time.
 
 Build a local app bundle:
 
@@ -88,7 +91,7 @@ Run core checks:
 Scripts/verify_metadata.sh
 swift run LitePasteCoreChecks
 swift build
-git diff --check
+Scripts/check_worktree_hygiene.sh
 ```
 
 Prepare a manual QA build:
@@ -153,7 +156,7 @@ Detailed release notes and manual QA steps are in:
 - [Privacy notes](docs/PRIVACY.md)
 - [Release checklist](docs/RELEASE_CHECKLIST.md)
 - [Public release audit](docs/PUBLIC_RELEASE_AUDIT.md)
-- [Release notes](docs/releases/0.1.3.md)
+- [Release notes](docs/releases/0.1.5.md)
 - [macOS app target notes](docs/MACOS_APP_TARGET.md)
 
 ## Contributing

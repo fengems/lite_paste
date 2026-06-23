@@ -46,7 +46,7 @@ public struct MigratingClipboardHistoryRepository: ClipboardHistoryIncrementalRe
     }
 
     let queriedRecords = ClipboardHistoryQueryEngine().execute(query, records: try load())
-    return Self.slice(queriedRecords, limit: limit, offset: offset)
+    return ClipboardHistoryPagination.slice(queriedRecords, limit: limit, offset: offset)
   }
 
   public func count(_ query: ClipboardHistoryQuery) throws -> Int {
@@ -92,7 +92,7 @@ public struct MigratingClipboardHistoryRepository: ClipboardHistoryIncrementalRe
     if let index = records.firstIndex(where: { $0.id == record.id }) {
       records[index] = record
     } else if let position {
-      records.insert(record, at: min(max(position, 0), records.count))
+      records.insert(record, at: insertionIndex(for: position, in: records))
     } else {
       records.append(record)
     }
@@ -139,7 +139,7 @@ public struct MigratingClipboardHistoryRepository: ClipboardHistoryIncrementalRe
     record.lastCopiedAt = date
     record.copyCount += 1
     if let position {
-      records.insert(record, at: min(max(position, 0), records.count))
+      records.insert(record, at: insertionIndex(for: position, in: records))
     } else {
       records.append(record)
     }
@@ -178,13 +178,8 @@ public struct MigratingClipboardHistoryRepository: ClipboardHistoryIncrementalRe
     try FileManager.default.removeItem(at: legacyURL)
   }
 
-  private static func slice(_ records: [ClipboardRecord], limit: Int?, offset: Int) -> [ClipboardRecord] {
-    let offset = min(max(offset, 0), records.count)
-    let records = records.dropFirst(offset)
-    guard let limit else {
-      return Array(records)
-    }
-
-    return Array(records.prefix(max(limit, 0)))
+  private func insertionIndex(for position: Int, in records: [ClipboardRecord]) -> Int {
+    min(max(position, 0), records.count)
   }
+
 }

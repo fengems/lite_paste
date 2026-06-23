@@ -3,7 +3,7 @@ import Foundation
 
 @MainActor
 public final class HistoryStore: ObservableObject {
-  @Published public private(set) var records: [ClipboardRecord] {
+  @Published public internal(set) var records: [ClipboardRecord] {
     didSet {
       guard !isApplyingControlledMutation else {
         return
@@ -13,14 +13,14 @@ public final class HistoryStore: ObservableObject {
     }
   }
 
-  private let repository: any ClipboardHistoryRepository
-  private let blobStorage: any BlobStorage
-  private let queryEngine: ClipboardHistoryQueryEngine
-  private var maxHistoryCount: Int
-  private var retentionDays: Int
+  let repository: any ClipboardHistoryRepository
+  let blobStorage: any BlobStorage
+  let queryEngine: ClipboardHistoryQueryEngine
+  var maxHistoryCount: Int
+  var retentionDays: Int
   private var moveDuplicatesToTop: Bool
-  private var isApplyingControlledMutation = false
-  private var isLoadedPartially: Bool
+  var isApplyingControlledMutation = false
+  var isLoadedPartially: Bool
 
   public init(
     records: [ClipboardRecord]? = nil,
@@ -97,118 +97,6 @@ public final class HistoryStore: ObservableObject {
     return record
   }
 
-  public func filteredRecords(query: String, filter: ClipboardFilter) -> [ClipboardRecord] {
-    filteredRecords(ClipboardHistoryQuery(text: query, filter: filter))
-  }
-
-  public func filteredRecords(_ query: ClipboardHistoryQuery) -> [ClipboardRecord] {
-    filteredRecords(query, limit: nil)
-  }
-
-  public func filteredRecords(
-    _ query: ClipboardHistoryQuery,
-    limit: Int?,
-    offset: Int = 0
-  ) -> [ClipboardRecord] {
-    if let queryRepository = repository as? any ClipboardHistoryQueryingRepository,
-       let records = try? queryRepository.execute(query, limit: limit, offset: offset) {
-      return records
-    }
-
-    return slice(queryEngine.execute(query, records: records), limit: limit, offset: offset)
-  }
-
-  public func filteredRecordCount(_ query: ClipboardHistoryQuery) -> Int {
-    if let queryRepository = repository as? any ClipboardHistoryQueryingRepository,
-       let count = try? queryRepository.count(query) {
-      return count
-    }
-
-    return queryEngine.execute(query, records: records).count
-  }
-
-  public func allRecordCount() -> Int {
-    filteredRecordCount(ClipboardHistoryQuery(filter: .all))
-  }
-
-  public func unpinnedRecordCount() -> Int {
-    max(
-      allRecordCount() - filteredRecordCount(ClipboardHistoryQuery(filter: .pinned)),
-      0
-    )
-  }
-
-  public func filteredPage(
-    _ query: ClipboardHistoryQuery,
-    limit: Int,
-    offset: Int = 0
-  ) -> ClipboardHistoryPage {
-    let limit = max(limit, 0)
-    let offset = max(offset, 0)
-    return ClipboardHistoryPage(
-      records: filteredRecords(query, limit: limit, offset: offset),
-      totalCount: filteredRecordCount(query),
-      limit: limit,
-      offset: offset
-    )
-  }
-
-  public func filteredPageAsync(
-    _ query: ClipboardHistoryQuery,
-    limit: Int,
-    offset: Int = 0
-  ) async -> ClipboardHistoryPage {
-    let limit = max(limit, 0)
-    let offset = max(offset, 0)
-
-    if let queryRepository = repository as? any ClipboardHistoryQueryingRepository {
-      do {
-        return try await Task.detached(priority: .userInitiated) {
-          let records = try queryRepository.execute(query, limit: limit, offset: offset)
-          let totalCount = try queryRepository.count(query)
-          return ClipboardHistoryPage(
-            records: records,
-            totalCount: totalCount,
-            limit: limit,
-            offset: offset
-          )
-        }.value
-      } catch {
-        notifyHistoryPersistenceFailed(operation: "查询历史", error: error)
-      }
-    }
-
-    return filteredPage(query, limit: limit, offset: offset)
-  }
-
-  public func record(id: ClipboardRecord.ID) -> ClipboardRecord? {
-    if let record = records.first(where: { $0.id == id }) {
-      return record
-    }
-
-    if let lookupRepository = repository as? any ClipboardHistoryLookupRepository,
-       let record = try? lookupRepository.record(id: id) {
-      return record
-    }
-
-    return nil
-  }
-
-  public func pinnedShortcutRecords() -> [ClipboardRecord] {
-    if let queryRepository = repository as? any ClipboardHistoryQueryingRepository,
-       let records = try? queryRepository.execute(
-         ClipboardHistoryQuery(filter: .pinned, sort: .recent),
-         limit: nil,
-         offset: 0
-       ) {
-      return records.filter { $0.pinShortcut != nil }
-    }
-
-    return records
-      .filter { $0.isPinned && $0.pinShortcut != nil }
-      .sorted { $0.lastCopiedAt > $1.lastCopiedAt }
-  }
-
   public func toggleFavorite(_ id: ClipboardRecord.ID) {
     update(id) { record in
       record.isFavorite.toggle()
@@ -240,48 +128,6 @@ public final class HistoryStore: ObservableObject {
       record.pinShortcut = nil
     }
     persistUpsert(record, position: record.isPinned ? 0 : nil)
-  }
-
-  public func updatePinShortcut(_ id: ClipboardRecord.ID, shortcut: String?) {
-    guard loadFullHistoryIfNeeded() else {
-      return
-    }
-
-    guard let targetIndex = records.firstIndex(where: { $0.id == id }) else {
-      return
-    }
-
-    let normalizedShortcut = shortcut.flatMap(PinShortcutCatalog.normalized)
-    var targetRecord = records[targetIndex]
-    targetRecord.isPinned = true
-    targetRecord.pinShortcut = normalizedShortcut
-    applyControlledMutation {
-      records.remove(at: targetIndex)
-      records.insert(targetRecord, at: 0)
-    }
-    persistUpsert(targetRecord, position: 0)
-
-    guard let normalizedShortcut else {
-      return
-    }
-
-    for index in records.indices where records[index].id != id && records[index].pinShortcut == normalizedShortcut {
-      applyControlledMutation {
-        records[index].pinShortcut = nil
-      }
-      persistUpsert(records[index], position: nil)
-    }
-  }
-
-  public func usedPinShortcuts(excluding id: ClipboardRecord.ID? = nil) -> Set<String> {
-    Set(
-      pinnedShortcutRecords().compactMap { record in
-        guard record.id != id else {
-          return nil
-        }
-        return record.pinShortcut
-      }
-    )
   }
 
   public func markUsed(_ id: ClipboardRecord.ID, now: Date = .now) {
@@ -332,7 +178,7 @@ public final class HistoryStore: ObservableObject {
   }
 
   public func appendSearchText(_ id: ClipboardRecord.ID, text: String) {
-    let fragment = Self.normalizedSearchTextFragment(text)
+    let fragment = ClipboardSearchText.normalizedFragment(text)
     guard !fragment.isEmpty else {
       return
     }
@@ -342,12 +188,12 @@ public final class HistoryStore: ObservableObject {
         return
       }
 
-      record.searchText = Self.limitedSearchText([record.searchText, fragment].joined(separator: " "))
+      record.searchText = ClipboardSearchText.appendingFragment(fragment, to: record.searchText)
     }
   }
 
   public func updateOCRText(_ id: ClipboardRecord.ID, text: String) {
-    let fragment = Self.normalizedSearchTextFragment(text)
+    let fragment = ClipboardSearchText.normalizedFragment(text)
     guard !fragment.isEmpty else {
       return
     }
@@ -357,20 +203,12 @@ public final class HistoryStore: ObservableObject {
       guard record.searchText.range(of: fragment, options: [.caseInsensitive, .diacriticInsensitive]) == nil else {
         return
       }
-      record.searchText = Self.limitedSearchText([record.searchText, fragment].joined(separator: " "))
+      record.searchText = ClipboardSearchText.appendingFragment(fragment, to: record.searchText)
     }
   }
 
   public func delete(_ id: ClipboardRecord.ID) {
-    let deleted = records.filter { $0.id == id } + [record(id: id)].compactMap { optionalLookup in
-      guard let lookup = optionalLookup else {
-        return nil
-      }
-      guard records.allSatisfy({ $0.id != lookup.id }) else {
-        return nil
-      }
-      return lookup
-    }
+    let deleted = deletionTargets(for: id)
     applyControlledMutation {
       records.removeAll { $0.id == id }
     }
@@ -446,95 +284,6 @@ public final class HistoryStore: ObservableObject {
     persistUpsert(record, position: nil)
   }
 
-  private static func normalizedSearchTextFragment(_ text: String) -> String {
-    let compact = text
-      .split(whereSeparator: \.isWhitespace)
-      .joined(separator: " ")
-      .trimmingCharacters(in: .whitespacesAndNewlines)
-
-    return limitedSearchText(compact)
-  }
-
-  private static func limitedSearchText(_ text: String) -> String {
-    guard let endIndex = text.index(
-      text.startIndex,
-      offsetBy: ClipboardTextPayloadBuilder.maxSearchTextLength,
-      limitedBy: text.endIndex
-    ) else {
-      return String(text.prefix(ClipboardTextPayloadBuilder.maxSearchTextLength))
-    }
-
-    return endIndex == text.endIndex ? text : String(text[..<endIndex])
-  }
-
-  private func trimHistoryIfNeeded(now: Date = .now, loadFullIfNeeded: Bool) {
-    if isLoadedPartially {
-      guard loadFullIfNeeded else {
-        return
-      }
-      guard loadFullHistoryIfNeeded() else {
-        return
-      }
-    }
-
-    trimExpiredHistory(now: now)
-    trimOverflowHistory()
-  }
-
-  private func shouldLoadFullForInitialMaintenance() -> Bool {
-    guard isLoadedPartially else {
-      return false
-    }
-
-    return retentionDays > 0 || allRecordCount() > maxHistoryCount
-  }
-
-  private func trimOverflowHistory() {
-    guard records.count > maxHistoryCount else {
-      return
-    }
-
-    let pinned = records.filter(\.isPinned)
-    let regularLimit = max(maxHistoryCount - pinned.count, 0)
-    let regularRecords = queryEngine.execute(
-      ClipboardHistoryQuery(sort: .recent),
-      records: records.filter { !$0.isPinned }
-    )
-    let regular = regularRecords.prefix(regularLimit)
-    let trimmed = regularRecords.dropFirst(regularLimit)
-    removeExternalFiles(in: Array(trimmed))
-    applyControlledMutation {
-      records = queryEngine.execute(
-        ClipboardHistoryQuery(sort: .pinnedThenRecent),
-        records: pinned + regular
-      )
-    }
-    persistAll()
-  }
-
-  private func trimExpiredHistory(now: Date) {
-    guard retentionDays > 0 else {
-      return
-    }
-
-    let cutoff = Calendar.current.date(byAdding: .day, value: -retentionDays, to: now) ?? now
-    let expired = records.filter { record in
-      !record.isPinned && record.lastCopiedAt < cutoff
-    }
-
-    guard !expired.isEmpty else {
-      return
-    }
-
-    let expiredIds = Set(expired.map(\.id))
-    applyControlledMutation {
-      records.removeAll { expiredIds.contains($0.id) }
-    }
-    persistAll()
-    removeExternalFiles(in: expired)
-    notifyHistoryChanged()
-  }
-
   private func duplicateRecord(contentHash: String) -> ClipboardRecord? {
     if let record = records.first(where: { $0.contentHash == contentHash }) {
       return record
@@ -548,43 +297,10 @@ public final class HistoryStore: ObservableObject {
     return nil
   }
 
-  private func applyControlledMutation(_ mutate: () -> Void) {
+  func applyControlledMutation(_ mutate: () -> Void) {
     isApplyingControlledMutation = true
+    defer { isApplyingControlledMutation = false }
     mutate()
-    isApplyingControlledMutation = false
-  }
-
-  private func persistUpsert(_ record: ClipboardRecord, position: Int?) {
-    guard let repository = repository as? any ClipboardHistoryIncrementalRepository else {
-      persistAll()
-      return
-    }
-
-    do {
-      try repository.upsert(record, position: position)
-      notifyHistoryChanged()
-    } catch {
-      notifyHistoryPersistenceFailed(operation: "保存历史", error: error)
-    }
-  }
-
-  private func persistMarkUsed(
-    _ id: ClipboardRecord.ID,
-    at date: Date,
-    position: Int,
-    fallbackRecord: ClipboardRecord
-  ) {
-    guard let repository = repository as? any ClipboardHistoryUsageRepository else {
-      persistUpsert(fallbackRecord, position: position)
-      return
-    }
-
-    do {
-      try repository.markUsed(id: id, at: date, position: position)
-      notifyHistoryChanged()
-    } catch {
-      notifyHistoryPersistenceFailed(operation: "更新使用记录", error: error)
-    }
   }
 
   private func frontInsertionIndex(for record: ClipboardRecord) -> Int {
@@ -595,83 +311,14 @@ public final class HistoryStore: ObservableObject {
     return records.firstIndex { !$0.isPinned } ?? records.count
   }
 
-  private func persistDelete(id: ClipboardRecord.ID) {
-    guard let repository = repository as? any ClipboardHistoryIncrementalRepository else {
-      persistAll()
-      return
+  private func deletionTargets(for id: ClipboardRecord.ID) -> [ClipboardRecord] {
+    let visibleRecords = records.filter { $0.id == id }
+    guard visibleRecords.isEmpty,
+          let persistedRecord = record(id: id) else {
+      return visibleRecords
     }
 
-    do {
-      try repository.delete(id: id)
-      notifyHistoryChanged()
-    } catch {
-      notifyHistoryPersistenceFailed(operation: "删除历史", error: error)
-    }
-  }
-
-  private func persistDeleteAll() {
-    guard let repository = repository as? any ClipboardHistoryIncrementalRepository else {
-      persistAll()
-      return
-    }
-
-    do {
-      try repository.deleteAll()
-      notifyHistoryChanged()
-    } catch {
-      notifyHistoryPersistenceFailed(operation: "清空历史", error: error)
-    }
-  }
-
-  private func persistAll() {
-    do {
-      if isLoadedPartially {
-        try loadFullHistoryIfNeededThrowing()
-      }
-      try repository.save(records)
-      notifyHistoryChanged()
-    } catch {
-      notifyHistoryPersistenceFailed(operation: "保存历史", error: error)
-    }
-  }
-
-  private func notifyHistoryChanged() {
-    NotificationCenter.default.post(name: .litePasteHistoryChanged, object: nil)
-  }
-
-  private func notifyHistoryPersistenceFailed(operation: String, error: Error) {
-    NotificationCenter.default.post(
-      name: .litePasteHistoryPersistenceFailed,
-      object: self,
-      userInfo: [
-        HistoryNotificationUserInfoKey.operation: operation,
-        HistoryNotificationUserInfoKey.errorMessage: error.localizedDescription
-      ]
-    )
-    NSLog("Unable to persist Lite Paste clipboard history during \(operation): \(error)")
-  }
-
-  @discardableResult
-  private func loadFullHistoryIfNeeded() -> Bool {
-    do {
-      try loadFullHistoryIfNeededThrowing()
-      return true
-    } catch {
-      notifyHistoryPersistenceFailed(operation: "读取完整历史", error: error)
-      return false
-    }
-  }
-
-  private func loadFullHistoryIfNeededThrowing() throws {
-    guard isLoadedPartially else {
-      return
-    }
-
-    let loadedRecords = try repository.load()
-    applyControlledMutation {
-      records = loadedRecords
-      isLoadedPartially = false
-    }
+    return [persistedRecord]
   }
 
   private static func loadInitial(
@@ -696,49 +343,4 @@ public final class HistoryStore: ObservableObject {
     return (records, true)
   }
 
-  private func slice(_ records: [ClipboardRecord], limit: Int?, offset: Int) -> [ClipboardRecord] {
-    let offset = min(max(offset, 0), records.count)
-    let records = records.dropFirst(offset)
-    guard let limit else {
-      return Array(records)
-    }
-
-    return Array(records.prefix(max(limit, 0)))
-  }
-
-  private func removeExternalFiles(in records: [ClipboardRecord]) {
-    removeExternalFiles(in: records.flatMap(externalFileSnapshots))
-  }
-
-  private func removeExternalFiles(in payload: ClipboardPayload) {
-    removeExternalFiles(in: externalFileSnapshots(in: payload))
-  }
-
-  private func removeExternalFiles(in snapshots: [ClipboardContentSnapshot]) {
-    blobStorage.removeExternalFiles(in: snapshots)
-  }
-
-  private func externalFileSnapshots(in record: ClipboardRecord) -> [ClipboardContentSnapshot] {
-    record.contents + previewSnapshot(from: record.previewFilePath)
-  }
-
-  private func externalFileSnapshots(in payload: ClipboardPayload) -> [ClipboardContentSnapshot] {
-    payload.contents + previewSnapshot(from: payload.previewFilePath)
-  }
-
-  private func previewSnapshot(from path: String?) -> [ClipboardContentSnapshot] {
-    guard let path else {
-      return []
-    }
-
-    return [
-      ClipboardContentSnapshot(
-        pasteboardType: "com.litepaste.preview",
-        storageMode: .external,
-        externalFilePath: path,
-        byteSize: 0,
-        displayOrder: Int.max
-      )
-    ]
-  }
 }

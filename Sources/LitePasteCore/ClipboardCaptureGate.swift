@@ -1,15 +1,15 @@
 import Foundation
 
 public struct ClipboardCaptureGate: Sendable {
-  public var privacyFilter: PrivacyFilter
+  public var monitoringPolicy: ClipboardMonitoringPolicy
 
   public init(
-    privacyFilter: PrivacyFilter = PrivacyFilter()
+    monitoringPolicy: ClipboardMonitoringPolicy = ClipboardMonitoringPolicy()
   ) {
-    self.privacyFilter = privacyFilter
+    self.monitoringPolicy = monitoringPolicy
   }
 
   public func shouldRecord(payload _: ClipboardPayload) -> Bool {
-    privacyFilter.shouldRecord()
+    monitoringPolicy.shouldRecord()
   }
 }

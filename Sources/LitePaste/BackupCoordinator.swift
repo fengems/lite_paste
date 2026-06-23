@@ -8,13 +8,7 @@ final class BackupCoordinator {
   private let iCloudService = ICloudBackupService()
 
   func exportBackup() {
-    let panel = NSOpenPanel()
-    panel.title = AppText.value("选择备份保存位置", "Choose Backup Location")
-    panel.prompt = AppText.value("导出", "Export")
-    panel.canChooseFiles = false
-    panel.canChooseDirectories = true
-    panel.canCreateDirectories = true
-    panel.allowsMultipleSelection = false
+    let panel = makeExportPanel()
 
     guard panel.runModal() == .OK, let directory = panel.url else {
       return
@@ -24,17 +18,15 @@ final class BackupCoordinator {
       let backupURL = try service.exportBackup(to: directory)
       NSWorkspace.shared.activateFileViewerSelecting([backupURL])
     } catch {
-      showAlert(title: AppText.value("导出失败", "Export Failed"), message: error.localizedDescription)
+      UserAlerts.showMessage(
+        title: AppText.value("导出失败", "Export Failed"),
+        message: error.localizedDescription
+      )
     }
   }
 
   func importBackup(mode: BackupImportMode) {
-    let panel = NSOpenPanel()
-    panel.title = AppText.value("选择 Lite Paste 备份", "Choose Lite Paste Backup")
-    panel.prompt = AppText.value("导入", "Import")
-    panel.canChooseFiles = false
-    panel.canChooseDirectories = true
-    panel.allowsMultipleSelection = false
+    let panel = makeImportPanel()
 
     guard panel.runModal() == .OK, let backupURL = panel.url else {
       return
@@ -46,10 +38,17 @@ final class BackupCoordinator {
 
     do {
       try service.importBackup(from: backupURL, mode: mode)
-      NotificationCenter.default.post(name: .litePasteBackupImported, object: nil)
-      showAlert(title: AppText.value("导入完成", "Import Complete"), message: successMessage(for: mode))
+      notifyBackupImported()
+      UserAlerts.showMessage(
+        title: AppText.value("导入完成", "Import Complete"),
+        message: successMessage(for: mode)
+      )
     } catch {
-      showAlert(title: AppText.value("导入失败", "Import Failed"), message: errorMessage(for: error), style: .warning)
+      UserAlerts.showMessage(
+        title: AppText.value("导入失败", "Import Failed"),
+        message: errorMessage(for: error),
+        style: .warning
+      )
     }
   }
 
@@ -72,12 +71,19 @@ final class BackupCoordinator {
   func exportICloudBackup() async {
     do {
       let backupURL = try await iCloudService.exportBackup()
-      showAlert(
+      UserAlerts.showMessage(
         title: AppText.value("iCloud 备份完成", "iCloud Backup Complete"),
-        message: AppText.value("已保存到：\(backupURL.lastPathComponent)", "Saved to: \(backupURL.lastPathComponent)")
+        message: AppText.value(
+          "已保存到：\(backupURL.lastPathComponent)",
+          "Saved to: \(backupURL.lastPathComponent)"
+        )
       )
     } catch {
-      showAlert(title: AppText.value("iCloud 备份失败", "iCloud Backup Failed"), message: errorMessage(for: error), style: .warning)
+      UserAlerts.showMessage(
+        title: AppText.value("iCloud 备份失败", "iCloud Backup Failed"),
+        message: errorMessage(for: error),
+        style: .warning
+      )
     }
   }
 
@@ -85,8 +91,8 @@ final class BackupCoordinator {
     do {
       let backupURL = try await latestICloudBackupURLForImport(mode: mode)
       try await iCloudService.importLatestBackup(mode: mode)
-      NotificationCenter.default.post(name: .litePasteBackupImported, object: nil)
-      showAlert(
+      notifyBackupImported()
+      UserAlerts.showMessage(
         title: AppText.value("iCloud 导入完成", "iCloud Import Complete"),
         message: AppText.value(
           "\(successMessage(for: mode))\n\n来源：\(backupURL.lastPathComponent)",
@@ -96,7 +102,11 @@ final class BackupCoordinator {
     } catch BackupCoordinatorError.cancelled {
       return
     } catch {
-      showAlert(title: AppText.value("iCloud 导入失败", "iCloud Import Failed"), message: errorMessage(for: error), style: .warning)
+      UserAlerts.showMessage(
+        title: AppText.value("iCloud 导入失败", "iCloud Import Failed"),
+        message: errorMessage(for: error),
+        style: .warning
+      )
     }
   }
 
@@ -106,7 +116,7 @@ final class BackupCoordinator {
       try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
       NSWorkspace.shared.activateFileViewerSelecting([directory])
     } catch {
-      showAlert(
+      UserAlerts.showMessage(
         title: AppText.value("无法打开 iCloud 备份目录", "Unable To Open iCloud Backup Folder"),
         message: errorMessage(for: error),
         style: .warning
@@ -115,16 +125,39 @@ final class BackupCoordinator {
   }
 
   private func confirmReplaceImport(from backupURL: URL) -> Bool {
-    let alert = NSAlert()
-    alert.messageText = AppText.value("覆盖导入备份？", "Replace Current Data With Backup?")
-    alert.informativeText = AppText.value(
-      "将用“\(backupURL.lastPathComponent)”替换当前历史、设置和媒体文件。当前未导出的历史会被覆盖，此操作无法撤销。",
-      "\"\(backupURL.lastPathComponent)\" will replace current history, settings, and media files. Unsaved local history will be overwritten. This cannot be undone."
+    UserAlerts.confirm(
+      title: AppText.value("覆盖导入备份？", "Replace Current Data With Backup?"),
+      message: AppText.value(
+        "将用“\(backupURL.lastPathComponent)”替换当前历史、设置和媒体文件。当前未导出的历史会被覆盖，此操作无法撤销。",
+        "\"\(backupURL.lastPathComponent)\" will replace current history, settings, and media files. Unsaved local history will be overwritten. This cannot be undone."
+      ),
+      confirmTitle: AppText.value("覆盖导入", "Replace Import")
     )
-    alert.alertStyle = .warning
-    alert.addButton(withTitle: AppText.value("覆盖导入", "Replace Import"))
-    alert.addButton(withTitle: AppText.value("取消", "Cancel"))
-    return alert.runModal() == .alertFirstButtonReturn
+  }
+
+  private func makeExportPanel() -> NSOpenPanel {
+    let panel = NSOpenPanel()
+    panel.title = AppText.value("选择备份保存位置", "Choose Backup Location")
+    panel.prompt = AppText.value("导出", "Export")
+    panel.canChooseFiles = false
+    panel.canChooseDirectories = true
+    panel.canCreateDirectories = true
+    panel.allowsMultipleSelection = false
+    return panel
+  }
+
+  private func makeImportPanel() -> NSOpenPanel {
+    let panel = NSOpenPanel()
+    panel.title = AppText.value("选择 Lite Paste 备份", "Choose Lite Paste Backup")
+    panel.prompt = AppText.value("导入", "Import")
+    panel.canChooseFiles = false
+    panel.canChooseDirectories = true
+    panel.allowsMultipleSelection = false
+    return panel
+  }
+
+  private func notifyBackupImported() {
+    NotificationCenter.default.post(name: .litePasteBackupImported, object: nil)
   }
 
   private func latestICloudBackupURLForImport(mode: BackupImportMode) async throws -> URL {
@@ -165,14 +198,6 @@ final class BackupCoordinator {
     return "\(nsError.localizedDescription)\n\n\(recoverySuggestion)"
   }
 
-  private func showAlert(title: String, message: String, style: NSAlert.Style = .informational) {
-    let alert = NSAlert()
-    alert.messageText = title
-    alert.informativeText = message
-    alert.addButton(withTitle: AppText.value("好", "OK"))
-    alert.alertStyle = style
-    alert.runModal()
-  }
 }
 
 private enum BackupCoordinatorError: Error, LocalizedError {

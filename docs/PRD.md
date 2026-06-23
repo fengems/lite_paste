@@ -129,9 +129,9 @@ v1 不包含：
 - 使用 NSPanel 承载主剪贴板面板。
 - 使用 SwiftUI 构建主要界面。
 - 使用 AppKit 桥接系统能力，包括 NSPasteboard、全局快捷键、Accessibility 自动粘贴、窗口定位和系统材质。
-- 使用 SwiftData + SQLite 存储历史元数据。
+- 使用 SQLite 存储历史元数据，并通过 repository 层隔离持久化实现。
 - 对图片、富文本、大型二进制内容使用 Application Support 下的外部文件存储。
-- 设置项使用 UserDefaults 或轻量配置模型保存。
+- 设置项使用 JSON 配置模型保存。
 
 ### 6.3 构建要求
 
@@ -267,7 +267,7 @@ Lite Paste 默认采用本地优先策略。
 
 ## 9. 数据模型
 
-### 9.1 ClipboardItem
+### 9.1 ClipboardRecord
 
 用于描述一条剪贴板历史记录。
 
@@ -286,20 +286,23 @@ Lite Paste 默认采用本地优先策略。
 - copyCount：复制次数。
 - isFavorite：是否收藏。
 - isPinned：是否置顶。
+- pinShortcut：历史兼容字段，用于读取旧版本保存的卡片快捷键，不再提供新的自定义快捷键入口。
 - contentHash：用于去重和导入合并。
+- plainText：可直接用于纯文本复制/粘贴的内容。
+- ocrText：图片 OCR 识别出的文本。
+- contents：实际剪贴板内容快照。
+- previewFilePath：图片等内容的预览文件路径。
 
-### 9.2 ClipboardContent
+### 9.2 ClipboardContentSnapshot
 
 用于保存一条历史记录包含的实际剪贴板内容。
 
 字段：
 
-- id：唯一标识。
-- itemId：所属 ClipboardItem。
 - pasteboardType：原始 pasteboard type。
 - storageMode：inline 或 external。
 - inlineData：小型内容的内联数据。
-- externalFileURL：大型内容的外部文件路径。
+- externalFilePath：大型内容的外部文件路径。
 - byteSize：内容大小。
 - displayOrder：恢复 pasteboard 时的顺序。
 
@@ -311,12 +314,28 @@ Lite Paste 默认采用本地优先策略。
 
 - hotkey：主面板全局快捷键。
 - viewMode：默认视图，card 或 list。
+- panelPosition：面板位置。
 - maxHistoryCount：最大历史数量。
 - retentionDays：历史保留天数。
 - autoPasteMode：自动粘贴模式。
-- pastePlainByDefault：是否默认纯文本粘贴。
+- copySoundEnabled：是否播放复制音效。
+- imageOCREnabled：是否自动识别图片文字。
+- copyPlainTextByDefault：是否默认复制为纯文本。
+- pastePlainTextByDefault：是否默认粘贴为纯文本。
+- restoreClipboardAfterPaste：自动粘贴后是否恢复原剪贴板。
+- preserveLargeRichTextFormats：大表格/富文本是否保留原始格式。
+- visibleQuickActions：卡片/列表上可见的快捷操作。
+- autoFavoriteAfterNote：新增或编辑备注后是否自动收藏。
+- moveDuplicatesToTop：重复复制时是否移动到顶部。
+- clearSearchOnOpen：打开面板时是否清空上次搜索。
+- focusSearchOnOpen：打开面板时是否聚焦搜索框。
+- coverMenuBarWhenEdgeAttached：贴边时是否覆盖菜单栏区域。
 - isMonitoringPaused：是否停止监听剪贴板。
 - launchAtLogin：是否开机启动。
+- showMenuBarIcon：是否显示菜单栏图标。
+- showDockIcon：是否显示 Dock 图标。
+- interfaceLanguage：界面语言。
+- themeMode：主题模式。
 
 ## 10. 核心服务
 
@@ -327,14 +346,14 @@ Lite Paste 默认采用本地优先策略。
 - 监听 NSPasteboard 变化。
 - 读取当前剪贴板内容。
 - 检查停止监听状态和自写入循环保护。
-- 生成 ClipboardItem 和 ClipboardContent。
+- 生成 ClipboardPayload，并由 HistoryStore 保存为 ClipboardRecord。
 - 调用 HistoryStore 保存历史。
 
 ### 10.2 HistoryStore
 
 职责：
 
-- 管理 SwiftData 数据读写。
+- 管理历史记录内存状态和 repository 持久化。
 - 执行历史查询、搜索和筛选。
 - 根据 contentHash 去重。
 - 执行保留策略和清理策略。
@@ -363,13 +382,11 @@ Lite Paste 默认采用本地优先策略。
 
 - 注册和注销全局快捷键。
 - 处理主面板唤起。
-- 处理置顶条目快速粘贴。
 
-### 10.6 PrivacyFilter
+### 10.6 ClipboardMonitoringPolicy
 
 职责：
 
-- 判断内容是否应该记录。
 - 处理停止监听状态。
 
 ### 10.7 ImportExportService
@@ -470,7 +487,7 @@ v1 完成时应满足：
 - 初始版本号：`0.1.0 (1)`。
 - 本地开发入口：Swift Package，可通过 `swift run LitePaste` 启动基础原生应用。
 - 后续正式分发入口：完整 Xcode app target，用于签名、打包和权限声明。
-- 当前 Command Line Tools 环境下先使用持久化中立的核心模型；接入完整 Xcode app target 后再启用 SwiftData 持久化模型。
+- 当前 Command Line Tools 环境下使用 Swift Package、SQLite repository 和本地 `.app` 打包脚本；完整 Xcode app target 后续可继续补充，但不改变核心数据模型。
 - 正式 App target 的 Info.plist、entitlements 和接入说明分别维护在 `Config/LitePaste/` 与 `docs/MACOS_APP_TARGET.md`。
 
 首个切片包含：
@@ -480,5 +497,5 @@ v1 完成时应满足：
 - 卡片模式和列表模式的基础 UI。
 - 文本剪贴板监听、去重、搜索、收藏、置顶、删除。
 - 停止监听。
-- SwiftData 模型和核心服务雏形。
+- SQLite repository、核心模型和核心服务雏形。
 - 单元测试覆盖去重、过滤和搜索等核心逻辑。

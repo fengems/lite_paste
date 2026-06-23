@@ -1,6 +1,6 @@
 import Foundation
 
-public struct PrivacyFilter: Sendable {
+public struct ClipboardMonitoringPolicy: Sendable {
   public var isMonitoringPaused: Bool
 
   public init(

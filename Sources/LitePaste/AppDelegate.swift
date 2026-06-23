@@ -1,16 +1,19 @@
 import AppKit
 import Combine
 import LitePasteCore
-import SwiftUI
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+  private enum Startup {
+    static let initialHistoryLoadLimit = 80
+  }
+
   let settingsStore = AppSettingsStore.shared
   lazy var store = HistoryStore(
     maxHistoryCount: settingsStore.settings.maxHistoryCount,
     retentionDays: settingsStore.settings.retentionDays,
     moveDuplicatesToTop: settingsStore.settings.moveDuplicatesToTop,
-    initialLoadLimit: 80
+    initialLoadLimit: Startup.initialHistoryLoadLimit
   )
 
   private var statusItem: NSStatusItem?
@@ -20,9 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var panelCoordinator: PanelCoordinator?
   private var settingsWindow: NSWindow?
   private var permissionGuideWindow: NSWindow?
-  private var hotkeyController: GlobalHotkeyController?
-  private var registeredPanelHotkey: String?
-  private var isRevertingPanelHotkey = false
+  private var hotkeyCoordinator: PanelHotkeyCoordinator?
   private var permissionGuideState = PermissionGuideState()
   private let clipboardWriteTracker = ClipboardWriteTracker()
   private let launchAtLoginController = LaunchAtLoginController()
@@ -34,28 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     applyThemeMode(settingsStore.settings.themeMode)
     applyActivationPolicy(settingsStore.settings)
 
-    let writer = PasteboardWriter(store: store, writeTracker: clipboardWriteTracker)
-    let panelCoordinator = PanelCoordinator(
-      store: store,
-      writer: writer,
-      openSettingsAction: { [weak self] in
-        self?.openSettings()
-      }
-    )
-    let monitor = ClipboardMonitor(
-      store: store,
-      writeTracker: clipboardWriteTracker,
-      privacyFilter: PrivacyFilter(
-        isMonitoringPaused: settingsStore.settings.isMonitoringPaused
-      ),
-      preserveLargeRichTextFormats: settingsStore.settings.preserveLargeRichTextFormats,
-      copySoundEnabled: settingsStore.settings.copySoundEnabled,
-      imageOCREnabled: settingsStore.settings.imageOCREnabled
-    )
-
-    self.panelCoordinator = panelCoordinator
-    self.monitor = monitor
-
+    configureClipboardPipeline()
     syncStatusItemVisibility(showMenuBarIcon: settingsStore.settings.showMenuBarIcon)
     configureHotkey()
     observeSettings()
@@ -69,7 +49,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   func applicationWillTerminate(_ notification: Notification) {
     monitor?.stop()
     activeApplicationTracker.stop()
-    hotkeyController?.unregister()
+    hotkeyCoordinator?.stop()
   }
 
   private func configureStatusItem() {
@@ -84,105 +64,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     updateStatusMenuState()
   }
 
+  private func configureClipboardPipeline() {
+    let writer = PasteboardWriter(store: store, writeTracker: clipboardWriteTracker)
+    panelCoordinator = PanelCoordinator(
+      store: store,
+      writer: writer,
+      openSettingsAction: { [weak self] in
+        self?.openSettings()
+      }
+    )
+    monitor = ClipboardMonitor(
+      store: store,
+      writeTracker: clipboardWriteTracker,
+      monitoringPolicy: ClipboardMonitoringPolicy(
+        isMonitoringPaused: settingsStore.settings.isMonitoringPaused
+      ),
+      preserveLargeRichTextFormats: settingsStore.settings.preserveLargeRichTextFormats,
+      copySoundEnabled: settingsStore.settings.copySoundEnabled,
+      imageOCREnabled: settingsStore.settings.imageOCREnabled
+    )
+  }
+
   private func configureStatusMenu() {
-    let menu = NSMenu()
-    menu.delegate = self
-    menu.addItem(
-      NSMenuItem(
-        title: AppText.value("打开 \(AppMetadata.displayName)", "Open \(AppMetadata.displayName)"),
-        action: #selector(openPanelFromMenu),
-        keyEquivalent: ""
-      )
+    let configuration = AppStatusMenuFactory.makeMenu(
+      target: self,
+      delegate: self,
+      openPanelAction: #selector(openPanelFromMenu),
+      toggleMonitoringAction: #selector(toggleMonitoringPausedFromMenu),
+      openSettingsAction: #selector(openSettings),
+      quitAction: #selector(quit)
     )
-    let pauseMonitoringItem = NSMenuItem(
-      title: AppText.value("停止监听剪贴板", "Pause Clipboard Monitoring"),
-      action: #selector(toggleMonitoringPausedFromMenu),
-      keyEquivalent: ""
-    )
-    menu.addItem(pauseMonitoringItem)
-    self.pauseMonitoringMenuItem = pauseMonitoringItem
-
-    let settingsItem = NSMenuItem(
-      title: AppText.value("设置...", "Settings..."),
-      action: #selector(openSettings),
-      keyEquivalent: ""
-    )
-    menu.addItem(settingsItem)
-    menu.addItem(.separator())
-    menu.addItem(
-      NSMenuItem(
-        title: AppText.value("退出 \(AppMetadata.displayName)", "Quit \(AppMetadata.displayName)"),
-        action: #selector(quit),
-        keyEquivalent: "q"
-      )
-    )
-
-    for item in menu.items {
-      item.target = self
-    }
-    removeMenuItemImages(in: menu)
-
-    statusMenu = menu
+    pauseMonitoringMenuItem = configuration.pauseMonitoringItem
+    statusMenu = configuration.menu
   }
 
   private func configureHotkey() {
-    let hotkeyController = GlobalHotkeyController { [weak self] in
+    let hotkeyCoordinator = PanelHotkeyCoordinator(settingsStore: settingsStore) { [weak self] in
       self?.togglePanel()
     }
-    registerPanelHotkey(settingsStore.settings.hotkey, controller: hotkeyController)
-    self.hotkeyController = hotkeyController
-  }
-
-  private func registerPanelHotkey(_ hotkey: String, controller: GlobalHotkeyController? = nil) {
-    guard let hotkeyController = controller ?? self.hotkeyController else {
-      return
-    }
-
-    guard registeredPanelHotkey != hotkey else {
-      return
-    }
-
-    let previousHotkey = registeredPanelHotkey
-    let result = hotkeyController.register(hotkey: hotkey)
-    guard result.isRegistered else {
-      let restoredPreviousHotkey = restorePreviousPanelHotkey(previousHotkey, controller: hotkeyController)
-      showPanelHotkeyRegistrationAlert(
-        hotkey: hotkey,
-        result: result,
-        restoredPreviousHotkey: restoredPreviousHotkey
-      )
-      revertPanelHotkeySetting(to: restoredPreviousHotkey ?? AppSettings().hotkey)
-      return
-    }
-
-    registeredPanelHotkey = hotkey
-  }
-
-  private func restorePreviousPanelHotkey(
-    _ previousHotkey: String?,
-    controller: GlobalHotkeyController
-  ) -> String? {
-    guard let previousHotkey else {
-      return nil
-    }
-
-    if controller.register(hotkey: previousHotkey).isRegistered {
-      registeredPanelHotkey = previousHotkey
-      return previousHotkey
-    }
-
-    registeredPanelHotkey = nil
-    return nil
-  }
-
-  private func revertPanelHotkeySetting(to hotkey: String) {
-    guard settingsStore.settings.hotkey != hotkey else {
-      return
-    }
-
-    isRevertingPanelHotkey = true
-    settingsStore.update { $0.hotkey = hotkey }
-    isRevertingPanelHotkey = false
+    hotkeyCoordinator.start()
+    self.hotkeyCoordinator = hotkeyCoordinator
   }
 
   private func observeSettings() {
@@ -203,8 +124,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   private func apply(_ settings: AppSettings) {
-    monitor?.updatePrivacyFilter(
-      PrivacyFilter(
+    monitor?.updateMonitoringPolicy(
+      ClipboardMonitoringPolicy(
         isMonitoringPaused: settings.isMonitoringPaused
       )
     )
@@ -219,9 +140,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     store.updateMaxHistoryCount(settings.maxHistoryCount)
     store.updateRetentionDays(settings.retentionDays)
     store.updateMoveDuplicatesToTop(settings.moveDuplicatesToTop)
-    if !isRevertingPanelHotkey {
-      registerPanelHotkey(settings.hotkey)
-    }
+    hotkeyCoordinator?.apply(settings.hotkey)
     launchAtLoginController.sync(with: settings.launchAtLogin)
     updateStatusMenuState()
   }
@@ -264,7 +183,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     do {
       try store.reload()
     } catch {
-      showAlert(title: AppText.value("导入后刷新失败", "Refresh Failed After Import"), message: error.localizedDescription)
+      UserAlerts.showMessage(
+        title: AppText.value("导入后刷新失败", "Refresh Failed After Import"),
+        message: error.localizedDescription
+      )
     }
   }
 
@@ -290,7 +212,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   @objc private func openPanelFromMenu() {
-    panelCoordinator?.show(relativeTo: statusItem?.button)
+    panelCoordinator?.show()
   }
 
   @objc private func toggleMonitoringPausedFromMenu() {
@@ -302,7 +224,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   @objc private func openSettings() {
     panelCoordinator?.hide()
-    let window = settingsWindow ?? makeSettingsWindow()
+    let window = settingsWindow ?? AppWindowFactory.makeSettingsWindow(delegate: self)
     settingsWindow = window
     NSApp.activate(ignoringOtherApps: true)
     window.makeKeyAndOrderFront(nil)
@@ -313,26 +235,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   private func togglePanel() {
-    panelCoordinator?.toggle(relativeTo: statusItem?.button)
-  }
-
-  private func makeSettingsWindow() -> NSWindow {
-    let hostingController = NSHostingController(rootView: SettingsView())
-    let window = NSWindow(
-      contentRect: NSRect(x: 0, y: 0, width: 860, height: 600),
-      styleMask: [.titled, .closable, .miniaturizable, .resizable],
-      backing: .buffered,
-      defer: false
-    )
-    window.title = AppText.value("\(AppMetadata.displayName) 设置", "\(AppMetadata.displayName) Settings")
-    window.contentViewController = hostingController
-    window.minSize = NSSize(width: 780, height: 560)
-    window.backgroundColor = .windowBackgroundColor
-    window.isOpaque = true
-    window.delegate = self
-    window.isReleasedWhenClosed = false
-    window.center()
-    return window
+    panelCoordinator?.toggle()
   }
 
   private func presentPermissionGuideIfNeeded() {
@@ -344,38 +247,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       return
     }
 
-    let window = permissionGuideWindow ?? makePermissionGuideWindow()
+    let window = permissionGuideWindow ?? AppWindowFactory.makePermissionGuideWindow(
+      dismissForSession: { [weak self] in
+        self?.permissionGuideState.dismissForSession()
+        self?.closePermissionGuideWindow()
+      },
+      completeGuide: { [weak self] in
+        self?.closePermissionGuideWindow()
+      }
+    )
     permissionGuideWindow = window
     NSApp.activate(ignoringOtherApps: true)
     window.makeKeyAndOrderFront(nil)
-  }
-
-  private func makePermissionGuideWindow() -> NSWindow {
-    let hostingController = NSHostingController(
-      rootView: PermissionGuideView(
-        isAccessibilityTrusted: { AccessibilityPermissionController.isTrusted },
-        requestPermission: { AccessibilityPermissionController.requestPermission() },
-        openSystemSettings: { AccessibilityPermissionController.openSystemSettings() },
-        dismissForSession: { [weak self] in
-          self?.permissionGuideState.dismissForSession()
-          self?.closePermissionGuideWindow()
-        },
-        completeGuide: { [weak self] in
-          self?.closePermissionGuideWindow()
-        }
-      )
-    )
-    let window = NSWindow(
-      contentRect: NSRect(x: 0, y: 0, width: 520, height: 440),
-      styleMask: [.titled, .closable],
-      backing: .buffered,
-      defer: false
-    )
-    window.title = AppText.value("\(AppMetadata.displayName) 权限设置", "\(AppMetadata.displayName) Permission Setup")
-    window.contentViewController = hostingController
-    window.isReleasedWhenClosed = false
-    window.center()
-    return window
   }
 
   private func closePermissionGuideWindow() {
@@ -396,93 +279,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       : AppMetadata.displayName
   }
 
-  private func removeMenuItemImages(in menu: NSMenu) {
-    for item in menu.items {
-      item.image = nil
-    }
-  }
-
-  private func showAccessibilityPermissionAlert() {
-    UserAlerts.showAccessibilityPermissionRequired(
-      message: AppText.value(
-        "Lite Paste 已复制该内容。授予辅助功能权限后，可以自动回到目标应用并粘贴。",
-        "Lite Paste copied the content. Grant Accessibility permission to return to the target app and paste automatically."
-      )
-    )
-  }
-
-  private func showMissingContentAlert() {
-    showAlert(
-      title: AppText.value("无法恢复该内容", "Unable To Restore This Content"),
-      message: AppText.value(
-        "该历史记录引用的文件或媒体数据已经不存在。你可以删除这条记录，或从备份恢复缺失的 Blobs 数据。",
-        "The file or media data referenced by this history item no longer exists. Delete the item or restore the missing Blobs data from a backup."
-      )
-    )
-  }
-
-  private func showTargetApplicationUnavailableAlert() {
-    showAlert(
-      title: AppText.value("无法自动粘贴", "Unable To Auto Paste"),
-      message: AppText.value(
-        "Lite Paste 已复制该内容，但无法回到目标应用。你可以手动按 ⌘V 粘贴。",
-        "Lite Paste copied the content, but could not return to the target app. Press ⌘V manually to paste."
-      )
-    )
-  }
-
-  private func showPanelHotkeyRegistrationAlert(
-    hotkey: String,
-    result: GlobalHotkeyRegistrationResult,
-    restoredPreviousHotkey: String?
-  ) {
-    let requestedHotkey = PanelHotkeyCatalog.displayName(for: hotkey)
-    let restoredMessage = restoredPreviousHotkey.map {
-      AppText.value(
-        "已恢复为之前可用的快捷键 \(PanelHotkeyCatalog.displayName(for: $0))。",
-        "Restored the previous available shortcut \(PanelHotkeyCatalog.displayName(for: $0))."
-      )
-    } ?? AppText.value(
-      "当前没有可用的面板快捷键，请在设置中选择其他组合。",
-      "No panel shortcut is currently available. Choose another combination in Settings."
-    )
-
-    showAlert(
-      title: AppText.value("无法注册面板快捷键", "Unable To Register Panel Shortcut"),
-      message: AppText.value(
-        "\(requestedHotkey) 无法注册。\(panelHotkeyFailureReason(for: result)) \(restoredMessage)",
-        "\(requestedHotkey) could not be registered. \(panelHotkeyFailureReason(for: result)) \(restoredMessage)"
-      )
-    )
-  }
-
-  private func panelHotkeyFailureReason(for result: GlobalHotkeyRegistrationResult) -> String {
-    switch result {
-    case .registered:
-      AppText.value("快捷键已注册。", "Shortcut registered.")
-    case .invalidHotkey:
-      AppText.value("该快捷键格式无效。", "The shortcut format is invalid.")
-    case let .registrationFailed(status):
-      AppText.value(
-        "可能已被其他应用或系统快捷键占用。系统状态码：\(status)。",
-        "It may already be used by another app or a system shortcut. System status: \(status)."
-      )
-    case let .handlerFailed(status):
-      AppText.value(
-        "快捷键事件监听无法启动。系统状态码：\(status)。",
-        "Shortcut event monitoring could not start. System status: \(status)."
-      )
-    }
-  }
-
-  private func showAlert(title: String, message: String) {
-    let alert = NSAlert()
-    alert.messageText = title
-    alert.informativeText = message
-    alert.addButton(withTitle: AppText.value("好", "OK"))
-    alert.alertStyle = .informational
-    alert.runModal()
-  }
 }
 
 extension AppDelegate: NSWindowDelegate {
@@ -499,6 +295,6 @@ extension AppDelegate: NSWindowDelegate {
 extension AppDelegate: NSMenuDelegate {
   func menuWillOpen(_ menu: NSMenu) {
     updateStatusMenuState()
-    removeMenuItemImages(in: menu)
+    AppStatusMenuFactory.removeItemImages(in: menu)
   }
 }

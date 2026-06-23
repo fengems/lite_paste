@@ -3,6 +3,12 @@ import LitePasteCore
 import SwiftUI
 
 struct SettingsView: View {
+  private enum ICloudBackupAction {
+    case exportBackup
+    case importLatest(BackupImportMode)
+    case revealDirectory
+  }
+
   @ObservedObject private var store = AppSettingsStore.shared
   @ObservedObject private var activeApplicationTracker = ActiveApplicationTracker.shared
   @State private var backupCoordinator = BackupCoordinator()
@@ -105,31 +111,31 @@ struct SettingsView: View {
 
   private var clipboardSettingsPage: some View {
     ClipboardSettingsPage(
-      panelPosition: panelPosition,
-      viewMode: viewMode,
-      coverMenuBarWhenEdgeAttached: coverMenuBarWhenEdgeAttached,
-      focusSearchOnOpen: focusSearchOnOpen,
-      clearSearchOnOpen: clearSearchOnOpen,
-      autoPasteMode: autoPasteMode,
-      copySoundEnabled: copySoundEnabled,
-      imageOCREnabled: imageOCREnabled,
-      copyPlainTextByDefault: copyPlainTextByDefault,
-      pastePlainTextByDefault: pastePlainTextByDefault,
-      visibleQuickActions: visibleQuickActions,
-      autoFavoriteAfterNote: autoFavoriteAfterNote,
-      restoreClipboardAfterPaste: restoreClipboardAfterPaste,
-      moveDuplicatesToTop: moveDuplicatesToTop,
-      panelPositionDescription: panelPositionDescription
+      panelPosition: settingsBindings.panelPosition,
+      viewMode: settingsBindings.viewMode,
+      coverMenuBarWhenEdgeAttached: settingsBindings.coverMenuBarWhenEdgeAttached,
+      focusSearchOnOpen: settingsBindings.focusSearchOnOpen,
+      clearSearchOnOpen: settingsBindings.clearSearchOnOpen,
+      autoPasteMode: settingsBindings.autoPasteMode,
+      copySoundEnabled: settingsBindings.copySoundEnabled,
+      imageOCREnabled: settingsBindings.imageOCREnabled,
+      copyPlainTextByDefault: settingsBindings.copyPlainTextByDefault,
+      pastePlainTextByDefault: settingsBindings.pastePlainTextByDefault,
+      visibleQuickActions: settingsBindings.visibleQuickActions,
+      autoFavoriteAfterNote: settingsBindings.autoFavoriteAfterNote,
+      restoreClipboardAfterPaste: settingsBindings.restoreClipboardAfterPaste,
+      moveDuplicatesToTop: settingsBindings.moveDuplicatesToTop,
+      panelPositionDescription: SettingsText.panelPositionDescription(for: store.settings.panelPosition)
     )
   }
 
   private var historySettingsPage: some View {
     HistorySettingsPage(
-      maxHistoryCount: maxHistoryCount,
-      retentionDays: retentionDays,
-      preserveLargeRichTextFormats: preserveLargeRichTextFormats,
-      isMonitoringPaused: isMonitoringPaused,
-      historyCountText: historyCount.map(AppText.itemCount) ?? AppText.value("正在读取", "Reading"),
+      maxHistoryCount: settingsBindings.maxHistoryCount,
+      retentionDays: settingsBindings.retentionDays,
+      preserveLargeRichTextFormats: settingsBindings.preserveLargeRichTextFormats,
+      isMonitoringPaused: settingsBindings.isMonitoringPaused,
+      historyCountText: SettingsText.historyCount(historyCount),
       storageSizeText: storageSizeText,
       refreshStatus: refreshStatus,
       revealDataDirectory: revealDataDirectory
@@ -138,15 +144,15 @@ struct SettingsView: View {
 
   private var generalSettingsPage: some View {
     GeneralSettingsPage(
-      launchAtLogin: launchAtLogin,
-      showMenuBarIcon: showMenuBarIcon,
-      showDockIcon: showDockIcon,
-      recordingStatusTitle: recordingStatusTitle,
-      currentApplicationTitle: currentApplicationTitle,
+      launchAtLogin: settingsBindings.launchAtLogin,
+      showMenuBarIcon: settingsBindings.showMenuBarIcon,
+      showDockIcon: settingsBindings.showDockIcon,
+      recordingStatusTitle: SettingsText.recordingStatusTitle(isMonitoringPaused: store.settings.isMonitoringPaused),
+      currentApplicationTitle: SettingsText.currentApplicationTitle(activeApplicationTracker.lastExternalApplication),
       statusErrorMessage: statusErrorMessage,
       historyPersistenceErrorMessage: historyPersistenceErrorMessage,
       settingsSaveErrorMessage: settingsSaveErrorMessage,
-      accessibilityStatusTitle: accessibilityStatusTitle,
+      accessibilityStatusTitle: SettingsText.accessibilityStatusTitle(isTrusted: accessibilityTrusted),
       accessibilityTrusted: accessibilityTrusted,
       requestAccessibilityPermission: {
         AccessibilityPermissionController.requestPermission()
@@ -158,11 +164,11 @@ struct SettingsView: View {
   }
 
   private var appearanceSettingsPage: some View {
-    AppearanceSettingsPage(interfaceLanguage: interfaceLanguage, themeMode: themeMode)
+    AppearanceSettingsPage(interfaceLanguage: settingsBindings.interfaceLanguage, themeMode: settingsBindings.themeMode)
   }
 
   private var hotkeySettingsPage: some View {
-    HotkeySettingsPage(panelHotkey: panelHotkey)
+    HotkeySettingsPage(panelHotkey: settingsBindings.panelHotkey)
   }
 
   private var backupSettingsPage: some View {
@@ -183,263 +189,11 @@ struct SettingsView: View {
     AboutSettingsPage()
   }
 
-  private var launchAtLogin: Binding<Bool> {
-    Binding {
-      store.settings.launchAtLogin
-    } set: { value in
-      do {
-        try launchAtLoginController.setEnabled(value)
-        store.update { $0.launchAtLogin = value }
-      } catch {
-        showAlert(title: AppText.value("无法更新开机启动", "Unable To Update Launch At Login"), message: error.localizedDescription)
-      }
-    }
-  }
-
-  private var panelHotkey: Binding<String> {
-    Binding {
-      store.settings.hotkey
-    } set: { value in
-      store.update { $0.hotkey = value }
-    }
-  }
-
-  private var copySoundEnabled: Binding<Bool> {
-    Binding {
-      store.settings.copySoundEnabled
-    } set: { value in
-      store.update { $0.copySoundEnabled = value }
-    }
-  }
-
-  private var imageOCREnabled: Binding<Bool> {
-    Binding {
-      store.settings.imageOCREnabled
-    } set: { value in
-      store.update { $0.imageOCREnabled = value }
-    }
-  }
-
-  private var copyPlainTextByDefault: Binding<Bool> {
-    Binding {
-      store.settings.copyPlainTextByDefault
-    } set: { value in
-      store.update { $0.copyPlainTextByDefault = value }
-    }
-  }
-
-  private var pastePlainTextByDefault: Binding<Bool> {
-    Binding {
-      store.settings.pastePlainTextByDefault
-    } set: { value in
-      store.update { $0.pastePlainTextByDefault = value }
-    }
-  }
-
-  private var visibleQuickActions: Binding<Set<ClipboardQuickAction>> {
-    Binding {
-      store.settings.visibleQuickActions
-    } set: { value in
-      store.update { $0.visibleQuickActions = value }
-    }
-  }
-
-  private var autoFavoriteAfterNote: Binding<Bool> {
-    Binding {
-      store.settings.autoFavoriteAfterNote
-    } set: { value in
-      store.update { $0.autoFavoriteAfterNote = value }
-    }
-  }
-
-  private var restoreClipboardAfterPaste: Binding<Bool> {
-    Binding {
-      store.settings.restoreClipboardAfterPaste
-    } set: { value in
-      store.update { $0.restoreClipboardAfterPaste = value }
-    }
-  }
-
-  private var preserveLargeRichTextFormats: Binding<Bool> {
-    Binding {
-      store.settings.preserveLargeRichTextFormats
-    } set: { value in
-      store.update { $0.preserveLargeRichTextFormats = value }
-    }
-  }
-
-  private var clearSearchOnOpen: Binding<Bool> {
-    Binding {
-      store.settings.clearSearchOnOpen
-    } set: { value in
-      store.update { $0.clearSearchOnOpen = value }
-    }
-  }
-
-  private var focusSearchOnOpen: Binding<Bool> {
-    Binding {
-      store.settings.focusSearchOnOpen
-    } set: { value in
-      store.update { $0.focusSearchOnOpen = value }
-    }
-  }
-
-  private var coverMenuBarWhenEdgeAttached: Binding<Bool> {
-    Binding {
-      store.settings.coverMenuBarWhenEdgeAttached
-    } set: { value in
-      store.update { $0.coverMenuBarWhenEdgeAttached = value }
-    }
-  }
-
-  private var moveDuplicatesToTop: Binding<Bool> {
-    Binding {
-      store.settings.moveDuplicatesToTop
-    } set: { value in
-      store.update { $0.moveDuplicatesToTop = value }
-    }
-  }
-
-  private var viewMode: Binding<ClipboardPanelViewMode> {
-    Binding {
-      store.settings.viewMode
-    } set: { value in
-      store.update { $0.viewMode = value }
-    }
-  }
-
-  private var showMenuBarIcon: Binding<Bool> {
-    Binding {
-      store.settings.showMenuBarIcon
-    } set: { value in
-      store.update { $0.showMenuBarIcon = value }
-    }
-  }
-
-  private var showDockIcon: Binding<Bool> {
-    Binding {
-      store.settings.showDockIcon
-    } set: { value in
-      store.update { $0.showDockIcon = value }
-    }
-  }
-
-  private var interfaceLanguage: Binding<AppLanguage> {
-    Binding {
-      store.settings.interfaceLanguage
-    } set: { value in
-      AppText.updateInterfaceLanguage(value)
-      store.update { $0.interfaceLanguage = value }
-    }
-  }
-
-  private var themeMode: Binding<AppThemeMode> {
-    Binding {
-      store.settings.themeMode
-    } set: { value in
-      store.update { $0.themeMode = value }
-    }
-  }
-
-  private var panelPosition: Binding<PanelPosition> {
-    Binding {
-      store.settings.panelPosition
-    } set: { value in
-      store.update { $0.panelPosition = value }
-    }
-  }
-
-  private var panelPositionDescription: String {
-    switch store.settings.panelPosition {
-    case .edgeBottom:
-      AppText.value(
-        "面板贴紧当前鼠标所在屏幕的底部和左右边缘。",
-        "The panel attaches to the bottom and side edges of the current pointer screen."
-      )
-    case .edgeTop:
-      AppText.value(
-        "面板贴紧当前鼠标所在屏幕的顶部和左右边缘。",
-        "The panel attaches to the top and side edges of the current pointer screen."
-      )
-    case .edgeLeft:
-      AppText.value(
-        "面板贴紧当前鼠标所在屏幕的左侧、顶部和底部。",
-        "The panel attaches to the left, top, and bottom edges of the current pointer screen."
-      )
-    case .edgeRight:
-      AppText.value(
-        "面板贴紧当前鼠标所在屏幕的右侧、顶部和底部。",
-        "The panel attaches to the right, top, and bottom edges of the current pointer screen."
-      )
-    case .cursor:
-      AppText.value(
-        "面板优先出现在鼠标右下角，空间不足时自动移动到完整可见的位置。",
-        "The panel opens near the pointer and moves automatically when space is limited."
-      )
-    case .screenCenter:
-      AppText.value(
-        "面板在当前鼠标所在屏幕的可见区域居中显示。",
-        "The panel is centered in the visible area of the current pointer screen."
-      )
-    case .bottomDrawer, .statusItem:
-      AppText.value("旧版位置会自动迁移为靠下。", "Legacy positions are migrated to the bottom edge.")
-    case .mouseScreenCenter:
-      AppText.value("旧版居中位置会自动迁移为跟随鼠标指针。", "Legacy centered position is migrated to near pointer.")
-    }
-  }
-
-  private var maxHistoryCount: Binding<Int> {
-    Binding {
-      store.settings.maxHistoryCount
-    } set: { value in
-      store.update { $0.maxHistoryCount = value }
-    }
-  }
-
-  private var retentionDays: Binding<Int> {
-    Binding {
-      store.settings.retentionDays
-    } set: { value in
-      store.update { $0.retentionDays = value }
-    }
-  }
-
-  private var isMonitoringPaused: Binding<Bool> {
-    Binding {
-      store.settings.isMonitoringPaused
-    } set: { value in
-      store.update { $0.isMonitoringPaused = value }
-    }
-  }
-
-  private var autoPasteMode: Binding<AutoPasteMode> {
-    Binding {
-      store.settings.autoPasteMode
-    } set: { value in
-      store.update { $0.autoPasteMode = value }
-    }
-  }
-
-  private var accessibilityStatusTitle: String {
-    accessibilityTrusted
-      ? AppText.value("辅助功能权限已授权", "Accessibility permission granted")
-      : AppText.value("自动粘贴需要辅助功能权限", "Auto paste requires Accessibility permission")
-  }
-
-  private var recordingStatusTitle: String {
-    if store.settings.isMonitoringPaused {
-      return AppText.value("已停止监听剪贴板", "Clipboard monitoring paused")
-    }
-
-    return AppText.value("正在记录", "Recording")
-  }
-
-  private var currentApplicationTitle: String {
-    guard let application = activeApplicationTracker.lastExternalApplication else {
-      return AppText.value("暂无", "None")
-    }
-
-    return "\(application.name) (\(application.bundleIdentifier))"
+  private var settingsBindings: SettingsBindings {
+    SettingsBindings(
+      store: store,
+      launchAtLoginController: launchAtLoginController
+    )
   }
 
   private func refreshAccessibilityStatus() {
@@ -459,62 +213,82 @@ struct SettingsView: View {
   }
 
   private func exportICloudBackup() {
-    Task {
-      await backupCoordinator.exportICloudBackup()
-      refreshICloudBackupStatus()
-    }
+    performICloudBackupAction(.exportBackup)
   }
 
   private func importLatestICloudBackup(mode: BackupImportMode) {
-    Task {
-      await backupCoordinator.importLatestICloudBackup(mode: mode)
-      refreshICloudBackupStatus()
-    }
+    performICloudBackupAction(.importLatest(mode))
   }
 
   private func revealICloudBackupsDirectory() {
+    performICloudBackupAction(.revealDirectory)
+  }
+
+  private func performICloudBackupAction(_ action: ICloudBackupAction) {
     Task {
-      await backupCoordinator.revealICloudBackupsDirectory()
+      switch action {
+      case .exportBackup:
+        await backupCoordinator.exportICloudBackup()
+      case let .importLatest(mode):
+        await backupCoordinator.importLatestICloudBackup(mode: mode)
+      case .revealDirectory:
+        await backupCoordinator.revealICloudBackupsDirectory()
+      }
       refreshICloudBackupStatus()
     }
   }
 
   private func handleSettingsSaveFailure(_ notification: Notification) {
-    let message = notification.userInfo?[SettingsNotificationUserInfoKey.errorMessage] as? String ??
-      AppText.value("未知错误", "Unknown error")
+    let message = notificationValue(
+      notification,
+      key: SettingsNotificationUserInfoKey.errorMessage,
+      fallback: AppText.value("未知错误", "Unknown error")
+    )
     settingsSaveErrorMessage = AppText.value("无法保存设置：\(message)", "Unable to save settings: \(message)")
-    showAlert(
+    UserAlerts.showMessage(
       title: AppText.value("无法保存设置", "Unable To Save Settings"),
       message: AppText.value(
         "本次设置变更已在当前运行中生效，但没有写入磁盘。\(message)",
         "This change is active for the current run, but was not written to disk. \(message)"
-      )
+      ),
+      style: .warning
     )
   }
 
   private func handleHistoryPersistenceFailure(_ notification: Notification) {
-    let operation = notification.userInfo?[HistoryNotificationUserInfoKey.operation] as? String ??
-      AppText.value("保存历史", "Save History")
-    let message = notification.userInfo?[HistoryNotificationUserInfoKey.errorMessage] as? String ??
-      AppText.value("未知错误", "Unknown error")
+    let operation = notificationValue(
+      notification,
+      key: HistoryNotificationUserInfoKey.operation,
+      fallback: AppText.value("保存历史", "Save History")
+    )
+    let message = notificationValue(
+      notification,
+      key: HistoryNotificationUserInfoKey.errorMessage,
+      fallback: AppText.value("未知错误", "Unknown error")
+    )
     historyPersistenceErrorMessage = AppText.value("\(operation)失败：\(message)", "\(operation) failed: \(message)")
     guard operation != "更新使用记录" else {
       return
     }
-    showAlert(
+    UserAlerts.showMessage(
       title: AppText.value("\(operation)失败", "\(operation) Failed"),
       message: AppText.value(
         "本次历史变更可能没有写入磁盘。\(message)",
         "This history change may not have been written to disk. \(message)"
-      )
+      ),
+      style: .warning
     )
+  }
+
+  private func notificationValue(_ notification: Notification, key: String, fallback: String) -> String {
+    notification.userInfo?[key] as? String ?? fallback
   }
 
   private func refreshHistoryStatus() {
     statusErrorMessage = nil
 
     do {
-      historyCount = try SQLiteClipboardHistoryRepository().count(ClipboardHistoryQuery())
+      historyCount = try SettingsDataStatusReader.historyCount()
     } catch {
       historyCount = nil
       statusErrorMessage = AppText.value(
@@ -524,9 +298,7 @@ struct SettingsView: View {
     }
 
     do {
-      storageSizeText = Self.byteCountFormatter.string(
-        fromByteCount: Int64(try totalSizeOfDataDirectory())
-      )
+      storageSizeText = try SettingsDataStatusReader.storageSizeText()
     } catch {
       storageSizeText = AppText.value("读取失败", "Failed to read")
       statusErrorMessage = AppText.value(
@@ -541,52 +313,11 @@ struct SettingsView: View {
       try AppPaths.ensureApplicationSupportDirectoryExists()
       NSWorkspace.shared.activateFileViewerSelecting([AppPaths.applicationSupportDirectory])
     } catch {
-      showAlert(title: AppText.value("无法打开数据目录", "Unable To Open Data Folder"), message: error.localizedDescription)
+      UserAlerts.showMessage(
+        title: AppText.value("无法打开数据目录", "Unable To Open Data Folder"),
+        message: error.localizedDescription,
+        style: .warning
+      )
     }
   }
-
-  private func totalSizeOfDataDirectory() throws -> UInt64 {
-    let directory = AppPaths.applicationSupportDirectory
-    guard FileManager.default.fileExists(atPath: directory.path) else {
-      return 0
-    }
-
-    let resourceKeys: Set<URLResourceKey> = [.isRegularFileKey, .fileAllocatedSizeKey, .totalFileAllocatedSizeKey]
-    guard let enumerator = FileManager.default.enumerator(
-      at: directory,
-      includingPropertiesForKeys: Array(resourceKeys),
-      options: [.skipsHiddenFiles]
-    ) else {
-      return 0
-    }
-
-    return try enumerator.reduce(UInt64(0)) { total, item in
-      guard let url = item as? URL else {
-        return total
-      }
-
-      let values = try url.resourceValues(forKeys: resourceKeys)
-      guard values.isRegularFile == true else {
-        return total
-      }
-
-      return total + UInt64(values.totalFileAllocatedSize ?? values.fileAllocatedSize ?? 0)
-    }
-  }
-
-  private func showAlert(title: String, message: String) {
-    let alert = NSAlert()
-    alert.messageText = title
-    alert.informativeText = message
-    alert.addButton(withTitle: AppText.value("好", "OK"))
-    alert.alertStyle = .warning
-    alert.runModal()
-  }
-
-  private static let byteCountFormatter: ByteCountFormatter = {
-    let formatter = ByteCountFormatter()
-    formatter.allowedUnits = [.useKB, .useMB, .useGB]
-    formatter.countStyle = .file
-    return formatter
-  }()
 }

@@ -26,6 +26,7 @@ run() {
 cd "${ROOT_DIR}"
 
 run Scripts/verify_metadata.sh
+run Scripts/check_worktree_hygiene.sh
 run env -u LITEPASTE_FLAVOR swift run LitePasteCoreChecks
 run swift build
 run Scripts/build_app_bundle.sh

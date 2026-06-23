@@ -14,6 +14,7 @@ public struct ClipboardRecord: Identifiable, Codable, Equatable, Sendable {
   public var copyCount: Int
   public var isFavorite: Bool
   public var isPinned: Bool
+  // Legacy field kept so older history databases/backups can still be decoded.
   public var pinShortcut: String?
   public var contentHash: String
   public var plainText: String?
