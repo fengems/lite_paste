@@ -4,6 +4,13 @@ All notable changes to Lite Paste are documented here.
 
 ## Unreleased
 
+## 0.1.6 - 2026-06-23
+
+- Fixed the clipboard panel not resetting scroll to the top when reopened.
+- Renamed data models (`ClipboardItem` → `ClipboardRecord`, `ClipboardContent` → `ClipboardContentSnapshot`) and added fields for plain text, OCR text, content snapshots, and preview file paths.
+- Isolated persistence behind a repository layer and switched settings to a JSON configuration model.
+- Split large source files into focused modules and removed deprecated privacy-filter and pin-shortcut implementations.
+
 ## 0.1.3 - 2026-06-05
 
 - Added a stable/dev local build channel so `Lite Paste Dev` can coexist with the normal app using a separate bundle id, data directory, default shortcut, and package output names.
