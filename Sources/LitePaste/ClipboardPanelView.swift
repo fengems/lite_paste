@@ -134,6 +134,7 @@ struct ClipboardPanelView: View {
       deleteAction: { confirmDelete(record) },
       visibleQuickActions: settingsStore.settings.visibleQuickActions
     )
+    .equatable()
   }
 
   private func row(for record: ClipboardRecord) -> some View {
@@ -153,6 +154,7 @@ struct ClipboardPanelView: View {
       deleteAction: { confirmDelete(record) },
       visibleQuickActions: settingsStore.settings.visibleQuickActions
     )
+    .equatable()
   }
 
   private var emptyState: ClipboardPanelEmptyState {

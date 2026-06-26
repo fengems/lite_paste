@@ -176,3 +176,13 @@ struct ClipboardRow: View {
     isSelected ? 13 : (isHovering ? 8 : 5)
   }
 }
+
+extension ClipboardRow: Equatable {
+  // 与 ClipboardCard 同理，仅比较驱动渲染的字段，忽略闭包。
+  nonisolated static func == (lhs: ClipboardRow, rhs: ClipboardRow) -> Bool {
+    lhs.record.id == rhs.record.id
+      && lhs.isSelected == rhs.isSelected
+      && lhs.visibleQuickActions == rhs.visibleQuickActions
+      && lhs.externalAction == rhs.externalAction
+  }
+}

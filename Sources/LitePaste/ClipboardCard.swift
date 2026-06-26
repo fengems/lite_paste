@@ -202,3 +202,14 @@ struct ClipboardCard: View {
       )
   }
 }
+
+extension ClipboardCard: Equatable {
+  // 忽略闭包：它们捕获动作目标，不参与渲染像素；闭包语义变化总伴随
+  // record 或 visibleQuickActions 变化，已被下方字段覆盖。
+  nonisolated static func == (lhs: ClipboardCard, rhs: ClipboardCard) -> Bool {
+    lhs.record.id == rhs.record.id
+      && lhs.isSelected == rhs.isSelected
+      && lhs.visibleQuickActions == rhs.visibleQuickActions
+      && lhs.externalAction == rhs.externalAction
+  }
+}
