@@ -71,14 +71,10 @@ public struct ClipboardPayloadResolver: Sendable {
       return false
     }
 
-    let lines = text
+    return text
       .split(whereSeparator: \.isNewline)
       .prefix(16)
-    guard lines.count >= 2 else {
-      return false
-    }
-
-    return lines.filter { $0.contains("\t") }.count >= 2
+      .contains { $0.contains("\t") }
   }
 
   private func richTextPayload(

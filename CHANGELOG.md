@@ -4,6 +4,8 @@ All notable changes to Lite Paste are documented here.
 
 ## Unreleased
 
+- Fixed single-row multi-cell spreadsheet copies from WPS being captured as image previews.
+
 ## 0.1.7 - 2026-08-18
 
 - Added plain-text quick toggles to the clipboard panel toolbar.

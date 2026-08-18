@@ -12,6 +12,14 @@ func checkClipboardOCRPolicy() {
   expect(
     ClipboardOCRPolicy.shouldSkipImageOCR(
       pasteboardTypes: ["public.png"],
+      sourceAppBundleId: "com.apple.Preview",
+      plainText: "A\tB"
+    ),
+    "OCR policy should skip single-row tabular plain text"
+  )
+  expect(
+    ClipboardOCRPolicy.shouldSkipImageOCR(
+      pasteboardTypes: ["public.png"],
       sourceAppBundleId: "com.microsoft.Excel",
       plainText: nil
     ),
