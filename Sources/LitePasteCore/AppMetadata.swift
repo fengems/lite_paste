@@ -18,7 +18,7 @@ public enum AppMetadata {
     return bundleIdentifier
   }
 
-  public static let version = "0.1.6"
+  public static let version = "0.1.7"
   public static let build = "1"
   public static let minimumMacOSVersion = "15.0"
   public static let licenseName = "MIT License"

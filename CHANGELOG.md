@@ -4,6 +4,12 @@ All notable changes to Lite Paste are documented here.
 
 ## Unreleased
 
+## 0.1.7 - 2026-08-18
+
+- Added plain-text quick toggles to the clipboard panel toolbar.
+- Made ordinary copy and paste entry points honor the default plain-text settings.
+- Added an opt-in setting to automatically sanitize rich system clipboard content after external copies when either plain-text default is enabled.
+
 ## 0.1.6 - 2026-06-23
 
 - Fixed the clipboard panel not resetting scroll to the top when reopened.
