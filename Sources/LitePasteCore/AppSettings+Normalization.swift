@@ -12,6 +12,7 @@ extension AppSettings {
     )
     showMenuBarIcon = appVisibility.showMenuBarIcon
     showDockIcon = appVisibility.showDockIcon
+    tablePlainTextSeparator = TablePlainTextFormatter.normalizedSeparator(tablePlainTextSeparator)
   }
 
   static func normalizedMaxHistoryCount(_ value: Int) -> Int {

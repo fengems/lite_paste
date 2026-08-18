@@ -138,3 +138,57 @@ struct SettingsNumberStepperField: View {
     min(max(candidate, range.lowerBound), range.upperBound)
   }
 }
+
+struct SettingsSymbolField: View {
+  @Binding var text: String
+  @State private var draftText = ""
+  @FocusState private var isFocused: Bool
+
+  var body: some View {
+    TextField("", text: $draftText)
+      .font(.system(size: 12, weight: .medium))
+      .multilineTextAlignment(.center)
+      .textFieldStyle(.plain)
+      .focused($isFocused)
+      .frame(width: 96, height: 24)
+      .padding(.horizontal, 7)
+      .background(SettingsSurface.fieldBackground, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+      .overlay(
+        RoundedRectangle(cornerRadius: 6, style: .continuous)
+          .stroke(SettingsSurface.border.opacity(0.50), lineWidth: 1)
+      )
+      .onSubmit(commitDraft)
+      .onAppear(perform: syncDraft)
+      .onChange(of: draftText) { _, newText in
+        keepSingleLine(newText)
+      }
+      .onChange(of: isFocused) { _, focused in
+        if focused {
+          syncDraft()
+        } else {
+          commitDraft()
+        }
+      }
+      .onChange(of: text) {
+        if !isFocused {
+          syncDraft()
+        }
+      }
+  }
+
+  private func keepSingleLine(_ newText: String) {
+    let filtered = newText.filter { !$0.isNewline }
+    if filtered != newText {
+      draftText = filtered
+    }
+  }
+
+  private func commitDraft() {
+    text = TablePlainTextFormatter.normalizedSeparator(draftText)
+    syncDraft()
+  }
+
+  private func syncDraft() {
+    draftText = text
+  }
+}

@@ -47,6 +47,18 @@ struct SettingsBindings {
     setting(\.sanitizesSystemClipboardOnCopy)
   }
 
+  var formatsTablePlainText: Binding<Bool> {
+    setting(\.formatsTablePlainText)
+  }
+
+  var tablePlainTextSeparator: Binding<String> {
+    setting(\.tablePlainTextSeparator)
+  }
+
+  var tablePlainTextWrapper: Binding<TablePlainTextWrapper> {
+    setting(\.tablePlainTextWrapper)
+  }
+
   var visibleQuickActions: Binding<Set<ClipboardQuickAction>> {
     setting(\.visibleQuickActions)
   }

@@ -169,6 +169,7 @@ final class PanelCoordinator {
           updatedRecord,
           targetApplication: previousApplication,
           asPlainText: true,
+          tablePlainTextFormatter: settingsStore.settings.tablePlainTextFormatter,
           restorePreviousClipboard: settingsStore.settings.restoreClipboardAfterPaste
         )
         handleActionResult(result, closesPanelOnSuccess: true)
@@ -180,6 +181,7 @@ final class PanelCoordinator {
       record,
       targetApplication: previousApplication,
       asPlainText: asPlainText,
+      tablePlainTextFormatter: settingsStore.settings.tablePlainTextFormatter,
       restorePreviousClipboard: settingsStore.settings.restoreClipboardAfterPaste
     )
 

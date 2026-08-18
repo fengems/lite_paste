@@ -4,6 +4,8 @@ All notable changes to Lite Paste are documented here.
 
 ## Unreleased
 
+- Added configurable table plain-text formatting for plain-text paste output.
+
 ## 0.1.8 - 2026-08-18
 
 - Fixed single-row multi-cell spreadsheet copies from WPS being captured as image previews.

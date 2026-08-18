@@ -27,6 +27,7 @@ func allChecks() -> [CheckCase] {
     CheckCase(group: "capture", name: "ocr-policy", run: checkClipboardOCRPolicy),
     CheckCase(group: "capture", name: "capture-gate", run: checkClipboardCaptureGate),
     CheckCase(group: "pasteboard", name: "system-plain-text-policy", run: checkSystemClipboardPlainTextPolicy),
+    CheckCase(group: "pasteboard", name: "table-plain-text-formatter", run: checkTablePlainTextFormatter),
     CheckCase(group: "history", name: "store", run: checkHistoryStore),
     CheckCase(group: "history", name: "change-notifications", run: checkHistoryChangeNotifications),
     CheckCase(group: "history", name: "persistence-failure-notifications", run: checkHistoryPersistenceFailureNotifications),

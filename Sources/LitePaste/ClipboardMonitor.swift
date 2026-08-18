@@ -14,6 +14,7 @@ final class ClipboardMonitor {
   private var copySoundEnabled: Bool
   private var imageOCREnabled: Bool
   private var systemPlainTextPolicy: SystemClipboardPlainTextPolicy
+  private var tablePlainTextFormatter: TablePlainTextFormatter
   private var imageOCRTasks: [ClipboardRecord.ID: Task<Void, Never>] = [:]
   private var timer: Timer?
   private var lastChangeCount: Int
@@ -29,6 +30,7 @@ final class ClipboardMonitor {
     copySoundEnabled: Bool = false,
     imageOCREnabled: Bool = false,
     systemPlainTextPolicy: SystemClipboardPlainTextPolicy = SystemClipboardPlainTextPolicy(),
+    tablePlainTextFormatter: TablePlainTextFormatter = TablePlainTextFormatter(),
     imageOCRService: ImageOCRService = ImageOCRService()
   ) {
     self.pasteboard = pasteboard
@@ -47,6 +49,7 @@ final class ClipboardMonitor {
     self.copySoundEnabled = copySoundEnabled
     self.imageOCREnabled = imageOCREnabled
     self.systemPlainTextPolicy = systemPlainTextPolicy
+    self.tablePlainTextFormatter = tablePlainTextFormatter
     self.lastChangeCount = pasteboard.changeCount
   }
 
@@ -90,13 +93,15 @@ final class ClipboardMonitor {
   func updatePlainTextCopyBehavior(
     copyPlainTextByDefault: Bool,
     pastePlainTextByDefault: Bool,
-    sanitizesSystemClipboardOnCopy: Bool
+    sanitizesSystemClipboardOnCopy: Bool,
+    tablePlainTextFormatter: TablePlainTextFormatter
   ) {
     systemPlainTextPolicy = SystemClipboardPlainTextPolicy(
       sanitizesSystemClipboardOnCopy: sanitizesSystemClipboardOnCopy,
       copyPlainTextByDefault: copyPlainTextByDefault,
       pastePlainTextByDefault: pastePlainTextByDefault
     )
+    self.tablePlainTextFormatter = tablePlainTextFormatter
   }
 
   private func captureIfNeeded() {
@@ -149,8 +154,12 @@ final class ClipboardMonitor {
       return
     }
 
+    let outputText = systemPlainTextPolicy.pastePlainTextByDefault
+      ? tablePlainTextFormatter.formatIfTable(plainText)
+      : plainText
+
     pasteboard.clearContents()
-    guard pasteboard.setString(plainText, forType: .string) else {
+    guard pasteboard.setString(outputText, forType: .string) else {
       return
     }
 

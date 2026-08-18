@@ -16,6 +16,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
   public var copyPlainTextByDefault: Bool
   public var pastePlainTextByDefault: Bool
   public var sanitizesSystemClipboardOnCopy: Bool
+  public var formatsTablePlainText: Bool
+  public var tablePlainTextSeparator: String
+  public var tablePlainTextWrapper: TablePlainTextWrapper
   public var restoreClipboardAfterPaste: Bool
   public var preserveLargeRichTextFormats: Bool
   public var visibleQuickActions: Set<ClipboardQuickAction>
@@ -43,6 +46,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
     copyPlainTextByDefault: Bool = false,
     pastePlainTextByDefault: Bool = false,
     sanitizesSystemClipboardOnCopy: Bool = false,
+    formatsTablePlainText: Bool = false,
+    tablePlainTextSeparator: String = "、",
+    tablePlainTextWrapper: TablePlainTextWrapper = .none,
     restoreClipboardAfterPaste: Bool = false,
     preserveLargeRichTextFormats: Bool = false,
     visibleQuickActions: Set<ClipboardQuickAction> = ClipboardQuickAction.defaultVisibleActions,
@@ -73,6 +79,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
     self.copyPlainTextByDefault = copyPlainTextByDefault
     self.pastePlainTextByDefault = pastePlainTextByDefault
     self.sanitizesSystemClipboardOnCopy = sanitizesSystemClipboardOnCopy
+    self.formatsTablePlainText = formatsTablePlainText
+    self.tablePlainTextSeparator = TablePlainTextFormatter.normalizedSeparator(tablePlainTextSeparator)
+    self.tablePlainTextWrapper = tablePlainTextWrapper
     self.restoreClipboardAfterPaste = restoreClipboardAfterPaste
     self.preserveLargeRichTextFormats = preserveLargeRichTextFormats
     self.visibleQuickActions = visibleQuickActions
@@ -87,5 +96,13 @@ public struct AppSettings: Codable, Equatable, Sendable {
     self.showDockIcon = normalizedVisibility.showDockIcon
     self.interfaceLanguage = interfaceLanguage
     self.themeMode = themeMode
+  }
+
+  public var tablePlainTextFormatter: TablePlainTextFormatter {
+    TablePlainTextFormatter(
+      isEnabled: formatsTablePlainText,
+      separator: tablePlainTextSeparator,
+      wrapper: tablePlainTextWrapper
+    )
   }
 }

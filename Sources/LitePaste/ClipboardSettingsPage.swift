@@ -13,6 +13,9 @@ struct ClipboardSettingsPage: View {
   @Binding var copyPlainTextByDefault: Bool
   @Binding var pastePlainTextByDefault: Bool
   @Binding var sanitizesSystemClipboardOnCopy: Bool
+  @Binding var formatsTablePlainText: Bool
+  @Binding var tablePlainTextSeparator: String
+  @Binding var tablePlainTextWrapper: TablePlainTextWrapper
   @Binding var visibleQuickActions: Set<ClipboardQuickAction>
   @Binding var autoFavoriteAfterNote: Bool
   @Binding var restoreClipboardAfterPaste: Bool
@@ -142,6 +145,48 @@ struct ClipboardSettingsPage: View {
           ),
           isOn: $sanitizesSystemClipboardOnCopy
         )
+
+        SettingsDivider()
+
+        SettingsSwitchRow(
+          title: AppText.value("整理表格纯文本", "Format Table Plain Text"),
+          detail: AppText.value(
+            "粘贴为纯文本时，将表格字段首尾空白清掉，并按设定分隔符重新连接；空单元格会跳过。",
+            "When pasting as plain text, trim table fields and join them with the configured separator. Empty cells are skipped."
+          ),
+          isOn: $formatsTablePlainText
+        )
+
+        SettingsDivider()
+
+        SettingsRow(
+          title: AppText.value("字段分隔符", "Field Separator"),
+          detail: AppText.value("支持自定义，不能为空或包含换行。", "Custom values are allowed, but cannot be empty or contain line breaks.")
+        ) {
+          SettingsSymbolField(text: $tablePlainTextSeparator)
+            .disabled(!formatsTablePlainText)
+        }
+        .disabled(!formatsTablePlainText)
+        .opacity(formatsTablePlainText ? 1 : 0.55)
+
+        SettingsDivider()
+
+        SettingsRow(
+          title: AppText.value("字段包裹符", "Field Wrapper"),
+          detail: AppText.value("使用预设包裹符号，避免自定义成对符号产生歧义。", "Use preset wrappers to avoid ambiguous custom symbol pairs.")
+        ) {
+          Picker("", selection: $tablePlainTextWrapper) {
+            ForEach(TablePlainTextWrapper.allCases, id: \.self) { wrapper in
+              Text(wrapper.localizedDisplayName).tag(wrapper)
+            }
+          }
+          .labelsHidden()
+          .pickerStyle(.menu)
+          .controlSize(.regular)
+          .frame(width: SettingsControlMetrics.menuWidth, alignment: .trailing)
+        }
+        .disabled(!formatsTablePlainText)
+        .opacity(formatsTablePlainText ? 1 : 0.55)
 
         SettingsDivider()
 

@@ -21,6 +21,9 @@ func checkAppSettingsBackwardCompatibility() {
       !settings.sanitizesSystemClipboardOnCopy,
       "Settings should default system clipboard sanitization to off"
     )
+    expect(!settings.formatsTablePlainText, "Settings should default table plain-text formatting to off")
+    expect(settings.tablePlainTextSeparator == "、", "Settings should default table separator to a Chinese comma")
+    expect(settings.tablePlainTextWrapper == .none, "Settings should default table wrapper to none")
     expect(settings.visibleQuickActions == ClipboardQuickAction.defaultVisibleActions, "Settings should default quick actions")
     expect(!settings.autoFavoriteAfterNote, "Settings should default auto favorite after notes to off")
     expect(settings.moveDuplicatesToTop, "Settings should default moveDuplicatesToTop for old files")
@@ -48,6 +51,9 @@ func checkAppSettingsBackwardCompatibility() {
       copyPlainTextByDefault: true,
       pastePlainTextByDefault: true,
       sanitizesSystemClipboardOnCopy: true,
+      formatsTablePlainText: true,
+      tablePlainTextSeparator: ", ",
+      tablePlainTextWrapper: .doubleQuote,
       restoreClipboardAfterPaste: true,
       preserveLargeRichTextFormats: true,
       visibleQuickActions: [.copy, .pastePlainText, .delete],
@@ -85,6 +91,9 @@ func checkAppSettingsBackwardCompatibility() {
       decoded.sanitizesSystemClipboardOnCopy,
       "Settings should preserve system clipboard sanitization"
     )
+    expect(decoded.formatsTablePlainText, "Settings should preserve table plain-text formatting")
+    expect(decoded.tablePlainTextSeparator == ", ", "Settings should preserve table separator")
+    expect(decoded.tablePlainTextWrapper == .doubleQuote, "Settings should preserve table wrapper")
     expect(decoded.visibleQuickActions == [.copy, .pastePlainText, .delete], "Settings should preserve quick actions")
     expect(decoded.autoFavoriteAfterNote, "Settings should preserve auto favorite after notes")
     expect(

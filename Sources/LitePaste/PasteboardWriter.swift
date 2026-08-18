@@ -23,8 +23,16 @@ final class PasteboardWriter {
   }
 
   @discardableResult
-  func copy(_ record: ClipboardRecord, asPlainText: Bool = false) -> PasteActionResult {
-    guard let plan = restorePlanner.plan(for: record, asPlainText: asPlainText) else {
+  func copy(
+    _ record: ClipboardRecord,
+    asPlainText: Bool = false,
+    tablePlainTextFormatter: TablePlainTextFormatter? = nil
+  ) -> PasteActionResult {
+    guard let plan = restorePlanner.plan(
+      for: record,
+      asPlainText: asPlainText,
+      tablePlainTextFormatter: tablePlainTextFormatter
+    ) else {
       return .missingContent
     }
 
@@ -41,10 +49,15 @@ final class PasteboardWriter {
     _ record: ClipboardRecord,
     targetApplication: NSRunningApplication?,
     asPlainText: Bool = false,
+    tablePlainTextFormatter: TablePlainTextFormatter? = nil,
     restorePreviousClipboard: Bool = false
   ) -> PasteActionResult {
     let previousClipboard = restorePreviousClipboard ? PasteboardSnapshot(pasteboard: pasteboard) : nil
-    let copyResult = copy(record, asPlainText: asPlainText)
+    let copyResult = copy(
+      record,
+      asPlainText: asPlainText,
+      tablePlainTextFormatter: asPlainText ? tablePlainTextFormatter : nil
+    )
     guard copyResult == .copied else {
       return copyResult
     }

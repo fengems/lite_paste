@@ -30,6 +30,9 @@
 - `copyPlainTextByDefault: Bool`
 - `pastePlainTextByDefault: Bool`
 - `sanitizesSystemClipboardOnCopy: Bool`
+- `formatsTablePlainText: Bool`
+- `tablePlainTextSeparator: String`
+- `tablePlainTextWrapper: TablePlainTextWrapper`
 - `visibleQuickActions: Set<ClipboardQuickAction>`
 - `autoFavoriteAfterNote: Bool`
 - `imageOCREnabled: Bool`
@@ -65,6 +68,16 @@
 - 历史记录仍先保留原始富文本内容，之后可从卡片显式恢复原格式。
 - 文件、图片和没有纯文本副本的内容不重写，避免破坏原始粘贴能力。
 - macOS 不提供普通应用可可靠拦截其他应用剪贴板写入的前置钩子；本实现是复制后的自动净化，不是阻断式拦截。
+
+### 表格纯文本整理
+
+- `formatsTablePlainText` 默认关闭。
+- 只在粘贴为纯文本的输出路径生效；历史记录保留原始 Tab 分隔文本。
+- 单行或多行 Tab 分隔文本都会整理；每个字段去除首尾普通空白、不间断空格、零宽字符和对象替换符。
+- 字段内部空白保留；空字段和空行跳过。
+- `tablePlainTextSeparator` 支持自定义，但不能为空或包含换行。
+- `tablePlainTextWrapper` 仅提供预设：不包裹、英文双引号、英文单引号、中文引号、方括号和花括号。
+- 包裹符内出现同类型结束符时通过重复两次转义。
 
 ### 复制音效
 

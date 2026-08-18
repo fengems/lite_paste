@@ -13,9 +13,16 @@ public struct PasteboardRestorePlanner: Sendable {
     self.readExternalData = readExternalData
   }
 
-  public func plan(for record: ClipboardRecord, asPlainText: Bool = false) -> PasteboardRestorePlan? {
+  public func plan(
+    for record: ClipboardRecord,
+    asPlainText: Bool = false,
+    tablePlainTextFormatter: TablePlainTextFormatter? = nil
+  ) -> PasteboardRestorePlan? {
     if asPlainText {
-      return plainTextPlan(for: record)
+      return plainTextPlan(
+        for: record,
+        tablePlainTextFormatter: tablePlainTextFormatter
+      )
     }
 
     if let filePlan = fileURLPlan(for: record) {
@@ -33,12 +40,15 @@ public struct PasteboardRestorePlanner: Sendable {
     return plainTextPlan(for: record)
   }
 
-  private func plainTextPlan(for record: ClipboardRecord) -> PasteboardRestorePlan? {
+  private func plainTextPlan(
+    for record: ClipboardRecord,
+    tablePlainTextFormatter: TablePlainTextFormatter? = nil
+  ) -> PasteboardRestorePlan? {
     guard let plainText = firstNonBlankText(record.plainText, record.ocrText) else {
       return nil
     }
 
-    return .plainText(plainText)
+    return .plainText(tablePlainTextFormatter?.formatIfTable(plainText) ?? plainText)
   }
 
   private func firstNonBlankText(_ candidates: String?...) -> String? {

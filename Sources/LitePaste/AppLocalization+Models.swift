@@ -121,6 +121,25 @@ extension ClipboardQuickAction {
   }
 }
 
+extension TablePlainTextWrapper {
+  var localizedDisplayName: String {
+    switch self {
+    case .none:
+      AppText.value("不包裹", "None")
+    case .doubleQuote:
+      AppText.value("英文双引号", "Double Quotes")
+    case .singleQuote:
+      AppText.value("英文单引号", "Single Quotes")
+    case .chineseQuote:
+      AppText.value("中文引号", "Chinese Quotes")
+    case .squareBracket:
+      AppText.value("方括号", "Square Brackets")
+    case .curlyBrace:
+      AppText.value("花括号", "Curly Braces")
+    }
+  }
+}
+
 extension AppThemeMode {
   var localizedDisplayName: String {
     switch self {

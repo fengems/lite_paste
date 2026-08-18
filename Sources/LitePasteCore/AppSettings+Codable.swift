@@ -13,6 +13,9 @@ extension AppSettings {
     case copyPlainTextByDefault
     case pastePlainTextByDefault
     case sanitizesSystemClipboardOnCopy
+    case formatsTablePlainText
+    case tablePlainTextSeparator
+    case tablePlainTextWrapper
     case pastePlainByDefault
     case restoreClipboardAfterPaste
     case preserveLargeRichTextFormats
@@ -63,6 +66,15 @@ extension AppSettings {
     sanitizesSystemClipboardOnCopy =
       try container.decodeIfPresent(Bool.self, forKey: .sanitizesSystemClipboardOnCopy) ??
       defaults.sanitizesSystemClipboardOnCopy
+    formatsTablePlainText =
+      try container.decodeIfPresent(Bool.self, forKey: .formatsTablePlainText) ??
+      defaults.formatsTablePlainText
+    tablePlainTextSeparator =
+      try container.decodeIfPresent(String.self, forKey: .tablePlainTextSeparator) ??
+      defaults.tablePlainTextSeparator
+    tablePlainTextWrapper =
+      try container.decodeIfPresent(TablePlainTextWrapper.self, forKey: .tablePlainTextWrapper) ??
+      defaults.tablePlainTextWrapper
     restoreClipboardAfterPaste =
       try container.decodeIfPresent(Bool.self, forKey: .restoreClipboardAfterPaste) ??
       defaults.restoreClipboardAfterPaste
@@ -111,6 +123,9 @@ extension AppSettings {
     try container.encode(copyPlainTextByDefault, forKey: .copyPlainTextByDefault)
     try container.encode(pastePlainTextByDefault, forKey: .pastePlainTextByDefault)
     try container.encode(sanitizesSystemClipboardOnCopy, forKey: .sanitizesSystemClipboardOnCopy)
+    try container.encode(formatsTablePlainText, forKey: .formatsTablePlainText)
+    try container.encode(tablePlainTextSeparator, forKey: .tablePlainTextSeparator)
+    try container.encode(tablePlainTextWrapper, forKey: .tablePlainTextWrapper)
     try container.encode(restoreClipboardAfterPaste, forKey: .restoreClipboardAfterPaste)
     try container.encode(preserveLargeRichTextFormats, forKey: .preserveLargeRichTextFormats)
     try container.encode(visibleQuickActions, forKey: .visibleQuickActions)

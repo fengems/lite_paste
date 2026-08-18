@@ -14,6 +14,7 @@ func checkAppSettingsStoreNormalization() {
         $0.retentionDays = -3
         $0.showMenuBarIcon = false
         $0.showDockIcon = false
+        $0.tablePlainTextSeparator = " \n "
       }
 
       expect(
@@ -30,6 +31,9 @@ func checkAppSettingsStoreNormalization() {
       expect(
         !store.settings.showDockIcon,
         "Settings store update should restore the menu bar icon by default")
+      expect(
+        store.settings.tablePlainTextSeparator == "、",
+        "Settings store update should normalize invalid table separator")
 
       let reloaded = AppSettingsStore(url: url)
       expect(
@@ -44,6 +48,9 @@ func checkAppSettingsStoreNormalization() {
       expect(
         reloaded.settings.showMenuBarIcon,
         "Settings store should persist normalized app entry point")
+      expect(
+        reloaded.settings.tablePlainTextSeparator == "、",
+        "Settings store should persist normalized table separator")
     }
   } catch {
     fatalError("Settings store normalization check failed: \(error)")

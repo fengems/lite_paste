@@ -86,7 +86,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sanitizesSystemClipboardOnCopy: settingsStore.settings.sanitizesSystemClipboardOnCopy,
         copyPlainTextByDefault: settingsStore.settings.copyPlainTextByDefault,
         pastePlainTextByDefault: settingsStore.settings.pastePlainTextByDefault
-      )
+      ),
+      tablePlainTextFormatter: settingsStore.settings.tablePlainTextFormatter
     )
   }
 
@@ -140,7 +141,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     monitor?.updatePlainTextCopyBehavior(
       copyPlainTextByDefault: settings.copyPlainTextByDefault,
       pastePlainTextByDefault: settings.pastePlainTextByDefault,
-      sanitizesSystemClipboardOnCopy: settings.sanitizesSystemClipboardOnCopy
+      sanitizesSystemClipboardOnCopy: settings.sanitizesSystemClipboardOnCopy,
+      tablePlainTextFormatter: settings.tablePlainTextFormatter
     )
     AppText.updateInterfaceLanguage(settings.interfaceLanguage)
     applyThemeMode(settings.themeMode)
