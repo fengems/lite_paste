@@ -121,6 +121,7 @@ struct SettingsView: View {
       imageOCREnabled: settingsBindings.imageOCREnabled,
       copyPlainTextByDefault: settingsBindings.copyPlainTextByDefault,
       pastePlainTextByDefault: settingsBindings.pastePlainTextByDefault,
+      sanitizesSystemClipboardOnCopy: settingsBindings.sanitizesSystemClipboardOnCopy,
       visibleQuickActions: settingsBindings.visibleQuickActions,
       autoFavoriteAfterNote: settingsBindings.autoFavoriteAfterNote,
       restoreClipboardAfterPaste: settingsBindings.restoreClipboardAfterPaste,

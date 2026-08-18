@@ -13,8 +13,6 @@ struct ClipboardPanelView: View {
   let copyPlainTextAction: (ClipboardRecord) -> Void
   let pasteAction: (ClipboardRecord) -> Void
   let pastePlainTextAction: (ClipboardRecord) -> Void
-  let primaryCopyAction: (ClipboardRecord) -> Void
-  let primaryPasteAction: (ClipboardRecord) -> Void
   let openSettingsAction: () -> Void
   let closeAction: () -> Void
 
@@ -90,6 +88,8 @@ struct ClipboardPanelView: View {
       query: $query,
       filter: $filter,
       viewMode: $viewMode,
+      copyPlainTextByDefault: settingBinding(\.copyPlainTextByDefault),
+      pastePlainTextByDefault: settingBinding(\.pastePlainTextByDefault),
       searchFieldFocused: $searchFieldFocused,
       topObstruction: presentationState.topObstruction,
       actionMessage: presentationState.actionMessage,
@@ -190,9 +190,9 @@ struct ClipboardPanelView: View {
     selectedRecordID = record.id
     switch settingsStore.settings.autoPasteMode {
     case .copyOnly:
-      primaryCopyAction(record)
+      copyAction(record)
     case .paste:
-      primaryPasteAction(record)
+      pasteAction(record)
     }
   }
 
@@ -336,7 +336,7 @@ struct ClipboardPanelView: View {
     }
 
     selectedRecordID = record.id
-    primaryPasteAction(record)
+    pasteAction(record)
     return true
   }
 
@@ -440,6 +440,14 @@ struct ClipboardPanelView: View {
       return
     }
     settingsStore.update { $0.viewMode = viewMode }
+  }
+
+  private func settingBinding(_ keyPath: WritableKeyPath<AppSettings, Bool>) -> Binding<Bool> {
+    Binding {
+      settingsStore.settings[keyPath: keyPath]
+    } set: { value in
+      settingsStore.update { $0[keyPath: keyPath] = value }
+    }
   }
 
 }

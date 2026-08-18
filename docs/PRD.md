@@ -322,6 +322,7 @@ Lite Paste 默认采用本地优先策略。
 - imageOCREnabled：是否自动识别图片文字。
 - copyPlainTextByDefault：是否默认复制为纯文本。
 - pastePlainTextByDefault：是否默认粘贴为纯文本。
+- sanitizesSystemClipboardOnCopy：是否在其他应用复制富文本或 HTML 后自动净化系统剪贴板。
 - restoreClipboardAfterPaste：自动粘贴后是否恢复原剪贴板。
 - preserveLargeRichTextFormats：大表格/富文本是否保留原始格式。
 - visibleQuickActions：卡片/列表上可见的快捷操作。

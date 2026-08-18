@@ -12,6 +12,7 @@ struct ClipboardSettingsPage: View {
   @Binding var imageOCREnabled: Bool
   @Binding var copyPlainTextByDefault: Bool
   @Binding var pastePlainTextByDefault: Bool
+  @Binding var sanitizesSystemClipboardOnCopy: Bool
   @Binding var visibleQuickActions: Set<ClipboardQuickAction>
   @Binding var autoFavoriteAfterNote: Bool
   @Binding var restoreClipboardAfterPaste: Bool
@@ -129,6 +130,17 @@ struct ClipboardSettingsPage: View {
             "Rich text and HTML are pasted as plain text by default."
           ),
           isOn: $pastePlainTextByDefault
+        )
+
+        SettingsDivider()
+
+        SettingsSwitchRow(
+          title: AppText.value("自动净化系统剪贴板", "Auto-Sanitize System Clipboard"),
+          detail: AppText.value(
+            "其他应用复制富文本或 HTML 后，只要“复制为纯文本”或“粘贴为纯文本”开启，就立即重写当前系统剪贴板；文件和图片保持原样。",
+            "After other apps copy rich text or HTML, rewrite the current system clipboard when either Copy Plain Text or Paste Plain Text is on. Files and images stay unchanged."
+          ),
+          isOn: $sanitizesSystemClipboardOnCopy
         )
 
         SettingsDivider()

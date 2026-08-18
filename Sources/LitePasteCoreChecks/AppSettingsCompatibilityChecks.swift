@@ -17,6 +17,10 @@ func checkAppSettingsBackwardCompatibility() {
     expect(!settings.imageOCREnabled, "Settings should default image OCR to off")
     expect(!settings.copyPlainTextByDefault, "Settings should default plain-text copy to off")
     expect(!settings.pastePlainTextByDefault, "Settings should default plain-text paste to off")
+    expect(
+      !settings.sanitizesSystemClipboardOnCopy,
+      "Settings should default system clipboard sanitization to off"
+    )
     expect(settings.visibleQuickActions == ClipboardQuickAction.defaultVisibleActions, "Settings should default quick actions")
     expect(!settings.autoFavoriteAfterNote, "Settings should default auto favorite after notes to off")
     expect(settings.moveDuplicatesToTop, "Settings should default moveDuplicatesToTop for old files")
@@ -43,6 +47,7 @@ func checkAppSettingsBackwardCompatibility() {
       imageOCREnabled: true,
       copyPlainTextByDefault: true,
       pastePlainTextByDefault: true,
+      sanitizesSystemClipboardOnCopy: true,
       restoreClipboardAfterPaste: true,
       preserveLargeRichTextFormats: true,
       visibleQuickActions: [.copy, .pastePlainText, .delete],
@@ -76,6 +81,10 @@ func checkAppSettingsBackwardCompatibility() {
     expect(decoded.imageOCREnabled, "Settings should preserve image OCR")
     expect(decoded.copyPlainTextByDefault, "Settings should preserve plain-text copy")
     expect(decoded.pastePlainTextByDefault, "Settings should preserve plain-text paste")
+    expect(
+      decoded.sanitizesSystemClipboardOnCopy,
+      "Settings should preserve system clipboard sanitization"
+    )
     expect(decoded.visibleQuickActions == [.copy, .pastePlainText, .delete], "Settings should preserve quick actions")
     expect(decoded.autoFavoriteAfterNote, "Settings should preserve auto favorite after notes")
     expect(

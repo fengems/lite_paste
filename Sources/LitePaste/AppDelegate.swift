@@ -81,7 +81,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       ),
       preserveLargeRichTextFormats: settingsStore.settings.preserveLargeRichTextFormats,
       copySoundEnabled: settingsStore.settings.copySoundEnabled,
-      imageOCREnabled: settingsStore.settings.imageOCREnabled
+      imageOCREnabled: settingsStore.settings.imageOCREnabled,
+      systemPlainTextPolicy: SystemClipboardPlainTextPolicy(
+        sanitizesSystemClipboardOnCopy: settingsStore.settings.sanitizesSystemClipboardOnCopy,
+        copyPlainTextByDefault: settingsStore.settings.copyPlainTextByDefault,
+        pastePlainTextByDefault: settingsStore.settings.pastePlainTextByDefault
+      )
     )
   }
 
@@ -132,6 +137,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     monitor?.updatePreserveLargeRichTextFormats(settings.preserveLargeRichTextFormats)
     monitor?.updateCopySoundEnabled(settings.copySoundEnabled)
     monitor?.updateImageOCREnabled(settings.imageOCREnabled)
+    monitor?.updatePlainTextCopyBehavior(
+      copyPlainTextByDefault: settings.copyPlainTextByDefault,
+      pastePlainTextByDefault: settings.pastePlainTextByDefault,
+      sanitizesSystemClipboardOnCopy: settings.sanitizesSystemClipboardOnCopy
+    )
     AppText.updateInterfaceLanguage(settings.interfaceLanguage)
     applyThemeMode(settings.themeMode)
     applyActivationPolicy(settings)

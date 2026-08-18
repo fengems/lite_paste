@@ -101,6 +101,8 @@ struct ClipboardPanelViewModePicker: View {
 }
 
 struct ClipboardPanelHeaderActions: View {
+  @Binding var copyPlainTextByDefault: Bool
+  @Binding var pastePlainTextByDefault: Bool
   let openSettingsAction: () -> Void
   let clearUnpinnedAction: () -> Void
   let clearAllAction: () -> Void
@@ -108,6 +110,10 @@ struct ClipboardPanelHeaderActions: View {
 
   var body: some View {
     HStack(spacing: 6) {
+      ClipboardPanelPlainTextQuickToggles(
+        copyPlainTextByDefault: $copyPlainTextByDefault,
+        pastePlainTextByDefault: $pastePlainTextByDefault
+      )
       IconButton(
         systemName: "gearshape",
         accessibilityLabel: AppText.value("设置", "Settings"),
@@ -144,5 +150,51 @@ struct ClipboardPanelHeaderActions: View {
     .fixedSize()
     .accessibilityLabel(AppText.value("清空历史", "Clear History"))
     .panelTooltip(AppText.value("清空历史", "Clear History"))
+  }
+}
+
+struct ClipboardPanelPlainTextQuickToggles: View {
+  @Binding var copyPlainTextByDefault: Bool
+  @Binding var pastePlainTextByDefault: Bool
+
+  var body: some View {
+    HStack(spacing: 4) {
+      quickToggle(
+        title: AppText.value("复制为纯文本", "Copy Plain Text"),
+        systemName: "doc.plaintext",
+        isOn: copyPlainTextByDefault
+      ) {
+        copyPlainTextByDefault.toggle()
+      }
+
+      quickToggle(
+        title: AppText.value("粘贴为纯文本", "Paste Plain Text"),
+        systemName: "text.justify.left",
+        isOn: pastePlainTextByDefault
+      ) {
+        pastePlainTextByDefault.toggle()
+      }
+    }
+  }
+
+  private func quickToggle(
+    title: String,
+    systemName: String,
+    isOn: Bool,
+    action: @escaping () -> Void
+  ) -> some View {
+    let stateText = toggleStateText(isOn)
+
+    return IconButton(
+      systemName: systemName,
+      accessibilityLabel: title,
+      isActive: isOn,
+      action: action
+    )
+    .accessibilityValue(stateText)
+  }
+
+  private func toggleStateText(_ isOn: Bool) -> String {
+    isOn ? AppText.value("开", "On") : AppText.value("关", "Off")
   }
 }

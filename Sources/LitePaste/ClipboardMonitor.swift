@@ -13,6 +13,7 @@ final class ClipboardMonitor {
   private var preserveLargeRichTextFormats: Bool
   private var copySoundEnabled: Bool
   private var imageOCREnabled: Bool
+  private var systemPlainTextPolicy: SystemClipboardPlainTextPolicy
   private var imageOCRTasks: [ClipboardRecord.ID: Task<Void, Never>] = [:]
   private var timer: Timer?
   private var lastChangeCount: Int
@@ -27,6 +28,7 @@ final class ClipboardMonitor {
     preserveLargeRichTextFormats: Bool = false,
     copySoundEnabled: Bool = false,
     imageOCREnabled: Bool = false,
+    systemPlainTextPolicy: SystemClipboardPlainTextPolicy = SystemClipboardPlainTextPolicy(),
     imageOCRService: ImageOCRService = ImageOCRService()
   ) {
     self.pasteboard = pasteboard
@@ -44,6 +46,7 @@ final class ClipboardMonitor {
     self.preserveLargeRichTextFormats = preserveLargeRichTextFormats
     self.copySoundEnabled = copySoundEnabled
     self.imageOCREnabled = imageOCREnabled
+    self.systemPlainTextPolicy = systemPlainTextPolicy
     self.lastChangeCount = pasteboard.changeCount
   }
 
@@ -84,6 +87,18 @@ final class ClipboardMonitor {
     }
   }
 
+  func updatePlainTextCopyBehavior(
+    copyPlainTextByDefault: Bool,
+    pastePlainTextByDefault: Bool,
+    sanitizesSystemClipboardOnCopy: Bool
+  ) {
+    systemPlainTextPolicy = SystemClipboardPlainTextPolicy(
+      sanitizesSystemClipboardOnCopy: sanitizesSystemClipboardOnCopy,
+      copyPlainTextByDefault: copyPlainTextByDefault,
+      pastePlainTextByDefault: pastePlainTextByDefault
+    )
+  }
+
   private func captureIfNeeded() {
     let changeCount = pasteboard.changeCount
     guard changeCount != lastChangeCount else {
@@ -113,6 +128,7 @@ final class ClipboardMonitor {
       return
     }
     let payload = resolvedPayload.payload
+    sanitizeSystemClipboardIfNeeded(payload: payload)
 
     guard captureGate.shouldRecord(payload: payload) else {
       return
@@ -125,6 +141,21 @@ final class ClipboardMonitor {
     )
     playCopySoundIfNeeded(for: record)
     scheduleImageOCRIfNeeded(record: record, imageData: resolvedPayload.imageOCRData)
+  }
+
+  private func sanitizeSystemClipboardIfNeeded(payload: ClipboardPayload) {
+    guard systemPlainTextPolicy.shouldRewrite(payload: payload),
+          let plainText = payload.plainText else {
+      return
+    }
+
+    pasteboard.clearContents()
+    guard pasteboard.setString(plainText, forType: .string) else {
+      return
+    }
+
+    lastChangeCount = pasteboard.changeCount
+    writeTracker.markIgnoredChangeCount(pasteboard.changeCount)
   }
 
   private func playCopySoundIfNeeded(for record: ClipboardRecord) {

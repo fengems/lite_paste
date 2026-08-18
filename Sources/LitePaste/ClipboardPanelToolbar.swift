@@ -5,6 +5,8 @@ struct ClipboardPanelToolbar: View {
   @Binding var query: String
   @Binding var filter: ClipboardFilter
   @Binding var viewMode: ClipboardPanelViewMode
+  @Binding var copyPlainTextByDefault: Bool
+  @Binding var pastePlainTextByDefault: Bool
 
   let searchFieldFocused: FocusState<Bool>.Binding
   let topObstruction: PanelTopObstruction?
@@ -146,6 +148,8 @@ struct ClipboardPanelToolbar: View {
 
   private var headerActions: some View {
     ClipboardPanelHeaderActions(
+      copyPlainTextByDefault: $copyPlainTextByDefault,
+      pastePlainTextByDefault: $pastePlainTextByDefault,
       openSettingsAction: openSettingsAction,
       clearUnpinnedAction: clearUnpinnedAction,
       clearAllAction: clearAllAction,

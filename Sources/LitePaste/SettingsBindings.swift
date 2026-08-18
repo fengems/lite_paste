@@ -43,6 +43,10 @@ struct SettingsBindings {
     setting(\.pastePlainTextByDefault)
   }
 
+  var sanitizesSystemClipboardOnCopy: Binding<Bool> {
+    setting(\.sanitizesSystemClipboardOnCopy)
+  }
+
   var visibleQuickActions: Binding<Set<ClipboardQuickAction>> {
     setting(\.visibleQuickActions)
   }

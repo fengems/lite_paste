@@ -15,6 +15,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
   public var imageOCREnabled: Bool
   public var copyPlainTextByDefault: Bool
   public var pastePlainTextByDefault: Bool
+  public var sanitizesSystemClipboardOnCopy: Bool
   public var restoreClipboardAfterPaste: Bool
   public var preserveLargeRichTextFormats: Bool
   public var visibleQuickActions: Set<ClipboardQuickAction>
@@ -41,6 +42,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     imageOCREnabled: Bool = false,
     copyPlainTextByDefault: Bool = false,
     pastePlainTextByDefault: Bool = false,
+    sanitizesSystemClipboardOnCopy: Bool = false,
     restoreClipboardAfterPaste: Bool = false,
     preserveLargeRichTextFormats: Bool = false,
     visibleQuickActions: Set<ClipboardQuickAction> = ClipboardQuickAction.defaultVisibleActions,
@@ -70,6 +72,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     self.imageOCREnabled = imageOCREnabled
     self.copyPlainTextByDefault = copyPlainTextByDefault
     self.pastePlainTextByDefault = pastePlainTextByDefault
+    self.sanitizesSystemClipboardOnCopy = sanitizesSystemClipboardOnCopy
     self.restoreClipboardAfterPaste = restoreClipboardAfterPaste
     self.preserveLargeRichTextFormats = preserveLargeRichTextFormats
     self.visibleQuickActions = visibleQuickActions

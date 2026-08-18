@@ -29,6 +29,7 @@
 - `copySoundEnabled: Bool`
 - `copyPlainTextByDefault: Bool`
 - `pastePlainTextByDefault: Bool`
+- `sanitizesSystemClipboardOnCopy: Bool`
 - `visibleQuickActions: Set<ClipboardQuickAction>`
 - `autoFavoriteAfterNote: Bool`
 - `imageOCREnabled: Bool`
@@ -53,7 +54,17 @@
 
 - 默认复制：读取 `copyPlainTextByDefault`。
 - 默认粘贴：读取 `pastePlainTextByDefault`。
-- 菜单中的“复制纯文本”和“纯文本粘贴”仍保持为显式操作，不受默认开关影响。
+- 剪贴板面板设置按钮左侧提供两个快捷开关，分别修改上述默认设置；开关状态与设置页保持同步。
+- 普通复制/粘贴入口（主操作、回车、⌘C、快捷按钮和菜单）都读取默认设置。
+- “复制纯文本”和“纯文本粘贴”仍保持为显式操作，不受默认开关影响。
+
+### 系统剪贴板净化
+
+- `sanitizesSystemClipboardOnCopy` 默认关闭。
+- 开启后再开启“复制为纯文本”或“粘贴为纯文本”，Lite Paste 监听到其他应用复制富文本或 HTML 时，会把当前系统剪贴板重写为纯文本。
+- 历史记录仍先保留原始富文本内容，之后可从卡片显式恢复原格式。
+- 文件、图片和没有纯文本副本的内容不重写，避免破坏原始粘贴能力。
+- macOS 不提供普通应用可可靠拦截其他应用剪贴板写入的前置钩子；本实现是复制后的自动净化，不是阻断式拦截。
 
 ### 复制音效
 

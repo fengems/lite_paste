@@ -12,6 +12,7 @@ extension AppSettings {
     case imageOCREnabled
     case copyPlainTextByDefault
     case pastePlainTextByDefault
+    case sanitizesSystemClipboardOnCopy
     case pastePlainByDefault
     case restoreClipboardAfterPaste
     case preserveLargeRichTextFormats
@@ -59,6 +60,9 @@ extension AppSettings {
       try container.decodeIfPresent(Bool.self, forKey: .pastePlainTextByDefault) ??
       legacyPastePlainByDefault ??
       defaults.pastePlainTextByDefault
+    sanitizesSystemClipboardOnCopy =
+      try container.decodeIfPresent(Bool.self, forKey: .sanitizesSystemClipboardOnCopy) ??
+      defaults.sanitizesSystemClipboardOnCopy
     restoreClipboardAfterPaste =
       try container.decodeIfPresent(Bool.self, forKey: .restoreClipboardAfterPaste) ??
       defaults.restoreClipboardAfterPaste
@@ -106,6 +110,7 @@ extension AppSettings {
     try container.encode(imageOCREnabled, forKey: .imageOCREnabled)
     try container.encode(copyPlainTextByDefault, forKey: .copyPlainTextByDefault)
     try container.encode(pastePlainTextByDefault, forKey: .pastePlainTextByDefault)
+    try container.encode(sanitizesSystemClipboardOnCopy, forKey: .sanitizesSystemClipboardOnCopy)
     try container.encode(restoreClipboardAfterPaste, forKey: .restoreClipboardAfterPaste)
     try container.encode(preserveLargeRichTextFormats, forKey: .preserveLargeRichTextFormats)
     try container.encode(visibleQuickActions, forKey: .visibleQuickActions)
