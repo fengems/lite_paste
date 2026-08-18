@@ -156,7 +156,7 @@ Detailed release notes and manual QA steps are in:
 - [Privacy notes](docs/PRIVACY.md)
 - [Release checklist](docs/RELEASE_CHECKLIST.md)
 - [Public release audit](docs/PUBLIC_RELEASE_AUDIT.md)
-- [Release notes](docs/releases/0.1.8.md)
+- [Release notes](docs/releases/0.1.9.md)
 - [macOS app target notes](docs/MACOS_APP_TARGET.md)
 
 ## Contributing

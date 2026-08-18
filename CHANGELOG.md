@@ -4,6 +4,8 @@ All notable changes to Lite Paste are documented here.
 
 ## Unreleased
 
+## 0.1.9 - 2026-08-18
+
 - Added configurable table plain-text formatting for plain-text paste output.
 
 ## 0.1.8 - 2026-08-18
